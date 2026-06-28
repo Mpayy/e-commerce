@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS categories (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    slug VARCHAR(120) UNIQUE NOT NULL,
+    created_at DATETIME,
+    updated_at DATETIME
+);
+    
