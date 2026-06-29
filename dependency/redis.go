@@ -11,6 +11,10 @@ import (
 
 const AuthPrefix = "auth:session:"
 
+//go:generate mockery
+
+//mockery:generate: true
+//mockery:filename: ../internal/mocks/mock_redis.go
 type Redis interface {
 	CheckToRedis(ctx context.Context, key string) (bool, error)
 	SetToRedis(ctx context.Context, key string, value any, exp time.Duration) error

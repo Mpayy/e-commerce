@@ -10,10 +10,14 @@ import (
 const TokenDuration = 24 * time.Hour * 30
 
 type Auth struct {
-	UserID   uint
-	Role string
+	UserID uint
+	Role   string
 }
 
+//go:generate mockery
+
+//mockery:generate: true
+//mockery:filename: ../../internal/user/mocks/mock_jwt.go
 type JwtToken interface {
 	CreateToken(auth *Auth) (string, error)
 	ParseToken(token string) (*Auth, error)

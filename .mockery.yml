@@ -1,0 +1,9 @@
+# .mockery.yml
+all: false
+pkgname: "mocks"
+
+packages:
+  github.com/Mpayy/e-commerce/internal/user/repository:
+  github.com/Mpayy/e-commerce/dependency:
+  github.com/Mpayy/e-commerce/pkg/jwt:
+  github.com/Mpayy/e-commerce/pkg/transaction:

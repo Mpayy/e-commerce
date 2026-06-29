@@ -10,6 +10,10 @@ type contextKey string
 
 const txKey contextKey = "tx"
 
+//go:generate mockery
+
+//mockery:generate: true
+//mockery:filename: ../../internal/mocks/mock_transaction.go
 type Transaction interface {
 	WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error
 }
