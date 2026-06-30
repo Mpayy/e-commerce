@@ -327,3 +327,37 @@ func TestUserUsecaseImpl_GetProfile(t *testing.T) {
 		assert.ErrorIs(t, err, apperror.ErrInternalServer)
 	})
 }
+
+func TestUserUsecaseImpl_Logout(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("successful_logout", func(t *testing.T) {
+		usecase, _, redisClient, _, _ := setupUserUsecase(t)
+
+		token := "dummy.jwt.token"
+
+		redisClient.On("DeleteFromRedis", ctx, mock.MatchedBy(func(key string) bool {
+			return strings.HasPrefix(key, dependency.AuthPrefix+token)
+		})).
+			Return(nil)
+
+		err := usecase.Logout(ctx, token)
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("failed_unexpected_error_from_redis", func(t *testing.T) {
+		usecase, _, redisClient, _, _ := setupUserUsecase(t)
+
+		token := "dummy.jwt.token"
+
+		redisClient.On("DeleteFromRedis", ctx, mock.MatchedBy(func(key string) bool {
+			return strings.HasPrefix(key, dependency.AuthPrefix+token)
+		})).
+			Return(errors.New("connection refused"))
+
+		err := usecase.Logout(ctx, token)
+
+		assert.ErrorIs(t, err, apperror.ErrInternalServer)
+	})
+}

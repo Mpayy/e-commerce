@@ -164,8 +164,11 @@ func (u *UserUsecaseImpl) Logout(ctx context.Context, token string) error {
 
 	err := u.Redis.DeleteFromRedis(ctx, dependency.AuthPrefix+token)
 	if err != nil {
-		u.Log.WithField("token", token).Error("Failed to delete token")
-		return err
+		u.Log.WithFields(logrus.Fields{
+			"token": token,
+			"error": err,
+		}).Error("Failed to delete token from redis")
+		return apperror.ErrInternalServer
 	}
 
 	u.Log.WithField("token", token).Info("User logged out successfully")
