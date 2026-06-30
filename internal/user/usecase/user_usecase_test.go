@@ -32,7 +32,7 @@ func hashPassword(t *testing.T, plain string) string {
 	return string(hashed)
 }
 
-func setupUserUsecase(t *testing.T) (UserUsecase, *repoMock.MockUserRepository, *configMock.MockRedis, *repoMock.MockJwtToken) {
+func setupUserUsecase(t *testing.T) (UserUsecase, *repoMock.MockUserRepository, *configMock.MockRedis, *repoMock.MockJwtToken, *configMock.MockTransaction) {
 	userRepository := repoMock.NewMockUserRepository(t)
 	jwtTokenMock := repoMock.NewMockJwtToken(t)
 	redisClientMock := configMock.NewMockRedis(t)
@@ -40,7 +40,7 @@ func setupUserUsecase(t *testing.T) (UserUsecase, *repoMock.MockUserRepository, 
 	log := newTestLogger()
 
 	usecase := NewUserUsecase(userRepository, redisClientMock, transactionMock, log, jwtTokenMock)
-	return usecase, userRepository, redisClientMock, jwtTokenMock
+	return usecase, userRepository, redisClientMock, jwtTokenMock, transactionMock
 }
 
 // go test -v ./internal/user/usecase -run "TestUserUsecaseImpl_Login"
@@ -52,7 +52,7 @@ func TestUserUsecaseImpl_Login(t *testing.T) {
 	//go test -v ./internal/user/usecase -run "TestUserUsecaseImpl_Login/successful_login"
 	t.Run("successful_login", func(t *testing.T) {
 		// ARRANGE
-		usecase, userRepo, redisClient, jwtToken := setupUserUsecase(t)
+		usecase, userRepo, redisClient, jwtToken, _ := setupUserUsecase(t)
 
 		request := &dto.UserLoginRequest{
 			Email:    "test@mail.com",
@@ -88,7 +88,7 @@ func TestUserUsecaseImpl_Login(t *testing.T) {
 
 	//go test -v ./internal/user/usecase -run "TestUserUsecaseImpl_Login/failed_email_not_found"
 	t.Run("failed_email_not_found", func(t *testing.T) {
-		usecase, userRepo, _, _ := setupUserUsecase(t)
+		usecase, userRepo, _, _, _ := setupUserUsecase(t)
 
 		request := &dto.UserLoginRequest{Email: "notfound@mail.com", Password: plainPassword}
 
@@ -103,7 +103,7 @@ func TestUserUsecaseImpl_Login(t *testing.T) {
 
 	//go test -v ./internal/user/usecase -run "TestUserUsecaseImpl_Login/failed_wrong_password"
 	t.Run("failed_wrong_password", func(t *testing.T) {
-		usecase, userRepo, _, _ := setupUserUsecase(t)
+		usecase, userRepo, _, _, _ := setupUserUsecase(t)
 
 		request := &dto.UserLoginRequest{Email: "test@mail.com", Password: "passwordSalah"}
 
@@ -125,7 +125,7 @@ func TestUserUsecaseImpl_Login(t *testing.T) {
 
 	//go test -v ./internal/user/usecase -run "TestUserUsecaseImpl_Login/failed_unexpected_error_from_repository"
 	t.Run("failed_unexpected_error_from_repository", func(t *testing.T) {
-		usecase, userRepo, _, _ := setupUserUsecase(t)
+		usecase, userRepo, _, _, _ := setupUserUsecase(t)
 
 		request := &dto.UserLoginRequest{Email: "test@mail.com", Password: plainPassword}
 
@@ -140,7 +140,7 @@ func TestUserUsecaseImpl_Login(t *testing.T) {
 
 	//go test -v ./internal/user/usecase -run "TestUserUsecaseImpl_Login/failed_unexpected_error_from_redis"
 	t.Run("failed_unexpected_error_from_redis", func(t *testing.T) {
-		usecase, userRepo, redisClient, jwtToken := setupUserUsecase(t)
+		usecase, userRepo, redisClient, jwtToken, _ := setupUserUsecase(t)
 
 		request := &dto.UserLoginRequest{Email: "test@mail.com", Password: plainPassword}
 
@@ -163,6 +163,111 @@ func TestUserUsecaseImpl_Login(t *testing.T) {
 			Return(errors.New("redis down"))
 
 		result, err := usecase.Login(ctx, request)
+
+		assert.Nil(t, result)
+		assert.ErrorIs(t, err, apperror.ErrInternalServer)
+	})
+}
+
+func TestUserUsecaseImpl_Register(t *testing.T) {
+	ctx := context.Background()
+	plainPassword := "rahasia123"
+
+	t.Run("successful_register", func(t *testing.T) {
+		usecase, userRepo, _, _, transactionMock := setupUserUsecase(t)
+
+		request := &dto.UserRegisterRequest{
+			Name:     "test",
+			Email:    "test@mail.com",
+			Password: plainPassword,
+		}
+
+		var errFromRepo error
+		transactionMock.On("WithTransaction", mock.Anything, mock.Anything).
+			Run(func(args mock.Arguments) {
+				fn := args.Get(1).(func(context.Context) error)
+				errFromRepo = fn(ctx)
+			}).
+			Return(func(ctx context.Context, fn func(context.Context) error) error {
+				return errFromRepo
+			})
+
+		userRepo.On("Create", mock.Anything, mock.MatchedBy(func(u *entity.User) bool {
+			if u.Name != request.Name || u.Email != request.Email || u.Role != entity.RoleCustomer {
+				return false
+			}
+			return bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(request.Password)) == nil
+		})).Return(nil)
+
+		result, err := usecase.Register(ctx, request)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, request.Name, result.Name)
+		assert.Equal(t, request.Email, result.Email)
+	})
+
+	t.Run("failed_email_already_exists", func(t *testing.T) {
+		usecase, userRepo, _, _, transactionMock := setupUserUsecase(t)
+
+		request := &dto.UserRegisterRequest{
+			Name:     "test",
+			Email:    "test@mail.com",
+			Password: plainPassword,
+		}
+
+		var errFromRepo error
+		transactionMock.On("WithTransaction", mock.Anything, mock.Anything).
+			Run(func(args mock.Arguments) {
+				fn := args.Get(1).(func(context.Context) error)
+				errFromRepo = fn(ctx)
+			}).
+			Return(func(ctx context.Context, fn func(context.Context) error) error {
+				return errFromRepo
+			})
+
+		userRepo.On("Create", mock.Anything, mock.MatchedBy(func(u *entity.User) bool {
+			if u.Name != request.Name || u.Email != request.Email || u.Role != entity.RoleCustomer {
+				return false
+			}
+			return bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(request.Password)) == nil
+		})).
+			Return(apperror.ErrDuplicatedKey)
+
+		result, err := usecase.Register(ctx, request)
+
+		assert.Nil(t, result)
+		assert.ErrorIs(t, err, apperror.ErrDuplicatedKey)
+	})
+
+	t.Run("failed_unexpected_error_from_repository", func(t *testing.T) {
+		usecase, userRepo, _, _, transactionMock := setupUserUsecase(t)
+
+		request := &dto.UserRegisterRequest{
+			Name:     "test",
+			Email:    "test@mail.com",
+			Password: plainPassword,
+		}
+
+		var errFromRepo error
+		transactionMock.On("WithTransaction", mock.Anything, mock.Anything).
+			Run(func(args mock.Arguments) {
+				fn := args.Get(1).(func(context.Context) error)
+				errFromRepo = fn(ctx)
+			}).
+			Return(func(ctx context.Context, fn func(context.Context) error) error {
+				return errFromRepo
+			})
+
+		userRepo.On("Create", mock.Anything, mock.MatchedBy(func(u *entity.User) bool {
+			if u.Name != request.Name || u.Email != request.Email || u.Role != entity.RoleCustomer {
+				return false
+			}
+			return bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(request.Password)) == nil
+		})).
+			Return(errors.New("connection refused"))
+
+		result, err := usecase.Register(ctx, request)
 
 		assert.Nil(t, result)
 		assert.ErrorIs(t, err, apperror.ErrInternalServer)
