@@ -273,3 +273,57 @@ func TestUserUsecaseImpl_Register(t *testing.T) {
 		assert.ErrorIs(t, err, apperror.ErrInternalServer)
 	})
 }
+
+func TestUserUsecaseImpl_GetProfile(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("successful_get_profile", func(t *testing.T) {
+		usecase, userRepo, _, _, _ := setupUserUsecase(t)
+
+		userId := uint(1)
+
+		existingUser := &entity.User{
+			ID:       1,
+			Name:     "test",
+			Email:    "test@mail.com",
+			Password: "rahasia123",
+			Role:     "customer",
+		}
+
+		userRepo.On("FindByID", mock.Anything, uint(1)).Return(existingUser, nil)
+
+		result, err := usecase.GetProfile(ctx, userId)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, existingUser.ID, result.ID)
+		assert.Equal(t, existingUser.Name, result.Name)
+		assert.Equal(t, existingUser.Email, result.Email)
+	})
+
+	t.Run("failed_user_not_found", func(t *testing.T) {
+		usecase, userRepo, _, _, _ := setupUserUsecase(t)
+
+		userId := uint(1)
+
+		userRepo.On("FindByID", mock.Anything, uint(1)).Return(nil, apperror.ErrNotFound)
+
+		result, err := usecase.GetProfile(ctx, userId)
+
+		assert.Nil(t, result)
+		assert.ErrorIs(t, err, apperror.ErrNotFound)
+	})
+
+	t.Run("failed_unexpected_error_from_repository", func(t *testing.T) {
+		usecase, userRepo, _, _, _ := setupUserUsecase(t)
+
+		userId := uint(1)
+
+		userRepo.On("FindByID", mock.Anything, uint(1)).Return(nil, errors.New("connection refused"))
+
+		result, err := usecase.GetProfile(ctx, userId)
+
+		assert.Nil(t, result)
+		assert.ErrorIs(t, err, apperror.ErrInternalServer)
+	})
+}
