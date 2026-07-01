@@ -30,6 +30,12 @@ var categorySet = wire.NewSet(
 	producthttp.NewCategoryHandler,
 )
 
+var productSet = wire.NewSet(
+	productrepository.NewProductRepository,
+	productusecase.NewProductUsecase,
+	producthttp.NewProductHandler,
+)
+
 var middlewareSet = wire.NewSet(
 	middleware.NewAuthMiddleware,
 	middleware.NewAdminMiddleware,
@@ -54,6 +60,9 @@ func InitializeApplication() *Application {
 
 		// Category
 		categorySet,
+
+		// Product
+		productSet,
 
 		// Middleware
 		middlewareSet,

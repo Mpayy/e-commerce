@@ -48,3 +48,16 @@ func (r *CategoryRepositoryImpl) FindAll(ctx context.Context) ([]*entity.Categor
 
 	return categories, nil
 }
+
+func (r *CategoryRepositoryImpl) FindByID(ctx context.Context, id uint) (*entity.Category, error) {
+	var category entity.Category
+	err := r.GetTx(ctx).First(&category, id).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperror.ErrNotFound
+		}
+		return nil, err
+	}
+
+	return &category, nil
+}

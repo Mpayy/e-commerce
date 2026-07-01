@@ -8,10 +8,19 @@ import (
 )
 
 var (
+	// Error Duplicated
 	ErrDuplicatedKey        = errors.New("Data Already Exists")
-	ErrDuplicatedCategory   = errors.New("Category Already Exists")
 	ErrDuplicatedEmail      = errors.New("Email Already Exists")
-	ErrNotFound             = errors.New("Data Not Found")
+	ErrDuplicatedCategory   = errors.New("Category Already Exists")
+	ErrDuplicatedProduct    = errors.New("Product Already Exists")
+	ErrDuplicatedProductSku = errors.New("Product SKU Already Exists")
+
+	// Error Not Found
+	ErrNotFound         = errors.New("Data Not Found")
+	ErrCategoryNotFound = errors.New("Category Not Found")
+	ErrProductNotFound  = errors.New("Product Not Found")
+
+	// Error
 	ErrUnauthorized         = errors.New("Unauthorized")
 	ErrForbidden            = errors.New("Forbidden")
 	ErrInternalServer       = errors.New("Internal Server Error")

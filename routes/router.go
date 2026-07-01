@@ -14,11 +14,12 @@ type Router struct {
 	AdminMiddleware *middleware.AdminMiddleware
 	UserHandler     userhttp.UserHandler
 	CategoryHandler producthttp.CategoryHandler
+	ProductHandler  producthttp.ProductHandler
 	Log             *logrus.Logger
 }
 
-func NewRouter(app *gin.Engine, authMiddleware *middleware.AuthMiddleware, adminMiddleware *middleware.AdminMiddleware, userHandler userhttp.UserHandler, categoryHandler producthttp.CategoryHandler, log *logrus.Logger) *Router {
-	return &Router{App: app, AuthMiddleware: authMiddleware, AdminMiddleware: adminMiddleware, UserHandler: userHandler, CategoryHandler: categoryHandler, Log: log}
+func NewRouter(app *gin.Engine, authMiddleware *middleware.AuthMiddleware, adminMiddleware *middleware.AdminMiddleware, userHandler userhttp.UserHandler, categoryHandler producthttp.CategoryHandler, productHandler producthttp.ProductHandler, log *logrus.Logger) *Router {
+	return &Router{App: app, AuthMiddleware: authMiddleware, AdminMiddleware: adminMiddleware, UserHandler: userHandler, CategoryHandler: categoryHandler, ProductHandler: productHandler, Log: log}
 }
 
 func (r *Router) SetupRouter() {
@@ -37,4 +38,5 @@ func (r *Router) SetupRouter() {
 
 	categoryAdmin := protected.Group("/admin", r.AdminMiddleware.AdminMiddleware())
 	categoryAdmin.POST("/categories", r.CategoryHandler.Create)
+	categoryAdmin.POST("/products", r.ProductHandler.Create)
 }
