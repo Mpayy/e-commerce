@@ -57,3 +57,13 @@ func (h *CategoryHandlerImpl) Create(ctx *gin.Context) {
 
 	response.ResponseSuccess(ctx, http.StatusCreated, "Category created successfully", category)
 }
+
+func (h *CategoryHandlerImpl) GetAll(ctx *gin.Context) {
+	categories, err := h.CategoryUsecase.GetAllCategories(ctx.Request.Context())
+	if err != nil {
+		response.ResponseError(ctx, http.StatusInternalServerError, err.Error(), nil)
+		return
+	}
+
+	response.ResponseSuccess(ctx, http.StatusOK, "Categories retrieved successfully", categories)
+}

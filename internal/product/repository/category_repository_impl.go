@@ -38,3 +38,13 @@ func (r *CategoryRepositoryImpl) Create(ctx context.Context, category *entity.Ca
 
 	return nil
 }
+
+func (r *CategoryRepositoryImpl) FindAll(ctx context.Context) ([]*entity.Category, error) {
+	var categories []*entity.Category
+	err := r.GetTx(ctx).Find(&categories).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return categories, nil
+}
