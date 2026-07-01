@@ -3,17 +3,17 @@ package entity
 import "time"
 
 type Product struct {
-	ID          uint      `gorm:"primaryKey" json:"id"`
-	CategoryID  uint      `gorm:"index;not null" json:"category_id"`
-	Name        string    `gorm:"type:varchar(150);not null" json:"name"`
-	Slug        string    `gorm:"type:varchar(180);uniqueIndex" json:"slug"`
-	Description string    `gorm:"type:text" json:"description"`
-	Price       float64   `gorm:"type:decimal(12,2);not null" json:"price"`
-	Stock       int       `gorm:"not null;default:0" json:"stock"`
-	SKU         string    `gorm:"type:varchar(50);uniqueIndex" json:"sku"`
-	IsActive    bool      `gorm:"default:true" json:"is_active"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          uint    `gorm:"primaryKey"`
+	CategoryID  uint    `gorm:"index;not null"`
+	Name        string  `gorm:"type:varchar(150);not null"`
+	Slug        string  `gorm:"type:varchar(180);uniqueIndex"`
+	Description string  `gorm:"type:text"`
+	Price       float64 `gorm:"type:decimal(12,2);not null"`
+	Stock       int     `gorm:"not null;default:0"`
+	SKU         string  `gorm:"type:varchar(50);uniqueIndex"`
+	IsActive    bool    `gorm:"default:true"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 func (Product) TableName() string { return "products" }

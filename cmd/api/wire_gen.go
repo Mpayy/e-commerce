@@ -41,7 +41,10 @@ func InitializeApplication() *Application {
 	categoryRepository := productrepository.NewCategoryRepository(db)
 	categoryUsecase := productusecase.NewCategoryUsecase(categoryRepository, logger, transactionTransaction)
 	categoryHandler := producthttp.NewCategoryHandler(categoryUsecase, validate, logger)
-	router := routes.NewRouter(engine, authMiddleware, adminMiddleware, userHandler, categoryHandler, logger)
+	productRepository := productrepository.NewProductRepository(db)
+	productUsecase := productusecase.NewProductUsecase(productRepository, categoryUsecase, logger, transactionTransaction)
+	productHandler := producthttp.NewProductHandler(productUsecase, validate, logger)
+	router := routes.NewRouter(engine, authMiddleware, adminMiddleware, userHandler, categoryHandler, productHandler, logger)
 	application := NewApplication(app, router)
 	return application
 }
@@ -51,6 +54,8 @@ func InitializeApplication() *Application {
 var userSet = wire.NewSet(userrepository.NewUserRepository, userusecase.NewUserUsecase, userhttp.NewUserHandler)
 
 var categorySet = wire.NewSet(productrepository.NewCategoryRepository, productusecase.NewCategoryUsecase, producthttp.NewCategoryHandler)
+
+var productSet = wire.NewSet(productrepository.NewProductRepository, productusecase.NewProductUsecase, producthttp.NewProductHandler)
 
 var middlewareSet = wire.NewSet(middleware.NewAuthMiddleware, middleware.NewAdminMiddleware)
 

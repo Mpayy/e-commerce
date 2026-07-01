@@ -82,3 +82,23 @@ func (u *CategoryUsecaseImpl) GetAllCategories(ctx context.Context) ([]dto.Categ
 	u.Log.WithField("count", len(responses)).Info("Found all categories successfully")
 	return responses, nil
 }
+
+func (u *CategoryUsecaseImpl) ValidateCategoryExists(ctx context.Context, id uint) error {
+	u.Log.WithField("id", id).Debug("Attempting to validate category existence")
+
+	_, err := u.CategoryRepo.FindByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, apperror.ErrNotFound) {
+			u.Log.WithField("id", id).Warn("Category not found")
+			return apperror.ErrCategoryNotFound
+		}
+		u.Log.WithFields(logrus.Fields{
+			"id":    id,
+			"error": err,
+		}).Error("Validate category failed: unexpected DB error")
+		return apperror.ErrInternalServer
+	}
+
+	u.Log.WithField("id", id).Debug("Category validated successfully")
+	return nil
+}
