@@ -8,7 +8,9 @@ import (
 )
 
 var (
-	ErrDuplicatedKey        = errors.New("Email Already Exists")
+	ErrDuplicatedKey        = errors.New("Data Already Exists")
+	ErrDuplicatedCategory   = errors.New("Category Already Exists")
+	ErrDuplicatedEmail      = errors.New("Email Already Exists")
 	ErrNotFound             = errors.New("Data Not Found")
 	ErrUnauthorized         = errors.New("Unauthorized")
 	ErrForbidden            = errors.New("Forbidden")

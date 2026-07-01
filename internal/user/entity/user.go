@@ -2,7 +2,6 @@ package entity
 
 import "time"
 
-
 const (
 	RoleCustomer string = "customer"
 	RoleAdmin    string = "admin"
@@ -13,7 +12,7 @@ type User struct {
 	Name      string    `gorm:"type:varchar(100);not null" json:"name"`
 	Email     string    `gorm:"type:varchar(150);not null;uniqueIndex" json:"email"`
 	Password  string    `gorm:"type:varchar(255);not null" json:"password"`
-	Role      string  `gorm:"type:varchar(20);not null;default:'customer'" json:"role"`
+	Role      string    `gorm:"type:varchar(20);not null;default:'customer'" json:"role"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

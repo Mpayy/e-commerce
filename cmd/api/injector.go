@@ -6,9 +6,12 @@ package main
 import (
 	"github.com/Mpayy/e-commerce/dependency"
 	"github.com/Mpayy/e-commerce/internal/middleware"
-	"github.com/Mpayy/e-commerce/internal/user/delivery/http"
-	"github.com/Mpayy/e-commerce/internal/user/repository"
-	"github.com/Mpayy/e-commerce/internal/user/usecase"
+	producthttp "github.com/Mpayy/e-commerce/internal/product/delivery/http"
+	productrepository "github.com/Mpayy/e-commerce/internal/product/repository"
+	productusecase "github.com/Mpayy/e-commerce/internal/product/usecase"
+	userhttp "github.com/Mpayy/e-commerce/internal/user/delivery/http"
+	userrepository "github.com/Mpayy/e-commerce/internal/user/repository"
+	userusecase "github.com/Mpayy/e-commerce/internal/user/usecase"
 	"github.com/Mpayy/e-commerce/pkg/jwt"
 	"github.com/Mpayy/e-commerce/pkg/transaction"
 	"github.com/Mpayy/e-commerce/routes"
@@ -16,13 +19,20 @@ import (
 )
 
 var userSet = wire.NewSet(
-	repository.NewUserRepository,
-	usecase.NewUserUsecase,
-	http.NewUserHandler,
+	userrepository.NewUserRepository,
+	userusecase.NewUserUsecase,
+	userhttp.NewUserHandler,
+)
+
+var categorySet = wire.NewSet(
+	productrepository.NewCategoryRepository,
+	productusecase.NewCategoryUsecase,
+	producthttp.NewCategoryHandler,
 )
 
 var middlewareSet = wire.NewSet(
 	middleware.NewAuthMiddleware,
+	middleware.NewAdminMiddleware,
 )
 
 var routeSet = wire.NewSet(
@@ -41,6 +51,9 @@ func InitializeApplication() *Application {
 
 		// User
 		userSet,
+
+		// Category
+		categorySet,
 
 		// Middleware
 		middlewareSet,

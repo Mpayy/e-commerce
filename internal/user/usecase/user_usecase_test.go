@@ -1,4 +1,4 @@
-package usecase
+package userusecase
 
 import (
 	"context"
@@ -169,10 +169,12 @@ func TestUserUsecaseImpl_Login(t *testing.T) {
 	})
 }
 
+// go test -v ./internal/user/usecase -run "TestUserUsecaseImpl_Register"
 func TestUserUsecaseImpl_Register(t *testing.T) {
 	ctx := context.Background()
 	plainPassword := "rahasia123"
 
+	//go test -v ./internal/user/usecase -run "TestUserUsecaseImpl_Register/successful_register"
 	t.Run("successful_register", func(t *testing.T) {
 		usecase, userRepo, _, _, transactionMock := setupUserUsecase(t)
 
@@ -207,6 +209,7 @@ func TestUserUsecaseImpl_Register(t *testing.T) {
 		assert.Equal(t, request.Email, result.Email)
 	})
 
+	//go test -v ./internal/user/usecase -run "TestUserUsecaseImpl_Register/failed_email_already_exists"
 	t.Run("failed_email_already_exists", func(t *testing.T) {
 		usecase, userRepo, _, _, transactionMock := setupUserUsecase(t)
 
@@ -237,9 +240,10 @@ func TestUserUsecaseImpl_Register(t *testing.T) {
 		result, err := usecase.Register(ctx, request)
 
 		assert.Nil(t, result)
-		assert.ErrorIs(t, err, apperror.ErrDuplicatedKey)
+		assert.ErrorIs(t, err, apperror.ErrDuplicatedEmail)
 	})
 
+	//go test -v ./internal/user/usecase -run "TestUserUsecaseImpl_Register/failed_unexpected_error_from_repository"
 	t.Run("failed_unexpected_error_from_repository", func(t *testing.T) {
 		usecase, userRepo, _, _, transactionMock := setupUserUsecase(t)
 
@@ -274,9 +278,11 @@ func TestUserUsecaseImpl_Register(t *testing.T) {
 	})
 }
 
+// go test -v ./internal/user/usecase -run "TestUserUsecaseImpl_GetProfile"
 func TestUserUsecaseImpl_GetProfile(t *testing.T) {
 	ctx := context.Background()
 
+	//go test -v ./internal/user/usecase -run "TestUserUsecaseImpl_GetProfile/successful_get_profile"
 	t.Run("successful_get_profile", func(t *testing.T) {
 		usecase, userRepo, _, _, _ := setupUserUsecase(t)
 
@@ -301,6 +307,7 @@ func TestUserUsecaseImpl_GetProfile(t *testing.T) {
 		assert.Equal(t, existingUser.Email, result.Email)
 	})
 
+	//go test -v ./internal/user/usecase -run "TestUserUsecaseImpl_GetProfile/failed_user_not_found"
 	t.Run("failed_user_not_found", func(t *testing.T) {
 		usecase, userRepo, _, _, _ := setupUserUsecase(t)
 
@@ -314,6 +321,7 @@ func TestUserUsecaseImpl_GetProfile(t *testing.T) {
 		assert.ErrorIs(t, err, apperror.ErrNotFound)
 	})
 
+	//go test -v ./internal/user/usecase -run "TestUserUsecaseImpl_GetProfile/failed_unexpected_error_from_repository"
 	t.Run("failed_unexpected_error_from_repository", func(t *testing.T) {
 		usecase, userRepo, _, _, _ := setupUserUsecase(t)
 
@@ -328,9 +336,11 @@ func TestUserUsecaseImpl_GetProfile(t *testing.T) {
 	})
 }
 
+// go test -v ./internal/user/usecase -run "TestUserUsecaseImpl_Logout"
 func TestUserUsecaseImpl_Logout(t *testing.T) {
 	ctx := context.Background()
 
+	//go test -v ./internal/user/usecase -run "TestUserUsecaseImpl_Logout/successful_logout"
 	t.Run("successful_logout", func(t *testing.T) {
 		usecase, _, redisClient, _, _ := setupUserUsecase(t)
 
@@ -346,6 +356,7 @@ func TestUserUsecaseImpl_Logout(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
+	//go test -v ./internal/user/usecase -run "TestUserUsecaseImpl_Logout/failed_unexpected_error_from_redis"
 	t.Run("failed_unexpected_error_from_redis", func(t *testing.T) {
 		usecase, _, redisClient, _, _ := setupUserUsecase(t)
 

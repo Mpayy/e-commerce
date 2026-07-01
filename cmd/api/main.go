@@ -2,18 +2,30 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/Mpayy/e-commerce/database/seeder"
 )
 
 func main() {
+	shouldSeed := flag.Bool("seed", false, "Run database seeder if value is true")
+	flag.Parse()
+
 	application := InitializeApplication()
 	app := application.App
 	router := application.Router
+
+	if *shouldSeed {
+		seeder.RunSeeder(app.Log, app.DB)
+		app.Log.Info("Server is shutting down after seeding completed.")
+		return
+	}
 
 	router.SetupRouter()
 

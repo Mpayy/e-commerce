@@ -1,4 +1,4 @@
-package usecase
+package userusecase
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"github.com/Mpayy/e-commerce/dependency"
 	"github.com/Mpayy/e-commerce/internal/user/dto"
 	"github.com/Mpayy/e-commerce/internal/user/entity"
-	"github.com/Mpayy/e-commerce/internal/user/repository"
+	userrepository "github.com/Mpayy/e-commerce/internal/user/repository"
 	"github.com/Mpayy/e-commerce/pkg/apperror"
 	"github.com/Mpayy/e-commerce/pkg/jwt"
 	"github.com/Mpayy/e-commerce/pkg/transaction"
@@ -17,14 +17,14 @@ import (
 )
 
 type UserUsecaseImpl struct {
-	UserRepository repository.UserRepository
+	UserRepository userrepository.UserRepository
 	Redis          dependency.Redis
 	Transaction    transaction.Transaction
 	Log            *logrus.Logger
 	JwtToken       jwt.JwtToken
 }
 
-func NewUserUsecase(userRepo repository.UserRepository, redis dependency.Redis, tx transaction.Transaction, log *logrus.Logger, jwt jwt.JwtToken) UserUsecase {
+func NewUserUsecase(userRepo userrepository.UserRepository, redis dependency.Redis, tx transaction.Transaction, log *logrus.Logger, jwt jwt.JwtToken) UserUsecase {
 	return &UserUsecaseImpl{
 		UserRepository: userRepo,
 		Redis:          redis,
@@ -56,20 +56,21 @@ func (u *UserUsecaseImpl) Register(ctx context.Context, request *dto.UserRegiste
 	err = u.Transaction.WithTransaction(ctx, func(ctx context.Context) error {
 		errCreate := u.UserRepository.Create(ctx, user)
 		if errCreate != nil {
+			u.Log.WithField("email", request.Email).
+				Warn("Create user failed: duplicate email")
 			if errors.Is(errCreate, apperror.ErrDuplicatedKey) {
-				return errCreate
+				return apperror.ErrDuplicatedEmail
 			}
+			u.Log.WithFields(logrus.Fields{
+				"email": request.Email,
+				"error": errCreate,
+			}).Error("Create user failed: unexpected DB error")
 			return apperror.ErrInternalServer
 		}
-
 		return nil
 	})
 
 	if err != nil {
-		u.Log.WithFields(logrus.Fields{
-			"email": request.Email,
-			"error": err,
-		}).Error("Failed to create user")
 		return nil, err
 	}
 
@@ -92,7 +93,10 @@ func (u *UserUsecaseImpl) Login(ctx context.Context, request *dto.UserLoginReque
 			u.Log.WithField("email", request.Email).Warn("Login failed: user not found")
 			return nil, apperror.ErrWrongEmailOrPassword
 		}
-		u.Log.WithError(err).Error("Failed to find user")
+		u.Log.WithFields(logrus.Fields{
+			"email": request.Email,
+			"error": err,
+		}).Error("Login failed: unexpected DB error")
 		return nil, apperror.ErrInternalServer
 	}
 
@@ -145,7 +149,10 @@ func (u *UserUsecaseImpl) GetProfile(ctx context.Context, userId uint) (*dto.Use
 			u.Log.WithField("user_id", userId).Warn("Get profile failed: user not found")
 			return nil, apperror.ErrNotFound
 		}
-		u.Log.WithError(err).Error("Failed to find user")
+		u.Log.WithFields(logrus.Fields{
+			"user_id": userId,
+			"error":   err,
+		}).Error("Get profile failed: unexpected DB error")
 		return nil, apperror.ErrInternalServer
 	}
 

@@ -1,4 +1,4 @@
-package http
+package userhttp
 
 import "github.com/gin-gonic/gin"
 
