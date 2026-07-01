@@ -1,4 +1,4 @@
-package http
+package userhttp
 
 import (
 	"errors"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/Mpayy/e-commerce/internal/middleware"
 	"github.com/Mpayy/e-commerce/internal/user/dto"
-	"github.com/Mpayy/e-commerce/internal/user/usecase"
+	userusecase "github.com/Mpayy/e-commerce/internal/user/usecase"
 	"github.com/Mpayy/e-commerce/pkg/apperror"
 	"github.com/Mpayy/e-commerce/pkg/response"
 	"github.com/gin-gonic/gin"
@@ -15,12 +15,12 @@ import (
 )
 
 type UserHandlerImpl struct {
-	UserUsecase usecase.UserUsecase
+	UserUsecase userusecase.UserUsecase
 	Validator   *validator.Validate
 	Log         *logrus.Logger
 }
 
-func NewUserHandler(userUsecase usecase.UserUsecase, validator *validator.Validate, log *logrus.Logger) UserHandler {
+func NewUserHandler(userUsecase userusecase.UserUsecase, validator *validator.Validate, log *logrus.Logger) UserHandler {
 	return &UserHandlerImpl{
 		UserUsecase: userUsecase,
 		Validator:   validator,
@@ -44,13 +44,14 @@ func (h *UserHandlerImpl) Register(ctx *gin.Context) {
 
 	user, err := h.UserUsecase.Register(ctx.Request.Context(), &request)
 	if err != nil {
-		if errors.Is(err, apperror.ErrDuplicatedKey) {
+		switch {
+		case errors.Is(err, apperror.ErrDuplicatedEmail):
 			response.ResponseError(ctx, http.StatusConflict, err.Error(), nil)
 			return
+		default:
+			response.ResponseError(ctx, http.StatusInternalServerError, apperror.ErrInternalServer.Error(), nil)
+			return
 		}
-		h.Log.WithError(err).Error("Unexpected error during registration")
-		response.ResponseError(ctx, http.StatusInternalServerError, apperror.ErrInternalServer.Error(), nil)
-		return
 	}
 
 	response.ResponseSuccess(ctx, http.StatusCreated, "user registered successfully", user)

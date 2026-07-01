@@ -9,6 +9,9 @@ package main
 import (
 	"github.com/Mpayy/e-commerce/dependency"
 	"github.com/Mpayy/e-commerce/internal/middleware"
+	"github.com/Mpayy/e-commerce/internal/product/delivery/http"
+	"github.com/Mpayy/e-commerce/internal/product/repository"
+	"github.com/Mpayy/e-commerce/internal/product/usecase"
 	"github.com/Mpayy/e-commerce/internal/user/delivery/http"
 	"github.com/Mpayy/e-commerce/internal/user/repository"
 	"github.com/Mpayy/e-commerce/internal/user/usecase"
@@ -29,20 +32,26 @@ func InitializeApplication() *Application {
 	jwtToken := jwt.NewJwtToken(viper)
 	redis := dependency.NewRedis(viper)
 	authMiddleware := middleware.NewAuthMiddleware(jwtToken, redis)
-	userRepository := repository.NewUserRepository(db)
+	adminMiddleware := middleware.NewAdminMiddleware()
+	userRepository := userrepository.NewUserRepository(db)
 	transactionTransaction := transaction.NewTransaction(db)
-	userUsecase := usecase.NewUserUsecase(userRepository, redis, transactionTransaction, logger, jwtToken)
+	userUsecase := userusecase.NewUserUsecase(userRepository, redis, transactionTransaction, logger, jwtToken)
 	validate := dependency.NewValidator()
-	userHandler := http.NewUserHandler(userUsecase, validate, logger)
-	router := routes.NewRouter(engine, authMiddleware, userHandler, logger)
+	userHandler := userhttp.NewUserHandler(userUsecase, validate, logger)
+	categoryRepository := productrepository.NewCategoryRepository(db)
+	categoryUsecase := productusecase.NewCategoryUsecase(categoryRepository, logger, transactionTransaction)
+	categoryHandler := producthttp.NewCategoryHandler(categoryUsecase, validate, logger)
+	router := routes.NewRouter(engine, authMiddleware, adminMiddleware, userHandler, categoryHandler, logger)
 	application := NewApplication(app, router)
 	return application
 }
 
 // injector.go:
 
-var userSet = wire.NewSet(repository.NewUserRepository, usecase.NewUserUsecase, http.NewUserHandler)
+var userSet = wire.NewSet(userrepository.NewUserRepository, userusecase.NewUserUsecase, userhttp.NewUserHandler)
 
-var middlewareSet = wire.NewSet(middleware.NewAuthMiddleware)
+var categorySet = wire.NewSet(productrepository.NewCategoryRepository, productusecase.NewCategoryUsecase, producthttp.NewCategoryHandler)
+
+var middlewareSet = wire.NewSet(middleware.NewAuthMiddleware, middleware.NewAdminMiddleware)
 
 var routeSet = wire.NewSet(routes.NewRouter)
