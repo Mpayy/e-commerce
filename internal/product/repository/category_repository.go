@@ -8,4 +8,5 @@ import (
 
 type CategoryRepository interface {
 	Create(ctx context.Context, category *entity.Category) error
+	FindAll(ctx context.Context) ([]*entity.Category, error)
 }

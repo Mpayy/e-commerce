@@ -27,6 +27,7 @@ func (r *Router) SetupRouter() {
 	public := r.App.Group("/api/v1")
 	public.POST("/register", r.UserHandler.Register)
 	public.POST("/login", r.UserHandler.Login)
+	public.GET("/categories", r.CategoryHandler.GetAll)
 
 	protected := r.App.Group("/api/v1")
 	protected.Use(r.AuthMiddleware.AuthMiddleware())
@@ -34,6 +35,6 @@ func (r *Router) SetupRouter() {
 	protected.GET("/profile", r.UserHandler.GetProfile)
 	protected.DELETE("/logout", r.UserHandler.Logout)
 
-	categoryAdmin := protected.Group("/categories", r.AdminMiddleware.AdminMiddleware())
-	categoryAdmin.POST("", r.CategoryHandler.Create)
+	categoryAdmin := protected.Group("/admin", r.AdminMiddleware.AdminMiddleware())
+	categoryAdmin.POST("/categories", r.CategoryHandler.Create)
 }

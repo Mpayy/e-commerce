@@ -60,3 +60,25 @@ func (u *CategoryUsecaseImpl) CreateCategory(ctx context.Context, request *dto.C
 	u.Log.WithField("name", request.Name).Info("Category created successfully")
 	return response, nil
 }
+
+func (u *CategoryUsecaseImpl) GetAllCategories(ctx context.Context) ([]dto.CategoryResponse, error) {
+	u.Log.Debug("Attempting to get all categories")
+
+	categories, err := u.CategoryRepo.FindAll(ctx)
+	if err != nil {
+		u.Log.WithField("error", err).Error("Failed to find all categories")
+		return nil, err
+	}
+
+	responses := []dto.CategoryResponse{}
+	for _, category := range categories {
+		responses = append(responses, dto.CategoryResponse{
+			ID:   category.ID,
+			Name: category.Name,
+			Slug: category.Slug,
+		})
+	}
+
+	u.Log.WithField("count", len(responses)).Info("Found all categories successfully")
+	return responses, nil
+}
