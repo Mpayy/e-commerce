@@ -8,13 +8,13 @@ const (
 )
 
 type User struct {
-	ID        uint      `gorm:"primaryKey" json:"id"`
-	Name      string    `gorm:"type:varchar(100);not null" json:"name"`
-	Email     string    `gorm:"type:varchar(150);not null;uniqueIndex" json:"email"`
-	Password  string    `gorm:"type:varchar(255);not null" json:"password"`
-	Role      string    `gorm:"type:varchar(20);not null;default:'customer'" json:"role"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        uint      `gorm:"primaryKey"`
+	Name      string    `gorm:"type:varchar(100);not null"`
+	Email     string    `gorm:"type:varchar(150);not null;uniqueIndex"`
+	Password  string    `gorm:"type:varchar(255);not null"`
+	Role      string    `gorm:"type:varchar(20);not null;default:'customer'"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 func (User) TableName() string {

@@ -27,6 +27,7 @@ var (
 	ErrBadRequest           = errors.New("Bad Request")
 	ErrWrongEmailOrPassword = errors.New("Wrong Email or Password")
 	ErrValidationFailed     = errors.New("Validation Failed")
+	ErrInsufficientStock    = errors.New("Insufficient Stock")
 )
 
 func ExtractValidationErrors(err error) map[string]string {
