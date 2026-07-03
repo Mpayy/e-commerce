@@ -88,9 +88,9 @@ func (u *CategoryUsecaseImpl) ValidateCategoryExists(ctx context.Context, id uin
 
 	_, err := u.CategoryRepo.FindByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, apperror.ErrNotFound) {
+		if errors.Is(err, apperror.ErrCategoryNotFound) {
 			u.Log.WithField("id", id).Warn("Category not found")
-			return apperror.ErrCategoryNotFound
+			return err
 		}
 		u.Log.WithFields(logrus.Fields{
 			"id":    id,

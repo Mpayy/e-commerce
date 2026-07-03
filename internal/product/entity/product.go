@@ -17,3 +17,10 @@ type Product struct {
 }
 
 func (Product) TableName() string { return "products" }
+
+type ProductFilter struct {
+	Search     string
+	CategoryID uint
+	Page       int
+	Limit      int
+}
