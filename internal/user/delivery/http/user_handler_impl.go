@@ -93,8 +93,8 @@ func (h *UserHandlerImpl) GetProfile(ctx *gin.Context) {
 
 	user, err := h.UserUsecase.GetProfile(ctx.Request.Context(), auth.UserID)
 	if err != nil {
-		if errors.Is(err, apperror.ErrNotFound) {
-			response.ResponseError(ctx, http.StatusNotFound, apperror.ErrNotFound.Error(), nil)
+		if errors.Is(err, apperror.ErrUserNotFound) {
+			response.ResponseError(ctx, http.StatusNotFound, apperror.ErrUserNotFound.Error(), nil)
 			return
 		}
 		h.Log.WithError(err).Error("Unexpected error during get profile")

@@ -147,7 +147,7 @@ func (u *UserUsecaseImpl) GetProfile(ctx context.Context, userId uint) (*dto.Use
 	if err != nil {
 		if errors.Is(err, apperror.ErrNotFound) {
 			u.Log.WithField("user_id", userId).Warn("Get profile failed: user not found")
-			return nil, apperror.ErrNotFound
+			return nil, apperror.ErrUserNotFound
 		}
 		u.Log.WithFields(logrus.Fields{
 			"user_id": userId,

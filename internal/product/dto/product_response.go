@@ -11,3 +11,14 @@ type ProductResponse struct {
 	SKU         string  `json:"sku"`
 	IsActive    bool    `json:"is_active"`
 }
+
+type ProductSearchResponse struct {
+	Data []ProductResponse `json:"data"`
+	Meta MetaPagination    `json:"meta"`
+}
+
+type MetaPagination struct {
+	Page  int   `json:"page"`
+	Limit int   `json:"limit"`
+	Total int64 `json:"total"`
+}

@@ -318,7 +318,7 @@ func TestUserUsecaseImpl_GetProfile(t *testing.T) {
 		result, err := usecase.GetProfile(ctx, userId)
 
 		assert.Nil(t, result)
-		assert.ErrorIs(t, err, apperror.ErrNotFound)
+		assert.ErrorIs(t, err, apperror.ErrUserNotFound)
 	})
 
 	//go test -v ./internal/user/usecase -run "TestUserUsecaseImpl_GetProfile/failed_unexpected_error_from_repository"

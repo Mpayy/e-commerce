@@ -54,7 +54,7 @@ func (r *CategoryRepositoryImpl) FindByID(ctx context.Context, id uint) (*entity
 	err := r.GetTx(ctx).First(&category, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.ErrCategoryNotFound
+			return nil, apperror.ErrNotFound
 		}
 		return nil, err
 	}
