@@ -30,7 +30,7 @@ func NewProductUsecase(productRepository productrepository.ProductRepository, ca
 	}
 }
 
-func (u *ProductUsecaseImpl) CreateProduct(ctx context.Context, request *dto.ProductRequest) (*dto.ProductResponse, error) {
+func (u *ProductUsecaseImpl) CreateProduct(ctx context.Context, request *dto.ProductCreateRequest) (*dto.ProductResponse, error) {
 	u.Log.WithField("name", request.Name).Debug("Attempting to create product")
 
 	err := u.CategoryUsecase.ValidateCategoryExists(ctx, request.CategoryID)
@@ -82,18 +82,19 @@ func (u *ProductUsecaseImpl) CreateProduct(ctx context.Context, request *dto.Pro
 	}
 
 	return &dto.ProductResponse{
-		ID:         product.ID,
-		CategoryID: product.CategoryID,
-		Name:       product.Name,
-		Slug:       product.Slug,
-		Price:      product.Price,
-		Stock:      product.Stock,
-		SKU:        product.SKU,
-		IsActive:   product.IsActive,
+		ID:          product.ID,
+		CategoryID:  product.CategoryID,
+		Name:        product.Name,
+		Slug:        product.Slug,
+		Description: product.Description,
+		Price:       product.Price,
+		Stock:       product.Stock,
+		SKU:         product.SKU,
+		IsActive:    product.IsActive,
 	}, nil
 }
 
-func (u *ProductUsecaseImpl) UpdateProduct(ctx context.Context, id uint, request *dto.ProductRequest) (*dto.ProductResponse, error) {
+func (u *ProductUsecaseImpl) UpdateProduct(ctx context.Context, id uint, request *dto.ProductUpdateRequest) (*dto.ProductResponse, error) {
 	u.Log.WithField("id", id).Debug("Attempting to update product")
 
 	product, err := u.ProductRepository.FindByID(ctx, id)
@@ -248,7 +249,7 @@ func (u *ProductUsecaseImpl) SearchProducts(ctx context.Context, request *dto.Pr
 
 func (u *ProductUsecaseImpl) GetProductDetail(ctx context.Context, id uint) (*dto.ProductResponse, error) {
 	u.Log.WithField("id", id).Debug("Attempting to get product detail")
-	
+
 	product, err := u.ProductRepository.FindByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, apperror.ErrNotFound) {
@@ -279,14 +280,14 @@ func (u *ProductUsecaseImpl) GetProductDetail(ctx context.Context, id uint) (*dt
 	return response, nil
 }
 
-func (u *ProductUsecaseImpl) AdjustStock(ctx context.Context, productID uint, quantity int) error {
+func (u *ProductUsecaseImpl) AdjustStock(ctx context.Context, productID uint, stock int) error {
 	u.Log.WithFields(logrus.Fields{
 		"product_id": productID,
-		"quantity":   quantity,
+		"stock":      stock,
 	}).Debug("Attempting to adjust stock")
 
 	err := u.Transaction.WithTransaction(ctx, func(ctx context.Context) error {
-		err := u.ProductRepository.AdjustStock(ctx, productID, quantity)
+		err := u.ProductRepository.AdjustStock(ctx, productID, stock)
 		if err != nil {
 			if errors.Is(err, apperror.ErrNotFound) {
 				u.Log.WithField("product_id", productID).Warn("Adjust stock failed: product not found")
@@ -394,5 +395,3 @@ func (u *ProductUsecaseImpl) DecreaseStock(ctx context.Context, productID uint, 
 	u.Log.WithField("product_id", productID).Info("Stock decreased successfully")
 	return nil
 }
-	
-

@@ -29,6 +29,8 @@ func (r *Router) SetupRouter() {
 	public.POST("/register", r.UserHandler.Register)
 	public.POST("/login", r.UserHandler.Login)
 	public.GET("/categories", r.CategoryHandler.GetAll)
+	public.GET("/products/:product_id", r.ProductHandler.GetByID)
+	public.GET("/products", r.ProductHandler.Search)
 
 	protected := r.App.Group("/api/v1")
 	protected.Use(r.AuthMiddleware.AuthMiddleware())
@@ -36,7 +38,10 @@ func (r *Router) SetupRouter() {
 	protected.GET("/profile", r.UserHandler.GetProfile)
 	protected.DELETE("/logout", r.UserHandler.Logout)
 
-	categoryAdmin := protected.Group("/admin", r.AdminMiddleware.AdminMiddleware())
-	categoryAdmin.POST("/categories", r.CategoryHandler.Create)
-	categoryAdmin.POST("/products", r.ProductHandler.Create)
+	adminOnly := protected.Group("/admin", r.AdminMiddleware.AdminMiddleware())
+	adminOnly.POST("/categories", r.CategoryHandler.Create)
+	adminOnly.POST("/products", r.ProductHandler.Create)
+	adminOnly.PUT("/products/:product_id", r.ProductHandler.Update)
+	adminOnly.DELETE("/products/:product_id", r.ProductHandler.Delete)
+	adminOnly.PATCH("/products/:product_id/adjust-stock", r.ProductHandler.AdjustStock)
 }
