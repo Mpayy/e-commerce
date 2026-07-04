@@ -37,7 +37,7 @@ func (u *CategoryUsecaseImpl) CreateCategory(ctx context.Context, request *dto.C
 			if errors.Is(errCreate, apperror.ErrDuplicatedKey) {
 				u.Log.WithField("name", request.Name).
 					Warn("Create category failed: duplicate name")
-				return apperror.ErrDuplicatedCategory
+				return errCreate
 			}
 			u.Log.WithFields(logrus.Fields{
 				"name":  request.Name,
@@ -88,9 +88,9 @@ func (u *CategoryUsecaseImpl) ValidateCategoryExists(ctx context.Context, id uin
 
 	_, err := u.CategoryRepo.FindByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, apperror.ErrCategoryNotFound) {
+		if errors.Is(err, apperror.ErrNotFound) {
 			u.Log.WithField("id", id).Warn("Category not found")
-			return err
+			return apperror.ErrCategoryNotFound
 		}
 		u.Log.WithFields(logrus.Fields{
 			"id":    id,
@@ -99,6 +99,6 @@ func (u *CategoryUsecaseImpl) ValidateCategoryExists(ctx context.Context, id uin
 		return apperror.ErrInternalServer
 	}
 
-	u.Log.WithField("id", id).Debug("Category validated successfully")
+	u.Log.WithField("id", id).Info("Category validated successfully")
 	return nil
 }

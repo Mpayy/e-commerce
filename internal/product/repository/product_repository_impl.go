@@ -51,7 +51,7 @@ func (r *ProductRepositoryImpl) FindByID(ctx context.Context, id uint) (*entity.
 	err := r.GetTx(ctx).First(&product, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.ErrProductNotFound
+			return nil, apperror.ErrNotFound
 		}
 		return nil, err
 	}
@@ -85,14 +85,6 @@ func (r *ProductRepositoryImpl) FindAll(ctx context.Context, filter *entity.Prod
 		return nil, 0, err
 	}
 
-	if filter.Page <= 0 {
-		filter.Page = 1
-	}
-
-	if filter.Limit <= 0 {
-		filter.Limit = 10
-	}
-
 	offset := (filter.Page - 1) * filter.Limit
 
 	err := query.Limit(filter.Limit).Offset(offset).Find(&products).Error
@@ -117,20 +109,20 @@ func (r *ProductRepositoryImpl) Update(ctx context.Context, product *entity.Prod
 		}
 		return result.Error
 	}
-	if result.RowsAffected == 0 {
-		return apperror.ErrProductNotFound
-	}
+
 	return nil
 }
 
 func (r *ProductRepositoryImpl) Delete(ctx context.Context, id uint) error {
-	result := r.GetTx(ctx).Model(&entity.Product{}).Where("id = ?", id).Update("is_active", false)
-	if result.RowsAffected == 0 {
-		return apperror.ErrProductNotFound
-	}
+	result := r.GetTx(ctx).Model(&entity.Product{}).Where("id = ? AND is_active = ?", id, true).Update("is_active", false)
 	if result.Error != nil {
 		return result.Error
 	}
+
+	if result.RowsAffected == 0 {
+		return apperror.ErrNotFound
+	}
+
 	return nil
 }
 
@@ -139,7 +131,7 @@ func (r *ProductRepositoryImpl) DecreaseStock(ctx context.Context, productID uin
 	if err := r.GetTx(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).
 		First(&product, productID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return apperror.ErrProductNotFound
+			return apperror.ErrNotFound
 		}
 		return err
 	}
@@ -155,7 +147,7 @@ func (r *ProductRepositoryImpl) DecreaseStock(ctx context.Context, productID uin
 func (r *ProductRepositoryImpl) AdjustStock(ctx context.Context, productID uint, quantity int) error {
 	result := r.GetTx(ctx).Model(&entity.Product{}).Where("id = ?", productID).Update("stock", quantity)
 	if result.RowsAffected == 0 {
-		return apperror.ErrProductNotFound
+		return apperror.ErrNotFound
 	}
 	if result.Error != nil {
 		return result.Error

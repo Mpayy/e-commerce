@@ -17,6 +17,7 @@ var (
 
 	// Error Not Found
 	ErrNotFound         = errors.New("Data Not Found")
+	ErrUserNotFound     = errors.New("User Not Found")
 	ErrCategoryNotFound = errors.New("Category Not Found")
 	ErrProductNotFound  = errors.New("Product Not Found")
 
