@@ -81,7 +81,7 @@ func (u *ProductUsecaseImpl) CreateProduct(ctx context.Context, request *dto.Pro
 		return nil, err
 	}
 
-	return &dto.ProductResponse{
+	response := &dto.ProductResponse{
 		ID:          product.ID,
 		CategoryID:  product.CategoryID,
 		Name:        product.Name,
@@ -91,7 +91,10 @@ func (u *ProductUsecaseImpl) CreateProduct(ctx context.Context, request *dto.Pro
 		Stock:       product.Stock,
 		SKU:         product.SKU,
 		IsActive:    product.IsActive,
-	}, nil
+	}
+
+	u.Log.WithField("name", request.Name).Info("Product created successfully")
+	return response, nil
 }
 
 func (u *ProductUsecaseImpl) UpdateProduct(ctx context.Context, id uint, request *dto.ProductUpdateRequest) (*dto.ProductResponse, error) {
@@ -264,6 +267,11 @@ func (u *ProductUsecaseImpl) GetProductDetail(ctx context.Context, id uint) (*dt
 		return nil, apperror.ErrInternalServer
 	}
 
+	if !product.IsActive {
+		u.Log.WithField("id", id).Warn("Get product detail failed: product not active")
+		return nil, apperror.ErrProductNotFound
+	}
+
 	response := &dto.ProductResponse{
 		ID:          product.ID,
 		CategoryID:  product.CategoryID,
@@ -332,15 +340,15 @@ func (u *ProductUsecaseImpl) GetByProductID(ctx context.Context, id uint) (*enti
 	}
 
 	if !product.IsActive {
+		u.Log.WithField("id", id).Warn("Get product failed: product not active")
 		return nil, apperror.ErrProductNotFound
 	}
-
+	u.Log.WithField("id", id).Debug("Product retrieved")
 	return product, nil
 }
 
 func (u *ProductUsecaseImpl) GetProductsByIDs(ctx context.Context, ids []uint) ([]entity.Product, error) {
 	u.Log.WithField("ids", ids).Debug("Attempting to get products by IDs")
-
 	products, err := u.ProductRepository.FindByIDs(ctx, ids)
 	if err != nil {
 		u.Log.WithFields(logrus.Fields{
@@ -357,11 +365,11 @@ func (u *ProductUsecaseImpl) GetProductsByIDs(ctx context.Context, ids []uint) (
 		}
 		result = append(result, product)
 	}
-
 	if len(result) == 0 {
+		u.Log.WithField("ids", ids).Warn("Get products failed: products not found")
 		return nil, apperror.ErrProductNotFound
 	}
-
+	u.Log.WithField("ids", ids).Debug("Products retrieved")
 	return result, nil
 }
 
@@ -370,14 +378,12 @@ func (u *ProductUsecaseImpl) DecreaseStock(ctx context.Context, productID uint, 
 		"product_id": productID,
 		"quantity":   quantity,
 	}).Debug("Attempting to decrease stock")
-
 	err := u.ProductRepository.DecreaseStock(ctx, productID, quantity)
 	if err != nil {
 		if errors.Is(err, apperror.ErrNotFound) {
 			u.Log.WithField("product_id", productID).Warn("Decrease stock failed: product not found")
 			return apperror.ErrProductNotFound
 		}
-
 		if errors.Is(err, apperror.ErrInsufficientStock) {
 			u.Log.WithFields(logrus.Fields{
 				"product_id": productID,
@@ -385,13 +391,12 @@ func (u *ProductUsecaseImpl) DecreaseStock(ctx context.Context, productID uint, 
 			}).Warn("Decrease stock failed: insufficient stock")
 			return err
 		}
-
 		u.Log.WithFields(logrus.Fields{
 			"product_id": productID,
 			"error":      err,
 		}).Error("Decrease stock failed: unexpected DB error")
 		return apperror.ErrInternalServer
 	}
-	u.Log.WithField("product_id", productID).Info("Stock decreased successfully")
+	u.Log.WithField("product_id", productID).Debug("Stock decreased successfully")
 	return nil
 }
