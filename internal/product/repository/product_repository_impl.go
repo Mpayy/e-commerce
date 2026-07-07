@@ -70,23 +70,17 @@ func (r *ProductRepositoryImpl) FindByIDs(ctx context.Context, ids []uint) ([]en
 func (r *ProductRepositoryImpl) FindAll(ctx context.Context, filter *entity.ProductFilter) ([]entity.Product, int64, error) {
 	var products []entity.Product
 	var total int64
-
 	query := r.GetTx(ctx).Model(&entity.Product{}).Where("is_active = ?", true)
-
 	if filter.Search != "" {
 		query = query.Where("name LIKE ?", "%"+filter.Search+"%")
 	}
-
 	if filter.CategoryID != 0 {
 		query = query.Where("category_id = ?", filter.CategoryID)
 	}
-
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-
 	offset := (filter.Page - 1) * filter.Limit
-
 	err := query.Limit(filter.Limit).Offset(offset).Find(&products).Error
 	if err != nil {
 		return nil, 0, err
@@ -103,13 +97,13 @@ func (r *ProductRepositoryImpl) Update(ctx context.Context, product *entity.Prod
 			if strings.Contains(msg, "products.slug") {
 				return apperror.ErrDuplicatedProduct
 			}
+
 			if strings.Contains(msg, "products.sku") {
 				return apperror.ErrDuplicatedProductSku
 			}
 		}
 		return result.Error
 	}
-
 	return nil
 }
 
@@ -118,11 +112,9 @@ func (r *ProductRepositoryImpl) Delete(ctx context.Context, id uint) error {
 	if result.Error != nil {
 		return result.Error
 	}
-
 	if result.RowsAffected == 0 {
 		return apperror.ErrNotFound
 	}
-
 	return nil
 }
 
@@ -135,22 +127,20 @@ func (r *ProductRepositoryImpl) DecreaseStock(ctx context.Context, productID uin
 		}
 		return err
 	}
-
 	if product.Stock < quantity {
 		return apperror.ErrInsufficientStock
 	}
-
-	r.GetTx(ctx).Model(&entity.Product{}).Update("stock", product.Stock-quantity)
+	r.GetTx(ctx).Model(&product).Update("stock", product.Stock-quantity)
 	return nil
 }
 
 func (r *ProductRepositoryImpl) AdjustStock(ctx context.Context, productID uint, quantity int) error {
 	result := r.GetTx(ctx).Model(&entity.Product{}).Where("id = ?", productID).Update("stock", quantity)
-	if result.RowsAffected == 0 {
-		return apperror.ErrNotFound
-	}
 	if result.Error != nil {
 		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return apperror.ErrNotFound
 	}
 	return nil
 }
