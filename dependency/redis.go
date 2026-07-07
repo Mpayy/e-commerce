@@ -10,6 +10,9 @@ import (
 )
 
 const AuthPrefix = "auth:session:"
+const CartPrefix = "cart:"
+
+const CartTTL = 24 * time.Hour * 7
 
 //go:generate mockery
 
@@ -25,7 +28,7 @@ type RedisImpl struct {
 	Client *redis.Client
 }
 
-func NewRedis(config *viper.Viper) Redis {
+func NewRedisClient(config *viper.Viper) *redis.Client {
 	addr := fmt.Sprintf("%s:%d", config.GetString("REDIS_HOST"), config.GetInt("REDIS_PORT"))
 	password := config.GetString("REDIS_PASSWORD")
 	db := config.GetInt("REDIS_DB")
@@ -36,6 +39,10 @@ func NewRedis(config *viper.Viper) Redis {
 		DB:       db,
 	})
 
+	return client
+}
+
+func NewRedis(client *redis.Client) Redis {
 	return &RedisImpl{Client: client}
 }
 
