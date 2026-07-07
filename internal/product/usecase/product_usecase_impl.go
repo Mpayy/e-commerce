@@ -21,7 +21,7 @@ type ProductUsecaseImpl struct {
 	Transaction       transaction.Transaction
 }
 
-func NewProductUsecase(productRepository productrepository.ProductRepository, categoryUsecase CategoryUsecase, log *logrus.Logger, transaction transaction.Transaction) ProductUsecase {
+func NewProductUsecase(productRepository productrepository.ProductRepository, categoryUsecase CategoryUsecase, log *logrus.Logger, transaction transaction.Transaction) *ProductUsecaseImpl {
 	return &ProductUsecaseImpl{
 		ProductRepository: productRepository,
 		CategoryUsecase:   categoryUsecase,

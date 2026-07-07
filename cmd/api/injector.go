@@ -5,6 +5,9 @@ package main
 
 import (
 	"github.com/Mpayy/e-commerce/dependency"
+	carthttp "github.com/Mpayy/e-commerce/internal/cart/delivery/http"
+	cartrepository "github.com/Mpayy/e-commerce/internal/cart/repository"
+	cartusecase "github.com/Mpayy/e-commerce/internal/cart/usecase"
 	"github.com/Mpayy/e-commerce/internal/middleware"
 	producthttp "github.com/Mpayy/e-commerce/internal/product/delivery/http"
 	productrepository "github.com/Mpayy/e-commerce/internal/product/repository"
@@ -33,7 +36,15 @@ var categorySet = wire.NewSet(
 var productSet = wire.NewSet(
 	productrepository.NewProductRepository,
 	productusecase.NewProductUsecase,
+	wire.Bind(new(productusecase.ProductService), new(*productusecase.ProductUsecaseImpl)),
+	wire.Bind(new(productusecase.ProductUsecase), new(*productusecase.ProductUsecaseImpl)),
 	producthttp.NewProductHandler,
+)
+
+var cartSet = wire.NewSet(
+	cartrepository.NewCartRedisRepository,
+	cartusecase.NewCartUsecase,
+	carthttp.NewCartHandler,
 )
 
 var middlewareSet = wire.NewSet(
@@ -50,6 +61,7 @@ func InitializeApplication() *Application {
 		// Dependency
 		dependency.NewViper,
 		dependency.NewGorm,
+		dependency.NewRedisClient,
 		dependency.NewRedis,
 		dependency.NewValidator,
 		dependency.NewLogrus,
@@ -63,6 +75,9 @@ func InitializeApplication() *Application {
 
 		// Product
 		productSet,
+
+		// Cart
+		cartSet,
 
 		// Middleware
 		middlewareSet,

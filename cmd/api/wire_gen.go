@@ -8,6 +8,9 @@ package main
 
 import (
 	"github.com/Mpayy/e-commerce/dependency"
+	"github.com/Mpayy/e-commerce/internal/cart/delivery/http"
+	"github.com/Mpayy/e-commerce/internal/cart/repository"
+	"github.com/Mpayy/e-commerce/internal/cart/usecase"
 	"github.com/Mpayy/e-commerce/internal/middleware"
 	"github.com/Mpayy/e-commerce/internal/product/delivery/http"
 	"github.com/Mpayy/e-commerce/internal/product/repository"
@@ -30,7 +33,8 @@ func InitializeApplication() *Application {
 	db := dependency.NewGorm(viper, logger)
 	app := dependency.NewApp(engine, logger, viper, db)
 	jwtToken := jwt.NewJwtToken(viper)
-	redis := dependency.NewRedis(viper)
+	client := dependency.NewRedisClient(viper)
+	redis := dependency.NewRedis(client)
 	authMiddleware := middleware.NewAuthMiddleware(jwtToken, redis)
 	adminMiddleware := middleware.NewAdminMiddleware()
 	userRepository := userrepository.NewUserRepository(db)
@@ -42,9 +46,12 @@ func InitializeApplication() *Application {
 	categoryUsecase := productusecase.NewCategoryUsecase(categoryRepository, logger, transactionTransaction)
 	categoryHandler := producthttp.NewCategoryHandler(categoryUsecase, validate, logger)
 	productRepository := productrepository.NewProductRepository(db)
-	productUsecase := productusecase.NewProductUsecase(productRepository, categoryUsecase, logger, transactionTransaction)
-	productHandler := producthttp.NewProductHandler(productUsecase, validate, logger)
-	router := routes.NewRouter(engine, authMiddleware, adminMiddleware, userHandler, categoryHandler, productHandler, logger)
+	productUsecaseImpl := productusecase.NewProductUsecase(productRepository, categoryUsecase, logger, transactionTransaction)
+	productHandler := producthttp.NewProductHandler(productUsecaseImpl, validate, logger)
+	cartRedisRepository := cartrepository.NewCartRedisRepository(client)
+	cartUsecase := cartusecase.NewCartUsecase(cartRedisRepository, productUsecaseImpl)
+	cartHandler := carthttp.NewCartHandler(cartUsecase)
+	router := routes.NewRouter(engine, authMiddleware, adminMiddleware, userHandler, categoryHandler, productHandler, cartHandler, logger)
 	application := NewApplication(app, router)
 	return application
 }
@@ -55,7 +62,9 @@ var userSet = wire.NewSet(userrepository.NewUserRepository, userusecase.NewUserU
 
 var categorySet = wire.NewSet(productrepository.NewCategoryRepository, productusecase.NewCategoryUsecase, producthttp.NewCategoryHandler)
 
-var productSet = wire.NewSet(productrepository.NewProductRepository, productusecase.NewProductUsecase, producthttp.NewProductHandler)
+var productSet = wire.NewSet(productrepository.NewProductRepository, productusecase.NewProductUsecase, wire.Bind(new(productusecase.ProductService), new(*productusecase.ProductUsecaseImpl)), wire.Bind(new(productusecase.ProductUsecase), new(*productusecase.ProductUsecaseImpl)), producthttp.NewProductHandler)
+
+var cartSet = wire.NewSet(cartrepository.NewCartRedisRepository, cartusecase.NewCartUsecase, carthttp.NewCartHandler)
 
 var middlewareSet = wire.NewSet(middleware.NewAuthMiddleware, middleware.NewAdminMiddleware)
 
