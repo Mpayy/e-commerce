@@ -1,6 +1,10 @@
 package dto
 
-type CartItem struct {
-	ProductID uint `json:"product_id"`
-	Quantity  int  `json:"quantity"`
+type CartItemCreateRequest struct {
+	ProductID uint `json:"product_id" validate:"required"`
+	Quantity  int  `json:"quantity" validate:"required,gte=1"`
+}
+
+type CartItemUpdateRequest struct {
+	Quantity int `json:"quantity" validate:"gte=0"`
 }

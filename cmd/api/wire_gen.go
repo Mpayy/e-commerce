@@ -49,8 +49,8 @@ func InitializeApplication() *Application {
 	productUsecaseImpl := productusecase.NewProductUsecase(productRepository, categoryUsecase, logger, transactionTransaction)
 	productHandler := producthttp.NewProductHandler(productUsecaseImpl, validate, logger)
 	cartRedisRepository := cartrepository.NewCartRedisRepository(client)
-	cartUsecase := cartusecase.NewCartUsecase(cartRedisRepository, productUsecaseImpl)
-	cartHandler := carthttp.NewCartHandler(cartUsecase)
+	cartUsecase := cartusecase.NewCartUsecase(cartRedisRepository, productUsecaseImpl, logger)
+	cartHandler := carthttp.NewCartHandler(cartUsecase, validate, logger)
 	router := routes.NewRouter(engine, authMiddleware, adminMiddleware, userHandler, categoryHandler, productHandler, cartHandler, logger)
 	application := NewApplication(app, router)
 	return application
