@@ -17,7 +17,7 @@ type CartUsecaseImpl struct {
 	Log                 *logrus.Logger
 }
 
-func NewCartUsecase(cartRedisRepository cartrepository.CartRedisRepository, productService productusecase.ProductService, log *logrus.Logger) CartUsecase {
+func NewCartUsecase(cartRedisRepository cartrepository.CartRedisRepository, productService productusecase.ProductService, log *logrus.Logger) *CartUsecaseImpl {
 	return &CartUsecaseImpl{CartRedisRepository: cartRedisRepository, ProductService: productService, Log: log}
 }
 
@@ -140,17 +140,27 @@ func (u *CartUsecaseImpl) GetCartDetail(ctx context.Context, userID uint) (*dto.
 
 	if len(productIDs) == 0 {
 		return &dto.CartDetailResponse{
-			Items:      []dto.CartItemResponse{},
-			GrandTotal: 0,
+			Items:            []dto.CartItemResponse{},
+			UnavailableItems: []dto.CartUnavailableItemResp{},
+			GrandTotal:       0,
 		}, nil
 	}
 
 	products, err := u.ProductService.GetProductsByIDs(ctx, productIDs)
 	if err != nil {
 		if errors.Is(err, apperror.ErrProductNotFound) {
+			var unavailableItems []dto.CartUnavailableItemResp
+			for pID, qty := range cartMap {
+				unavailableItems = append(unavailableItems, dto.CartUnavailableItemResp{
+					ProductID: pID,
+					Quantity:  qty,
+					Message:   "Produk sudah tidak tersedia atau dihapus",
+				})
+			}
 			return &dto.CartDetailResponse{
-				Items:      []dto.CartItemResponse{},
-				GrandTotal: 0,
+				Items:            []dto.CartItemResponse{},
+				UnavailableItems: unavailableItems,
+				GrandTotal:       0,
 			}, nil
 		}
 		return nil, err

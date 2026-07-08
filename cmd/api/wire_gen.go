@@ -49,8 +49,8 @@ func InitializeApplication() *Application {
 	productUsecaseImpl := productusecase.NewProductUsecase(productRepository, categoryUsecase, logger, transactionTransaction)
 	productHandler := producthttp.NewProductHandler(productUsecaseImpl, validate, logger)
 	cartRedisRepository := cartrepository.NewCartRedisRepository(client)
-	cartUsecase := cartusecase.NewCartUsecase(cartRedisRepository, productUsecaseImpl, logger)
-	cartHandler := carthttp.NewCartHandler(cartUsecase, validate, logger)
+	cartUsecaseImpl := cartusecase.NewCartUsecase(cartRedisRepository, productUsecaseImpl, logger)
+	cartHandler := carthttp.NewCartHandler(cartUsecaseImpl, cartUsecaseImpl, validate, logger)
 	router := routes.NewRouter(engine, authMiddleware, adminMiddleware, userHandler, categoryHandler, productHandler, cartHandler, logger)
 	application := NewApplication(app, router)
 	return application
@@ -64,7 +64,7 @@ var categorySet = wire.NewSet(productrepository.NewCategoryRepository, productus
 
 var productSet = wire.NewSet(productrepository.NewProductRepository, productusecase.NewProductUsecase, wire.Bind(new(productusecase.ProductService), new(*productusecase.ProductUsecaseImpl)), wire.Bind(new(productusecase.ProductUsecase), new(*productusecase.ProductUsecaseImpl)), producthttp.NewProductHandler)
 
-var cartSet = wire.NewSet(cartrepository.NewCartRedisRepository, cartusecase.NewCartUsecase, carthttp.NewCartHandler)
+var cartSet = wire.NewSet(cartrepository.NewCartRedisRepository, cartusecase.NewCartUsecase, wire.Bind(new(cartusecase.CartService), new(*cartusecase.CartUsecaseImpl)), wire.Bind(new(cartusecase.CartUsecase), new(*cartusecase.CartUsecaseImpl)), carthttp.NewCartHandler)
 
 var middlewareSet = wire.NewSet(middleware.NewAuthMiddleware, middleware.NewAdminMiddleware)
 
