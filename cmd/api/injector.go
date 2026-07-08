@@ -44,6 +44,8 @@ var productSet = wire.NewSet(
 var cartSet = wire.NewSet(
 	cartrepository.NewCartRedisRepository,
 	cartusecase.NewCartUsecase,
+	wire.Bind(new(cartusecase.CartService), new(*cartusecase.CartUsecaseImpl)),
+	wire.Bind(new(cartusecase.CartUsecase), new(*cartusecase.CartUsecaseImpl)),
 	carthttp.NewCartHandler,
 )
 

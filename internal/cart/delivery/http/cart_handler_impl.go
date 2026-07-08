@@ -17,12 +17,13 @@ import (
 
 type CartHandlerImpl struct {
 	CartUsecase cartusecase.CartUsecase
+	CartService cartusecase.CartService
 	Validator   *validator.Validate
 	Log         *logrus.Logger
 }
 
-func NewCartHandler(cartUsecase cartusecase.CartUsecase, validator *validator.Validate, log *logrus.Logger) CartHandler {
-	return &CartHandlerImpl{CartUsecase: cartUsecase, Validator: validator, Log: log}
+func NewCartHandler(cartUsecase cartusecase.CartUsecase, cartService cartusecase.CartService, validator *validator.Validate, log *logrus.Logger) CartHandler {
+	return &CartHandlerImpl{CartUsecase: cartUsecase, CartService: cartService, Validator: validator, Log: log}
 }
 
 func (h *CartHandlerImpl) AddItem(ctx *gin.Context) {
@@ -164,7 +165,7 @@ func (h *CartHandlerImpl) ClearCart(ctx *gin.Context) {
 		return
 	}
 
-	err := h.CartUsecase.ClearCart(ctx.Request.Context(), auth.UserID)
+	err := h.CartService.ClearCart(ctx.Request.Context(), auth.UserID)
 	if err != nil {
 		response.ResponseError(ctx, http.StatusInternalServerError, apperror.ErrInternalServer.Error(), nil)
 		return
