@@ -58,3 +58,36 @@ func (r *CartRedisRepositoryImpl) RemoveItem(ctx context.Context, userID uint, p
 
 	return nil
 }
+
+func (r *CartRedisRepositoryImpl) GetCart(ctx context.Context, userID uint) (map[uint]int, error) {
+	userIDStr := strconv.Itoa(int(userID))
+	cart, err := r.RedisClient.HGetAll(ctx, dependency.CartPrefix+userIDStr).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	cartMap := make(map[uint]int)
+	for productIDStr, quantityStr := range cart {
+		productID, err := strconv.Atoi(productIDStr)
+		if err != nil {
+			return nil, err
+		}
+		quantity, err := strconv.Atoi(quantityStr)
+		if err != nil {
+			return nil, err
+		}
+		cartMap[uint(productID)] = quantity
+	}
+
+	return cartMap, nil
+}
+
+func (r *CartRedisRepositoryImpl) ClearCart(ctx context.Context, userID uint) error {
+	userIDStr := strconv.Itoa(int(userID))
+	err := r.RedisClient.Del(ctx, dependency.CartPrefix+userIDStr).Err()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

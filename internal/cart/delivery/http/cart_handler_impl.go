@@ -135,3 +135,19 @@ func (h *CartHandlerImpl) RemoveItem(ctx *gin.Context) {
 
 	response.ResponseSuccess(ctx, http.StatusOK, "item removed from cart successfully", nil)
 }
+
+func (h *CartHandlerImpl) GetCart(ctx *gin.Context) {
+	auth := middleware.GetAuthUser(ctx)
+	if auth == nil {
+		response.ResponseError(ctx, http.StatusUnauthorized, apperror.ErrUnauthorized.Error(), nil)
+		return
+	}
+
+	cartDetail, err := h.CartUsecase.GetCartDetail(ctx.Request.Context(), auth.UserID)
+	if err != nil {
+		response.ResponseError(ctx, http.StatusInternalServerError, apperror.ErrInternalServer.Error(), nil)
+		return
+	}
+
+	response.ResponseSuccess(ctx, http.StatusOK, "cart detail retrieved successfully", cartDetail)
+}

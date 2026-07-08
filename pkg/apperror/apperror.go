@@ -20,6 +20,7 @@ var (
 	ErrUserNotFound     = errors.New("User Not Found")
 	ErrCategoryNotFound = errors.New("Category Not Found")
 	ErrProductNotFound  = errors.New("Product Not Found")
+	ErrCartNotFound     = errors.New("Cart Not Found")
 
 	// Error
 	ErrUnauthorized         = errors.New("Unauthorized")
