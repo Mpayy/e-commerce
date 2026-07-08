@@ -26,7 +26,7 @@ func (u *CartUsecaseImpl) AddToCart(ctx context.Context, userID uint, productID 
 		"user_id":    userID,
 		"product_id": productID,
 		"quantity":   quantity,
-	}).Info("Adding item to cart")
+	}).Debug("Adding item to cart")
 	if quantity <= 0 {
 		return apperror.ErrInvalidQuantity
 	}
@@ -64,7 +64,7 @@ func (u *CartUsecaseImpl) UpdateCartItem(ctx context.Context, userID uint, produ
 		"user_id":    userID,
 		"product_id": productID,
 		"quantity":   quantity,
-	}).Info("Updating item in cart")
+	}).Debug("Updating item in cart")
 
 	if quantity <= 0 {
 		return u.RemoveFromCart(ctx, userID, productID)
@@ -72,6 +72,13 @@ func (u *CartUsecaseImpl) UpdateCartItem(ctx context.Context, userID uint, produ
 
 	err := u.CartRedisRepository.UpdateItem(ctx, userID, productID, quantity)
 	if err != nil {
+		if errors.Is(err, apperror.ErrNotFound) {
+			u.Log.WithFields(logrus.Fields{
+				"user_id":    userID,
+				"product_id": productID,
+			}).Warn("Cart item not found to update")
+			return apperror.ErrCartNotFound
+		}
 		u.Log.WithFields(logrus.Fields{
 			"user_id":    userID,
 			"product_id": productID,
@@ -92,7 +99,7 @@ func (u *CartUsecaseImpl) RemoveFromCart(ctx context.Context, userID uint, produ
 	u.Log.WithFields(logrus.Fields{
 		"user_id":    userID,
 		"product_id": productID,
-	}).Info("Removing item from cart")
+	}).Debug("Removing item from cart")
 
 	err := u.CartRedisRepository.RemoveItem(ctx, userID, productID)
 	if err != nil {
@@ -115,7 +122,7 @@ func (u *CartUsecaseImpl) RemoveFromCart(ctx context.Context, userID uint, produ
 func (u *CartUsecaseImpl) GetCartDetail(ctx context.Context, userID uint) (*dto.CartDetailResponse, error) {
 	u.Log.WithFields(logrus.Fields{
 		"user_id": userID,
-	}).Info("Getting cart detail")
+	}).Debug("Getting cart detail")
 
 	cartMap, err := u.CartRedisRepository.GetCart(ctx, userID)
 	if err != nil {
@@ -149,6 +156,7 @@ func (u *CartUsecaseImpl) GetCartDetail(ctx context.Context, userID uint) (*dto.
 		return nil, err
 	}
 
+	foundProductsInDB := make(map[uint]bool)
 	var itemsResponse []dto.CartItemResponse
 	var grandTotal float64
 	for _, product := range products {
@@ -157,6 +165,7 @@ func (u *CartUsecaseImpl) GetCartDetail(ctx context.Context, userID uint) (*dto.
 			continue
 		}
 
+		foundProductsInDB[product.ID] = true
 		subtotal := product.Price * float64(qty)
 		grandTotal += subtotal
 
@@ -170,26 +179,38 @@ func (u *CartUsecaseImpl) GetCartDetail(ctx context.Context, userID uint) (*dto.
 		})
 	}
 
+	var unavailableItems []dto.CartUnavailableItemResp
+	for redisProductID, qty := range cartMap {
+		if !foundProductsInDB[redisProductID] {
+			unavailableItems = append(unavailableItems, dto.CartUnavailableItemResp{
+				ProductID: redisProductID,
+				Quantity:  qty,
+				Message:   "Product is not available",
+			})
+		}
+	}
+
 	u.Log.WithFields(logrus.Fields{
-		"user_id":     userID,
-		"items":       len(itemsResponse),
-		"grand_total": grandTotal,
+		"user_id":           userID,
+		"items":             len(itemsResponse),
+		"unavailable_items": len(unavailableItems),
+		"grand_total":       grandTotal,
 	}).Debug("Cart detail retrieved successfully")
 
 	return &dto.CartDetailResponse{
-		Items:      itemsResponse,
-		GrandTotal: grandTotal,
+		Items:            itemsResponse,
+		UnavailableItems: unavailableItems,
+		GrandTotal:       grandTotal,
 	}, nil
 }
 
 // ═══════════════════════════════════════════════════════
 // Consumption By Other Services (contract.go)
 // ═══════════════════════════════════════════════════════
-
 func (u *CartUsecaseImpl) GetRawCart(ctx context.Context, userID uint) (map[uint]int, error) {
 	u.Log.WithFields(logrus.Fields{
 		"user_id": userID,
-	}).Info("Getting raw cart")
+	}).Debug("Getting raw cart")
 
 	cart, err := u.CartRedisRepository.GetCart(ctx, userID)
 	if err != nil {
@@ -210,7 +231,7 @@ func (u *CartUsecaseImpl) GetRawCart(ctx context.Context, userID uint) (map[uint
 func (u *CartUsecaseImpl) ClearCart(ctx context.Context, userID uint) error {
 	u.Log.WithFields(logrus.Fields{
 		"user_id": userID,
-	}).Info("Clearing cart")
+	}).Debug("Clearing cart")
 
 	err := u.CartRedisRepository.ClearCart(ctx, userID)
 	if err != nil {

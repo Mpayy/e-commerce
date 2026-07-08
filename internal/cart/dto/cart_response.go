@@ -1,8 +1,9 @@
 package dto
 
 type CartDetailResponse struct {
-	Items      []CartItemResponse `json:"items"`
-	GrandTotal float64            `json:"grand_total"`
+	Items            []CartItemResponse        `json:"items"`
+	UnavailableItems []CartUnavailableItemResp `json:"unavailable_items"`
+	GrandTotal       float64                   `json:"grand_total"`
 }
 
 type CartItemResponse struct {
@@ -12,4 +13,10 @@ type CartItemResponse struct {
 	Quantity       int     `json:"quantity"`
 	Subtotal       float64 `json:"subtotal"`
 	StockAvailable int     `json:"stock_available"`
+}
+
+type CartUnavailableItemResp struct {
+	ProductID uint   `json:"product_id"`
+	Quantity  int    `json:"quantity"`
+	Message   string `json:"message"`
 }

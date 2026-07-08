@@ -361,8 +361,7 @@ Every module that exposes capabilities to other modules **must** do so exclusive
 ```json
 {
   "success": false,
-  "message": "email already registered",
-  "error": null
+  "message": "email already registered"
 }
 ```
 
@@ -393,8 +392,7 @@ Every module that exposes capabilities to other modules **must** do so exclusive
 ```json
 {
   "success": false,
-  "message": "wrong email or password",
-  "error": null
+  "message": "wrong email or password"
 }
 ```
 
@@ -439,8 +437,7 @@ Every module that exposes capabilities to other modules **must** do so exclusive
 ```json
 {
   "success": false,
-  "message": "category not found",
-  "error": null
+  "message": "category not found"
 }
 ```
 
@@ -448,8 +445,7 @@ Every module that exposes capabilities to other modules **must** do so exclusive
 ```json
 {
   "success": false,
-  "message": "forbidden: admin access required",
-  "error": null
+  "message": "forbidden: admin access required"
 }
 ```
 
@@ -473,8 +469,7 @@ Every module that exposes capabilities to other modules **must** do so exclusive
 ```json
 {
   "success": false,
-  "message": "unauthorized",
-  "error": null
+  "message": "unauthorized"
 }
 ```
 

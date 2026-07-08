@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/Mpayy/e-commerce/dependency"
+	"github.com/Mpayy/e-commerce/pkg/apperror"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -35,7 +36,17 @@ func (r *CartRedisRepositoryImpl) AddItem(ctx context.Context, userID uint, prod
 func (r *CartRedisRepositoryImpl) UpdateItem(ctx context.Context, userID uint, productID uint, quantity int) error {
 	userIDStr := strconv.Itoa(int(userID))
 	productIDStr := strconv.Itoa(int(productID))
-	err := r.RedisClient.HSet(ctx, dependency.CartPrefix+userIDStr, productIDStr, int64(quantity)).Err()
+
+	exists, err := r.RedisClient.HExists(ctx, dependency.CartPrefix+userIDStr, productIDStr).Result()
+	if err != nil {
+		return err
+	}
+
+	if !exists {
+		return apperror.ErrNotFound
+	}
+
+	err = r.RedisClient.HSet(ctx, dependency.CartPrefix+userIDStr, productIDStr, int64(quantity)).Err()
 	if err != nil {
 		return err
 	}
