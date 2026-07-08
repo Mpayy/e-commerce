@@ -35,7 +35,7 @@ func (h *CartHandlerImpl) AddItem(ctx *gin.Context) {
 	var request dto.CartItemCreateRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
 		h.Log.WithField("error", err).Warn("Failed to bind JSON")
-		response.ResponseError(ctx, http.StatusBadRequest, apperror.ErrBadRequest.Error(), err.Error())
+		response.ResponseError(ctx, http.StatusBadRequest, apperror.ErrBadRequest.Error(), nil)
 		return
 	}
 
@@ -98,12 +98,17 @@ func (h *CartHandlerImpl) UpdateItem(ctx *gin.Context) {
 		return
 	}
 
-	err = h.CartUsecase.UpdateCartItem(ctx.Request.Context(), auth.UserID, uint(productID), request.Quantity)
+	err = h.CartUsecase.UpdateCartItem(ctx.Request.Context(), auth.UserID, uint(productID), *request.Quantity)
 	if err != nil {
-		response.ResponseError(ctx, http.StatusInternalServerError, apperror.ErrInternalServer.Error(), nil)
-		return
+		switch {
+		case errors.Is(err, apperror.ErrCartNotFound):
+			response.ResponseError(ctx, http.StatusNotFound, apperror.ErrCartNotFound.Error(), nil)
+			return
+		default:
+			response.ResponseError(ctx, http.StatusInternalServerError, apperror.ErrInternalServer.Error(), nil)
+			return
+		}
 	}
-
 	response.ResponseSuccess(ctx, http.StatusOK, "item updated in cart successfully", nil)
 }
 

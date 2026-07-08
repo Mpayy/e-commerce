@@ -6,5 +6,5 @@ type CartItemCreateRequest struct {
 }
 
 type CartItemUpdateRequest struct {
-	Quantity int `json:"quantity" validate:"gte=0"`
+	Quantity *int `json:"quantity" validate:"required,gte=0"`
 }
