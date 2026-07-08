@@ -49,7 +49,19 @@
 - [x] **Role-Based Access Control (RBAC)** — `AdminMiddleware` inspects the `role` claim from the JWT payload; returns `403 Forbidden` for non-admin routes
 - [x] **User Profile** — Authenticated endpoint returning user data from a JWT-derived `user_id` lookup
 - [x] **Category Management (Admin)** — Create + list categories with slug auto-generation; conflict detection on duplicate names
-- [x] **Product Management (Admin)** — Create product with SKU auto-generation, category validation, and duplicate SKU/name detection
+- [x] **Product Management — Create (Admin)** — Create product with SKU auto-generation, category validation, and duplicate SKU/name detection
+- [x] **Product Management — Update (Admin)** — `PUT /admin/products/:product_id`; partial field updates including `is_active` toggle; re-validates category only on change; detects duplicate slug/SKU
+- [x] **Product Management — Soft Delete (Admin)** — `DELETE /admin/products/:product_id` sets `is_active = false`; product is hidden from public listing without hard deletion
+- [x] **Product Listing & Search** — `GET /products` with `search`, `category_id`, `page`, and `limit` query params; paginated response with `meta` (total, page, limit); filters only active products
+- [x] **Product Detail** — `GET /products/:product_id`; returns 404 for inactive or non-existent products
+- [x] **Stock Adjustment (Admin)** — `PATCH /admin/products/:product_id/adjust-stock` sets absolute stock value; wrapped in a DB transaction
+- [x] **Cart System (Redis Hash)** — Cart stored as `HSET cart:{user_id} {product_id} {quantity}`; 7-day TTL auto-refreshed on every write; price is never stored in cart (always fetched real-time from Product module via interface call)
+- [x] **Cart — Add Item** — `POST /cart`; validates product existence via `ProductService` interface; increments quantity via `HINCRBY` if item already exists; refreshes TTL
+- [x] **Cart — Update Item** — `PATCH /cart/:product_id`; if quantity ≤ 0 automatically delegates to RemoveFromCart; checks item existence before update
+- [x] **Cart — Remove Item** — `DELETE /cart/:product_id`; removes a single product field from the Redis hash (`HDEL`)
+- [x] **Cart — Clear Cart** — `DELETE /cart`; atomically deletes the entire cart hash key (`DEL`)
+- [x] **Cart Enrichment (GetCart)** — `GET /cart`; fetches raw quantities from Redis, makes a single bulk `ProductService.GetProductsByIDs()` call to enrich with name, price, and available stock; computes `subtotal` and `grand_total`; includes `unavailable_items` list for products removed from catalog
+- [x] **Cross-Module Contracts** — `ProductService` interface (`GetByProductID`, `GetProductsByIDs`, `DecreaseStock`) and `CartService` interface (`GetRawCart`, `ClearCart`) defined in `contract.go` files — enforces module boundary isolation
 - [x] **Structured Logging** — Logrus-powered request logger middleware with per-request `method`, `path`, `status`, `latency_ms`, and `client_ip` fields; log level adapts to HTTP status range (Info / Warn / Error)
 - [x] **Standardized JSON Response** — Global `ResponseSuccess` / `ResponseError` helpers enforce a consistent response envelope across all handlers
 - [x] **Versioned SQL Migrations** — `golang-migrate`-compatible timestamp-prefixed SQL files; intentionally **no FOREIGN KEY constraints** between modules (by design — see [Engineering Notes](#-engineering-notes))
@@ -60,13 +72,7 @@
 
 ### 🔜 Planned (Blueprint Defined)
 
-- [ ] **Product Listing & Search** — `GET /products` with `search`, `category_id`, `page`, and `limit` query params; paginated response with `meta`
-- [ ] **Product Detail** — `GET /products/:id`
-- [ ] **Product Stock Adjustment** — `PATCH /admin/products/:id/stock` for restock operations with reason tracking
-- [ ] **Product Update & Delete** — `PUT`/`DELETE` admin endpoints
-- [ ] **Cart System (Redis Hash)** — Cart stored as `HSET cart:{user_id} {product_id} {quantity}`; 7-day TTL auto-refreshed on every write; price never stored in cart (always fetched real-time from Product module via interface call)
-- [ ] **Cart Enrichment** — `GET /cart` fetches raw quantities from Redis, then makes a single bulk `productService.GetByIDs()` call to enrich with names, prices, and available stock — explicitly avoids N+1
-- [ ] **Checkout (ACID-safe)** — Converts Redis cart to MySQL `orders`+`order_items` inside a single DB transaction; uses `SELECT ... FOR UPDATE` row-level locking via `productService.DecreaseStock(tx, ...)` to prevent race-condition oversell
+- [ ] **Checkout (ACID-safe)** — Converts Redis cart to MySQL `orders`+`order_items` inside a single DB transaction; uses `SELECT ... FOR UPDATE` row-level locking via `productService.DecreaseStock(tx, ...)` to prevent race-condition oversell; `CartService.ClearCart()` called post-commit
 - [ ] **Order History** — `GET /orders` and `GET /orders/:id` for authenticated users
 - [ ] **Invoice Snapshot** — `OrderItem` stores `product_name` and `price` at transaction time — history is immutable regardless of future product edits
 - [ ] **Saga Pattern Readiness** — Checkout rollback leaves Redis cart intact; user can safely retry without re-adding items
@@ -83,7 +89,7 @@
 | **Gin** | v1.12.0 | Zero-allocation router with radix-tree path matching; Sonic JSON encoder under the hood — benchmarks significantly faster than `net/http` with `encoding/json` on serialization-heavy paths |
 | **GORM** | v1.31.2 | ORM with explicit query control; `ParameterizedQueries: true` enforces SQL injection prevention at the driver level; custom `logrusWriter` integrates slow-query logging |
 | **MySQL** | 8.0+ | ACID-compliant relational store with `SELECT ... FOR UPDATE` row-level locking — prerequisite for the concurrent checkout stock-deduction pattern |
-| **Redis** | go-redis v9 | Session store for JWT tokens (`auth:session:<token>`); `DEL` on logout provides O(1) immediate revocation without scanning or blacklist tables; also serves as the Cart storage layer (`HSET`/`HGETALL`) |
+| **Redis** | go-redis v9 | Dual-purpose: (1) Session store for JWT tokens (`auth:session:<token>`); `DEL` on logout provides O(1) immediate revocation. (2) Cart storage layer via Redis Hash (`HSET cart:{user_id} {product_id} {qty}`) with 7-day TTL auto-refresh on every write |
 | **JWT (HS256)** | golang-jwt v5 | Stateless token format with `user_id` and `role` claims embedded; Redis existence check converts it into a stateful session without sacrificing bearer-token ergonomics |
 | **Viper** | v1.21.0 | Hierarchical config with `.env` file support and environment-variable override — 12-factor app compliant |
 | **Logrus** | v1.9.4 | Structured, leveled logging with JSON output capability; request middleware logs `latency_ms` per request enabling p95/p99 monitoring integration |
@@ -157,6 +163,40 @@ sequenceDiagram
     Note right of R: Token permanently invalid. Any subsequent request returns 401.
 ```
 
+### Cart Flow (Redis Hash)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant H as CartHandler
+    participant U as CartUsecase
+    participant PS as ProductService
+    participant R as "Redis (cart:)"
+
+    Note over C,R: ADD TO CART
+    C->>H: POST /api/v1/cart · { product_id, quantity }
+    H->>H: AuthMiddleware - extract user_id from JWT
+    H->>U: AddToCart(userID, productID, quantity)
+    U->>PS: GetByProductID(productID) — validate exists & is_active
+    PS-->>U: Product{ id, price, stock }
+    U->>R: HINCRBY cart:{userID} {productID} {qty}
+    U->>R: EXPIRE cart:{userID} 7d
+    R-->>U: OK
+    H-->>C: 200 OK · item added to cart successfully
+
+    Note over C,R: GET CART (single bulk DB call — no N+1)
+    C->>H: GET /api/v1/cart
+    H->>U: GetCartDetail(userID)
+    U->>R: HGETALL cart:{userID}
+    R-->>U: map[product_id → quantity]
+    U->>PS: GetProductsByIDs([]productIDs) — one WHERE IN query
+    PS-->>U: []Product{ id, name, price, stock }
+    U->>U: compute subtotal + grand_total in memory
+    U->>U: detect unavailable_items (in Redis, not in DB)
+    H-->>C: 200 OK · CartDetailResponse{ items, unavailable_items, grand_total }
+```
+
 ### Token Revocation Strategy Comparison
 
 | Approach | Lookup Cost | Scalability | Instant Revocation |
@@ -194,6 +234,7 @@ e-commerce/
 │   ├── gin.go                   # Gin engine initialization (mode, trusted proxies)
 │   ├── gorm.go                  # GORM setup: DSN, connection pool (MaxOpen=25, MaxIdle=10)
 │   ├── redis.go                 # Redis client + Redis interface (CheckToRedis, SetToRedis, DeleteFromRedis)
+│   │                            #   Constants: AuthPrefix="auth:session:", CartPrefix="cart:", CartTTL=7d
 │   ├── logrus.go                # Logger initialization with configurable log level
 │   ├── validator.go             # go-playground/validator singleton
 │   └── viper.go                 # Config loader: reads .env -> Viper struct
@@ -221,24 +262,59 @@ e-commerce/
 │   │   ├── entity/
 │   │   │   ├── category.go      # Category{ID, Name, Slug, CreatedAt, UpdatedAt}
 │   │   │   └── product.go       # Product{ID, CategoryID, Name, Slug, Price, Stock, SKU, IsActive}
+│   │   │                        #   ProductFilter{Search, CategoryID, Page, Limit} for paginated queries
 │   │   │                        #   CategoryID is a plain uint — NOT a GORM association field
 │   │   │                        #   => GORM will never auto-generate a FOREIGN KEY constraint
 │   │   ├── dto/
-│   │   │   ├── category_request.go   # CategoryRequest{Name} with validator tags
-│   │   │   ├── category_response.go  # CategoryResponse DTO
-│   │   │   ├── product_request.go    # ProductRequest{CategoryID, Name, Description, Price, Stock, SKU}
-│   │   │   └── product_response.go   # ProductResponse (full fields including auto-generated slug)
-│   │   ├── repository/          # Category: FindAll, Create, FindByID | Product: Create, FindByID
+│   │   │   ├── category_request.go        # CategoryRequest{Name} with validator tags
+│   │   │   ├── category_response.go       # CategoryResponse DTO
+│   │   │   ├── product_request.go         # ProductCreateRequest, ProductUpdateRequest (is_active *bool),
+│   │   │   │                              #   ProductSearchRequest{search, category_id, page, limit},
+│   │   │   │                              #   ProductStockAdjustmentRequest{Stock *int}
+│   │   │   └── product_response.go        # ProductResponse, ProductSearchResponse{Data, Meta},
+│   │   │                                  #   MetaPagination{Page, Limit, Total int64}
+│   │   ├── repository/
+│   │   │   ├── category_repository.go     # Interface: FindAll, Create, FindByID
+│   │   │   ├── category_repository_impl.go
+│   │   │   ├── product_repository.go      # Interface: Create, FindByID, FindByIDs, FindAll,
+│   │   │   │                              #   Update, Delete, DecreaseStock, AdjustStock
+│   │   │   └── product_repository_impl.go # FindAll: filters is_active=true, supports search+category+pagination
+│   │   │                                  # Delete: soft-delete (is_active=false, RowsAffected check)
+│   │   │                                  # DecreaseStock: SELECT FOR UPDATE + stock guard
+│   │   │                                  # AdjustStock: sets absolute stock value
 │   │   ├── usecase/
-│   │   │   ├── category_usecase.go       # Interface: CreateCategory, GetAllCategories
-│   │   │   ├── category_usecase_impl.go  # Slug generation (gosimple/slug), duplicate check
-│   │   │   ├── product_usecase.go        # Interface: CreateProduct
-│   │   │   └── product_usecase_impl.go   # Category validation, SKU auto-generation (pkg/skugen)
+│   │   │   ├── category_usecase.go        # Interface: CreateCategory, GetAllCategories, ValidateCategoryExists
+│   │   │   ├── category_usecase_impl.go   # Slug generation (gosimple/slug), duplicate check
+│   │   │   ├── product_usecase.go         # Interface: CreateProduct, UpdateProduct, DeleteProduct,
+│   │   │   │                              #   SearchProducts, GetProductDetail, AdjustStock
+│   │   │   ├── product_usecase_impl.go    # Full product lifecycle; UpdateProduct re-validates category only on change
+│   │   │   └── contract.go                # ProductService interface (consumed by Cart module):
+│   │   │                                  #   GetByProductID, GetProductsByIDs, DecreaseStock
 │   │   └── delivery/http/
-│   │       ├── category_handler.go       # Interface: Create, GetAll
-│   │       ├── category_handler_impl.go  # Handles 409 Conflict on duplicate category name
-│   │       ├── product_handler.go        # Interface: Create
-│   │       └── product_handler_impl.go   # Handles 404 (category not found), 409 (duplicate SKU/name)
+│   │       ├── category_handler.go        # Interface: Create, GetAll
+│   │       ├── category_handler_impl.go   # Handles 409 Conflict on duplicate category name
+│   │       ├── product_handler.go         # Interface: Create, Update, Delete, AdjustStock, GetByID, Search
+│   │       └── product_handler_impl.go    # Full CRUD + Search + AdjustStock handlers
+│   │
+│   ├── cart/                    # MODULE: Shopping Cart (Redis-backed)
+│   │   ├── dto/
+│   │   │   ├── cart_request.go            # CartItemCreateRequest{ProductID, Quantity}
+│   │   │   │                              # CartItemUpdateRequest{Quantity *int}
+│   │   │   └── cart_response.go           # CartDetailResponse{Items, UnavailableItems, GrandTotal}
+│   │   │                                  # CartItemResponse{ProductID, Name, Price, Quantity, Subtotal, StockAvailable}
+│   │   │                                  # CartUnavailableItemResp{ProductID, Quantity, Message}
+│   │   ├── repository/
+│   │   │   ├── cart_redis_repository.go   # Interface: AddItem, UpdateItem, RemoveItem, GetCart, ClearCart
+│   │   │   └── cart_redis_repository_impl.go # Redis HINCRBY/HSET/HDEL/HGETALL/DEL + TTL refresh on write
+│   │   ├── usecase/
+│   │   │   ├── cart_usecase.go            # Interface: AddToCart, UpdateCartItem, RemoveFromCart, GetCartDetail
+│   │   │   ├── cart_usecase_impl.go       # Bulk product enrichment (N+1 avoided), unavailable_items detection,
+│   │   │   │                              #   grand_total + subtotal computation, quantity=0 → auto-remove
+│   │   │   └── contract.go                # CartService interface (consumed by Checkout module):
+│   │   │                                  #   GetRawCart, ClearCart
+│   │   └── delivery/http/
+│   │       ├── cart_handler.go            # Interface: AddItem, UpdateItem, RemoveItem, GetCart, ClearCart
+│   │       └── cart_handler_impl.go       # All cart endpoints; reads user_id from JWT context
 │   │
 │   ├── middleware/              # CROSS-CUTTING: HTTP Middleware
 │   │   ├── auth_middleware.go   # 1. Extract Bearer token
@@ -258,7 +334,9 @@ e-commerce/
 │   │   └── jwt.go               # JwtToken interface + HS256 implementation
 │   │                            # Auth{UserID, Role} struct | TokenDuration = 30 days
 │   ├── apperror/
-│   │   └── apperror.go          # Sentinel errors: ErrNotFound, ErrUnauthorized, ErrDuplicatedEmail...
+│   │   └── apperror.go          # Sentinel errors: ErrNotFound, ErrUnauthorized, ErrDuplicatedEmail,
+│   │                            #   ErrProductNotFound, ErrCategoryNotFound, ErrCartNotFound,
+│   │                            #   ErrInsufficientStock, ErrInvalidQuantity, ErrDuplicatedProductSku...
 │   │                            # ExtractValidationErrors() maps FieldError -> map[field]message
 │   ├── skugen/                  # Auto-generates SKU string if not provided in ProductRequest
 │   └── transaction/
@@ -271,9 +349,10 @@ e-commerce/
 ### Module Isolation Rules (Enforced at Code Level)
 
 ```
-ALLOWED:   internal/order  -> imports internal/product/usecase  (interface contract only)
-FORBIDDEN: internal/order  -> imports internal/product/entity   (direct struct coupling)
-FORBIDDEN: internal/order  -> imports internal/product/repository (direct DB access)
+ALLOWED:   internal/cart   -> imports internal/product/usecase  (contract.go interface only)
+ALLOWED:   internal/order  -> imports internal/cart/usecase     (contract.go interface only)
+FORBIDDEN: internal/cart   -> imports internal/product/entity   (direct struct coupling)
+FORBIDDEN: internal/cart   -> imports internal/product/repository (direct DB access)
 ```
 
 Every module that exposes capabilities to other modules **must** do so exclusively through a `contract.go` file containing only Go interfaces. This is the single, auditable boundary between modules — directly analogous to a service API surface in a microservices architecture.
@@ -297,22 +376,27 @@ Every module that exposes capabilities to other modules **must** do so exclusive
 |---|---|---|---|
 | `GET` | `/api/v1/categories` | List all product categories | No |
 | `POST` | `/api/v1/admin/categories` | Create a new category (slug auto-generated) | ✅ JWT + Admin |
-| `GET` | `/api/v1/products` *(planned)* | Search & list products with pagination | No |
-| `GET` | `/api/v1/products/:id` *(planned)* | Get product detail by ID | No |
+| `GET` | `/api/v1/products` | Search & list products with pagination (`search`, `category_id`, `page`, `limit`) | No |
+| `GET` | `/api/v1/products/:product_id` | Get product detail by ID | No |
 | `POST` | `/api/v1/admin/products` | Create a new product (validates category, auto-generates SKU) | ✅ JWT + Admin |
-| `PUT` | `/api/v1/admin/products/:id` *(planned)* | Update product details | ✅ JWT + Admin |
-| `DELETE` | `/api/v1/admin/products/:id` *(planned)* | Soft-delete a product | ✅ JWT + Admin |
-| `PATCH` | `/api/v1/admin/products/:id/stock` *(planned)* | Manual stock adjustment (restock) | ✅ JWT + Admin |
+| `PUT` | `/api/v1/admin/products/:product_id` | Update product details (name, price, stock, is_active, etc.) | ✅ JWT + Admin |
+| `DELETE` | `/api/v1/admin/products/:product_id` | Soft-delete a product (`is_active = false`) | ✅ JWT + Admin |
+| `PATCH` | `/api/v1/admin/products/:product_id/adjust-stock` | Set absolute stock value (restock operation) | ✅ JWT + Admin |
 
-### Cart & Checkout *(Planned)*
+### Cart
 
 | Method | Endpoint | Description | Auth Required |
 |---|---|---|---|
-| `GET` | `/api/v1/cart` | View cart items (enriched with live product data) | ✅ JWT |
-| `POST` | `/api/v1/cart/items` | Add a product to cart | ✅ JWT |
-| `PUT` | `/api/v1/cart/items/:product_id` | Update item quantity | ✅ JWT |
-| `DELETE` | `/api/v1/cart/items/:product_id` | Remove a single item from cart | ✅ JWT |
+| `GET` | `/api/v1/cart` | View cart (enriched with live product data, grand total, unavailable items) | ✅ JWT |
+| `POST` | `/api/v1/cart` | Add a product to cart (increments if already exists) | ✅ JWT |
+| `PATCH` | `/api/v1/cart/:product_id` | Update item quantity (quantity ≤ 0 auto-removes the item) | ✅ JWT |
+| `DELETE` | `/api/v1/cart/:product_id` | Remove a single item from cart | ✅ JWT |
 | `DELETE` | `/api/v1/cart` | Clear entire cart | ✅ JWT |
+
+### Checkout & Orders *(Planned)*
+
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|---|
 | `POST` | `/api/v1/checkout` | Convert Redis cart to MySQL order (ACID transaction) | ✅ JWT |
 | `GET` | `/api/v1/orders` | List current user's order history | ✅ JWT |
 | `GET` | `/api/v1/orders/:id` | Get order detail / invoice | ✅ JWT |
@@ -349,10 +433,10 @@ Every module that exposes capabilities to other modules **must** do so exclusive
 ```json
 {
   "success": false,
-  "message": "validation failed",
+  "message": "Validation Failed",
   "error": {
-    "email": "email must be a valid email address",
-    "password": "password must be at least 6 characters"
+    "email": "must be a valid email",
+    "password": "must be at least 6 characters long"
   }
 }
 ```
@@ -361,7 +445,7 @@ Every module that exposes capabilities to other modules **must** do so exclusive
 ```json
 {
   "success": false,
-  "message": "email already registered"
+  "message": "Email Already Exists"
 }
 ```
 
@@ -392,7 +476,41 @@ Every module that exposes capabilities to other modules **must** do so exclusive
 ```json
 {
   "success": false,
-  "message": "wrong email or password"
+  "message": "Wrong Email or Password"
+}
+```
+
+---
+
+### `GET /api/v1/products`
+
+**Query Params:** `?search=keyboard&category_id=1&page=1&limit=10`
+
+**200 OK:**
+```json
+{
+  "success": true,
+  "message": "Product fetched successfully",
+  "data": {
+    "data": [
+      {
+        "id": 12,
+        "category_id": 1,
+        "name": "Mechanical Keyboard 60%",
+        "slug": "mechanical-keyboard-60",
+        "description": "Hot-swappable switches, RGB backlight, compact 60% layout",
+        "price": 750000,
+        "stock": 50,
+        "sku": "KBD-60-001",
+        "is_active": true
+      }
+    ],
+    "meta": {
+      "page": 1,
+      "limit": 10,
+      "total": 1
+    }
+  }
 }
 ```
 
@@ -437,7 +555,7 @@ Every module that exposes capabilities to other modules **must** do so exclusive
 ```json
 {
   "success": false,
-  "message": "category not found"
+  "message": "Category Not Found"
 }
 ```
 
@@ -445,9 +563,90 @@ Every module that exposes capabilities to other modules **must** do so exclusive
 ```json
 {
   "success": false,
-  "message": "forbidden: admin access required"
+  "message": "Forbidden"
 }
 ```
+
+---
+
+### `PATCH /api/v1/admin/products/:product_id/adjust-stock`
+
+> Requires header: `Authorization: Bearer <admin_token>`
+
+**Request Body:**
+```json
+{
+  "stock": 100
+}
+```
+
+**200 OK:**
+```json
+{
+  "success": true,
+  "message": "Stock adjusted successfully"
+}
+```
+
+---
+
+### `POST /api/v1/cart`
+
+> Requires header: `Authorization: Bearer <token>`
+
+**Request Body:**
+```json
+{
+  "product_id": 12,
+  "quantity": 2
+}
+```
+
+**200 OK:**
+```json
+{
+  "success": true,
+  "message": "item added to cart successfully"
+}
+```
+
+**404 Not Found (product doesn't exist or inactive):**
+```json
+{
+  "success": false,
+  "message": "Product Not Found"
+}
+```
+
+---
+
+### `GET /api/v1/cart`
+
+> Requires header: `Authorization: Bearer <token>`
+
+**200 OK:**
+```json
+{
+  "success": true,
+  "message": "cart detail retrieved successfully",
+  "data": {
+    "items": [
+      {
+        "product_id": 12,
+        "name": "Mechanical Keyboard 60%",
+        "price": 750000,
+        "quantity": 2,
+        "subtotal": 1500000,
+        "stock_available": 50
+      }
+    ],
+    "unavailable_items": [],
+    "grand_total": 1500000
+  }
+}
+```
+
+> `unavailable_items` contains entries where the product was removed from the catalog after being added to cart — the cart does not auto-clean stale entries, allowing users to review before retrying.
 
 ---
 
@@ -469,7 +668,7 @@ Every module that exposes capabilities to other modules **must** do so exclusive
 ```json
 {
   "success": false,
-  "message": "unauthorized"
+  "message": "Unauthorized"
 }
 ```
 
@@ -578,7 +777,7 @@ The server starts at `http://0.0.0.0:8080` (or your configured `APP_HOST:APP_POR
 
 **Verify the server is running:**
 ```bash
-curl -s http://localhost:8080/api/v1/categories | jq .
+curl -s http://localhost:8080/api/v1/products | jq .
 ```
 
 ---
@@ -617,22 +816,44 @@ go test ./internal/... -v -race
 
 This is a deliberate architectural decision, not an oversight.
 
-In a Modular Monolith, each module (`user`, `product`, `order`) represents an independent **Bounded Context**. Database-level FK constraints between modules create tight coupling at the infrastructure layer, directly conflicting with the modular design goal:
+In a Modular Monolith, each module (`user`, `product`, `cart`, `order`) represents an independent **Bounded Context**. Database-level FK constraints between modules create tight coupling at the infrastructure layer, directly conflicting with the modular design goal:
 
 - `products.category_id` is a **logical reference** (plain `uint`), not a GORM association field. GORM only auto-generates FK constraints when you define a struct association (e.g., `Category Category`). Since we deliberately omit that field, no FK constraint is ever created — confirmed by reviewing every entity struct in the codebase.
 - `order_items.product_id` is a **cross-module logical reference** — `OrderItem` will never `JOIN` against `products`. Instead, it stores a **snapshot** of `product_name` and `price` at checkout time, making invoices historically immutable regardless of future catalog changes.
 
 **Path to Microservices:** When the time comes to split modules into separate services with independent databases, the only required change is replacing Go interface calls (e.g., `productService.GetByID()`) with gRPC/HTTP calls. The database schema requires zero restructuring.
 
+### Cart N+1 Prevention Pattern
+
+The `GetCartDetail` flow is deliberately designed to avoid N+1 queries:
+
+1. `HGETALL cart:{userID}` — one Redis call returns the full `map[product_id → quantity]`
+2. All `product_id` keys are collected into a slice in-memory
+3. A **single** `FindByIDs(ctx, []uint{...})` repository call executes one `WHERE id IN (...)` query against MySQL
+4. Product enrichment and `grand_total` computation are done in-memory
+
+This pattern scales linearly regardless of cart size — no per-item DB round trips.
+
 ### Checkout Race Condition Prevention
 
-The planned checkout flow uses `SELECT ... FOR UPDATE` (row-level pessimistic locking) via GORM's `clause.Locking` within a single MySQL transaction:
+The planned checkout flow uses `SELECT ... FOR UPDATE` (row-level pessimistic locking) via GORM's `clause.Locking` within a single MySQL transaction. This is already implemented in `ProductRepository.DecreaseStock`:
 
 ```go
 tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&product, productID)
 ```
 
-When two concurrent checkout requests compete for the same product with `stock = 1`, only one goroutine acquires the row lock. The second waits, then fails the stock check and rolls back the entire transaction. The Redis cart is **not deleted** on rollback — the user can retry seamlessly without re-adding items.
+When two concurrent checkout requests compete for the same product with `stock = 1`, only one goroutine acquires the row lock. The second waits, then fails the stock check (`ErrInsufficientStock`) and rolls back the entire transaction. The Redis cart is **not deleted** on rollback — the user can retry seamlessly without re-adding items.
+
+### Cross-Module Contract Pattern
+
+Each module exposes capabilities to other modules exclusively via a `contract.go` file:
+
+```
+internal/product/usecase/contract.go  → ProductService{ GetByProductID, GetProductsByIDs, DecreaseStock }
+internal/cart/usecase/contract.go     → CartService{ GetRawCart, ClearCart }
+```
+
+This is the single, auditable boundary between modules — directly analogous to a service API surface in a microservices architecture. No module ever imports another module's `entity`, `repository`, or concrete `usecase` struct.
 
 ### Transaction Abstraction (`pkg/transaction`)
 
