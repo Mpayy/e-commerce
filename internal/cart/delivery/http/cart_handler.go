@@ -7,4 +7,5 @@ type CartHandler interface {
 	UpdateItem(ctx *gin.Context)
 	RemoveItem(ctx *gin.Context)
 	GetCart(ctx *gin.Context)
+	ClearCart(ctx *gin.Context)
 }

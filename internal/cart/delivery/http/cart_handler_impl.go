@@ -151,3 +151,19 @@ func (h *CartHandlerImpl) GetCart(ctx *gin.Context) {
 
 	response.ResponseSuccess(ctx, http.StatusOK, "cart detail retrieved successfully", cartDetail)
 }
+
+func (h *CartHandlerImpl) ClearCart(ctx *gin.Context) {
+	auth := middleware.GetAuthUser(ctx)
+	if auth == nil {
+		response.ResponseError(ctx, http.StatusUnauthorized, apperror.ErrUnauthorized.Error(), nil)
+		return
+	}
+
+	err := h.CartUsecase.ClearCart(ctx.Request.Context(), auth.UserID)
+	if err != nil {
+		response.ResponseError(ctx, http.StatusInternalServerError, apperror.ErrInternalServer.Error(), nil)
+		return
+	}
+
+	response.ResponseSuccess(ctx, http.StatusOK, "cart cleared successfully", nil)
+}
