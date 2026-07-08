@@ -40,6 +40,7 @@ func (r *Router) SetupRouter() {
 	protected.GET("/profile", r.UserHandler.GetProfile)
 	protected.DELETE("/logout", r.UserHandler.Logout)
 	protected.POST("/cart", r.CartHandler.AddItem)
+	protected.GET("/cart", r.CartHandler.GetCart)
 	protected.PATCH("/cart/:product_id", r.CartHandler.UpdateItem)
 	protected.DELETE("/cart/:product_id", r.CartHandler.RemoveItem)
 
