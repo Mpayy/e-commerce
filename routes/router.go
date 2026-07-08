@@ -1,10 +1,10 @@
 package routes
 
 import (
-	"github.com/Mpayy/e-commerce/internal/middleware"
-	userhttp "github.com/Mpayy/e-commerce/internal/user/delivery/http"
-	producthttp "github.com/Mpayy/e-commerce/internal/product/delivery/http"
 	carthttp "github.com/Mpayy/e-commerce/internal/cart/delivery/http"
+	"github.com/Mpayy/e-commerce/internal/middleware"
+	producthttp "github.com/Mpayy/e-commerce/internal/product/delivery/http"
+	userhttp "github.com/Mpayy/e-commerce/internal/user/delivery/http"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
@@ -39,10 +39,12 @@ func (r *Router) SetupRouter() {
 
 	protected.GET("/profile", r.UserHandler.GetProfile)
 	protected.DELETE("/logout", r.UserHandler.Logout)
+
 	protected.POST("/cart", r.CartHandler.AddItem)
 	protected.GET("/cart", r.CartHandler.GetCart)
 	protected.PATCH("/cart/:product_id", r.CartHandler.UpdateItem)
 	protected.DELETE("/cart/:product_id", r.CartHandler.RemoveItem)
+	protected.DELETE("/cart", r.CartHandler.ClearCart)
 
 	adminOnly := protected.Group("/admin", r.AdminMiddleware.AdminMiddleware())
 	adminOnly.POST("/categories", r.CategoryHandler.Create)

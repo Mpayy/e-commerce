@@ -181,3 +181,49 @@ func (u *CartUsecaseImpl) GetCartDetail(ctx context.Context, userID uint) (*dto.
 		GrandTotal: grandTotal,
 	}, nil
 }
+
+// ═══════════════════════════════════════════════════════
+// Consumption By Other Services (contract.go)
+// ═══════════════════════════════════════════════════════
+
+func (u *CartUsecaseImpl) GetRawCart(ctx context.Context, userID uint) (map[uint]int, error) {
+	u.Log.WithFields(logrus.Fields{
+		"user_id": userID,
+	}).Info("Getting raw cart")
+
+	cart, err := u.CartRedisRepository.GetCart(ctx, userID)
+	if err != nil {
+		u.Log.WithFields(logrus.Fields{
+			"user_id": userID,
+			"error":   err,
+		}).Error("Failed to get raw cart")
+		return nil, apperror.ErrInternalServer
+	}
+
+	u.Log.WithFields(logrus.Fields{
+		"user_id": userID,
+	}).Debug("Raw cart retrieved successfully")
+
+	return cart, nil
+}
+
+func (u *CartUsecaseImpl) ClearCart(ctx context.Context, userID uint) error {
+	u.Log.WithFields(logrus.Fields{
+		"user_id": userID,
+	}).Info("Clearing cart")
+
+	err := u.CartRedisRepository.ClearCart(ctx, userID)
+	if err != nil {
+		u.Log.WithFields(logrus.Fields{
+			"user_id": userID,
+			"error":   err,
+		}).Error("Failed to clear cart")
+		return apperror.ErrInternalServer
+	}
+
+	u.Log.WithFields(logrus.Fields{
+		"user_id": userID,
+	}).Debug("Cart cleared successfully")
+
+	return nil
+}
