@@ -42,6 +42,8 @@ func (r *OrderRepositoryImpl) CreateOrderWithItems(ctx context.Context, order *e
 		return err
 	}
 
+	order.InvoiceNumber = invoiceNumber
+
 	for i := range items {
 		items[i].OrderID = order.ID
 	}

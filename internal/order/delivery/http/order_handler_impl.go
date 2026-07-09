@@ -10,14 +10,16 @@ import (
 	"github.com/Mpayy/e-commerce/pkg/apperror"
 	"github.com/Mpayy/e-commerce/pkg/response"
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 type OrderHandlerImpl struct {
 	OrderUsecase usecase.OrderUsecase
+	Log          *logrus.Logger
 }
 
-func NewOrderHandler(orderUsecase usecase.OrderUsecase) OrderHandler {
-	return &OrderHandlerImpl{OrderUsecase: orderUsecase}
+func NewOrderHandler(orderUsecase usecase.OrderUsecase, log *logrus.Logger) OrderHandler {
+	return &OrderHandlerImpl{OrderUsecase: orderUsecase, Log: log}
 }
 
 func (h *OrderHandlerImpl) Checkout(ctx *gin.Context) {
@@ -45,7 +47,7 @@ func (h *OrderHandlerImpl) Checkout(ctx *gin.Context) {
 		}
 	}
 
-	response.ResponseSuccess(ctx, http.StatusOK, "Checkout successful", checkOutResponse)
+	response.ResponseSuccess(ctx, http.StatusCreated, "Checkout successful", checkOutResponse)
 }
 
 func (h *OrderHandlerImpl) GetHistory(ctx *gin.Context) {
@@ -76,8 +78,10 @@ func (h *OrderHandlerImpl) GetDetail(ctx *gin.Context) {
 		response.ResponseError(ctx, http.StatusBadRequest, "Order ID is required", nil)
 		return
 	}
+	
 	orderID, err := strconv.Atoi(orderIDStr)
 	if err != nil {
+		h.Log.WithField("error", err).Warn("Invalid order ID")
 		response.ResponseError(ctx, http.StatusBadRequest, "Invalid order ID", nil)
 		return
 	}
