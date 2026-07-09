@@ -77,10 +77,6 @@ func (u *OrderUsecaseImpl) Checkout(ctx context.Context, userID uint) (*dto.Orde
 				return apperror.ErrProductNotFound
 			}
 
-			if qty > product.Stock {
-				return apperror.ErrInsufficientStock
-			}
-
 			err := u.ProductService.DecreaseStock(ctx, product.ID, qty)
 			if err != nil {
 				return err
@@ -105,7 +101,7 @@ func (u *OrderUsecaseImpl) Checkout(ctx context.Context, userID uint) (*dto.Orde
 		order := orderentity.Order{
 			UserID:      userID,
 			TotalAmount: grandTotal,
-			Status:      "PENDING",
+			Status:      "PAID",
 		}
 
 		err := u.OrderRepository.CreateOrderWithItems(ctx, &order, orderItems)
