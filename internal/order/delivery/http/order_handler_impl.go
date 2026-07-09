@@ -3,6 +3,7 @@ package orderhttp
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/Mpayy/e-commerce/internal/middleware"
 	"github.com/Mpayy/e-commerce/internal/order/usecase"
@@ -45,4 +46,53 @@ func (h *OrderHandlerImpl) Checkout(ctx *gin.Context) {
 	}
 
 	response.ResponseSuccess(ctx, http.StatusOK, "Checkout successful", checkOutResponse)
+}
+
+func (h *OrderHandlerImpl) GetHistory(ctx *gin.Context) {
+	auth := middleware.GetAuthUser(ctx)
+	if auth == nil {
+		response.ResponseError(ctx, http.StatusUnauthorized, apperror.ErrUnauthorized.Error(), nil)
+		return
+	}
+
+	orders, err := h.OrderUsecase.GetOrderHistory(ctx.Request.Context(), auth.UserID)
+	if err != nil {
+		response.ResponseError(ctx, http.StatusInternalServerError, apperror.ErrInternalServer.Error(), nil)
+		return
+	}
+
+	response.ResponseSuccess(ctx, http.StatusOK, "Order history retrieved successfully", orders)
+}
+
+func (h *OrderHandlerImpl) GetDetail(ctx *gin.Context) {
+	auth := middleware.GetAuthUser(ctx)
+	if auth == nil {
+		response.ResponseError(ctx, http.StatusUnauthorized, apperror.ErrUnauthorized.Error(), nil)
+		return
+	}
+
+	orderIDStr := ctx.Param("order_id")
+	if orderIDStr == "" {
+		response.ResponseError(ctx, http.StatusBadRequest, "Order ID is required", nil)
+		return
+	}
+	orderID, err := strconv.Atoi(orderIDStr)
+	if err != nil {
+		response.ResponseError(ctx, http.StatusBadRequest, "Invalid order ID", nil)
+		return
+	}
+
+	order, err := h.OrderUsecase.GetOrderDetail(ctx.Request.Context(), auth.UserID, uint(orderID))
+	if err != nil {
+		switch {
+		case errors.Is(err, apperror.ErrOrderNotFound):
+			response.ResponseError(ctx, http.StatusNotFound, apperror.ErrOrderNotFound.Error(), nil)
+			return
+		default:
+			response.ResponseError(ctx, http.StatusInternalServerError, apperror.ErrInternalServer.Error(), nil)
+			return
+		}
+	}
+
+	response.ResponseSuccess(ctx, http.StatusOK, "Order detail retrieved successfully", order)
 }

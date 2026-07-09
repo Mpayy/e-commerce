@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 
 	cartusecase "github.com/Mpayy/e-commerce/internal/cart/usecase"
 	"github.com/Mpayy/e-commerce/internal/order/dto"
@@ -32,7 +33,7 @@ func NewOrderUsecase(orderRepository repository.OrderRepository, trasaction tran
 	}
 }
 
-func (u *OrderUsecaseImpl) Checkout(ctx context.Context, userID uint) (*dto.CheckoutResponse, error) {
+func (u *OrderUsecaseImpl) Checkout(ctx context.Context, userID uint) (*dto.OrderResponse, error) {
 	u.Log.WithField("user_id", userID).Debug("Attempting to checkout")
 
 	rawCart, err := u.CartService.GetRawCart(ctx, userID)
@@ -152,11 +153,112 @@ func (u *OrderUsecaseImpl) Checkout(ctx context.Context, userID uint) (*dto.Chec
 		"items":        len(responseItems),
 	}).Debug("Checkout successful")
 
-	return &dto.CheckoutResponse{
+	return &dto.OrderResponse{
 		OrderID:       finalizedOrder.ID,
 		InvoiceNumber: finalizedOrder.InvoiceNumber,
 		TotalAmount:   finalizedOrder.TotalAmount,
 		Status:        finalizedOrder.Status,
+		Items:         responseItems,
+	}, nil
+}
+
+func (u *OrderUsecaseImpl) GetOrderHistory(ctx context.Context, userID uint) (*dto.OrderHistoryResponse, error) {
+	orders, items, err := u.OrderRepository.FindByUserID(ctx, userID)
+	if err != nil {
+		u.Log.WithFields(logrus.Fields{
+			"user_id": userID,
+			"error":   err,
+		}).Error("Failed to get order history")
+		return nil, apperror.ErrInternalServer
+	}
+
+	orderMap := make(map[uint][]dto.OrderItemResponse)
+	for _, item := range items {
+		orderMap[item.OrderID] = append(orderMap[item.OrderID], dto.OrderItemResponse{
+			ProductID:   item.ProductID,
+			ProductName: item.ProductName,
+			Price:       item.Price,
+			Quantity:    item.Quantity,
+			Subtotal:    item.Subtotal,
+		})
+	}
+
+	responseOrders := []dto.OrderResponse{}
+	for _, order := range orders {
+		itemForThisOrder := orderMap[order.ID]
+
+		if itemForThisOrder == nil {
+			itemForThisOrder = []dto.OrderItemResponse{}
+		}
+
+		responseOrders = append(responseOrders, dto.OrderResponse{
+			OrderID:       order.ID,
+			InvoiceNumber: order.InvoiceNumber,
+			TotalAmount:   order.TotalAmount,
+			Status:        order.Status,
+			Items:         itemForThisOrder,
+		})
+	}
+
+	u.Log.WithFields(logrus.Fields{
+		"user_id":     userID,
+		"order_count": len(responseOrders),
+	}).Debug("Order history retrieved successfully")
+
+	return &dto.OrderHistoryResponse{
+		Orders: responseOrders,
+	}, nil
+}
+
+func (u *OrderUsecaseImpl) GetOrderDetail(ctx context.Context, userID uint, orderID uint) (*dto.OrderResponse, error) {
+	order, err := u.OrderRepository.FindByID(ctx, orderID)
+	if err != nil {
+		if errors.Is(err, apperror.ErrNotFound) {
+			return nil, apperror.ErrOrderNotFound
+		}
+		u.Log.WithFields(logrus.Fields{
+			"user_id":  userID,
+			"order_id": orderID,
+			"error":    err,
+		}).Error("Failed to get order detail")
+		return nil, apperror.ErrInternalServer
+	}
+
+	if order.UserID != userID {
+		return nil, apperror.ErrOrderNotFound
+	}
+
+	items, err := u.OrderRepository.FindItemsByOrderID(ctx, orderID)
+	if err != nil {
+		u.Log.WithFields(logrus.Fields{
+			"user_id":  userID,
+			"order_id": orderID,
+			"error":    err,
+		}).Error("Failed to get order detail")
+		return nil, apperror.ErrInternalServer
+	}
+
+	responseItems := []dto.OrderItemResponse{}
+	for _, item := range items {
+		responseItems = append(responseItems, dto.OrderItemResponse{
+			ProductID:   item.ProductID,
+			ProductName: item.ProductName,
+			Price:       item.Price,
+			Quantity:    item.Quantity,
+			Subtotal:    item.Subtotal,
+		})
+	}
+
+	u.Log.WithFields(logrus.Fields{
+		"user_id":  userID,
+		"order_id": orderID,
+	}).Debug("Order detail retrieved successfully")
+
+	return &dto.OrderResponse{
+		OrderID:       order.ID,
+		InvoiceNumber: order.InvoiceNumber,
+		TotalAmount:   order.TotalAmount,
+		Status:        order.Status,
 		Items:         responseItems,
 	}, nil
 }

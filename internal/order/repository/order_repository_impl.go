@@ -63,7 +63,7 @@ func (r *OrderRepositoryImpl) FindByUserID(ctx context.Context, userID uint) ([]
 	}
 
 	if len(orders) == 0 {
-		return []entity.Order{}, []entity.OrderItem{}, nil
+		return orders, items, nil
 	}
 
 	var orderIDs []uint

@@ -1,6 +1,6 @@
 package dto
 
-type CheckoutResponse struct {
+type OrderResponse struct {
 	OrderID       uint                `json:"order_id"`
 	InvoiceNumber string              `json:"invoice_number"`
 	TotalAmount   float64             `json:"total_amount"`
@@ -14,4 +14,8 @@ type OrderItemResponse struct {
 	Price       float64 `json:"price"`
 	Quantity    int     `json:"quantity"`
 	Subtotal    float64 `json:"subtotal"`
+}
+
+type OrderHistoryResponse struct {
+	Orders []OrderResponse `json:"orders"`
 }
