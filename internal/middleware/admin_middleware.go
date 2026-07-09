@@ -29,7 +29,7 @@ func (m *AdminMiddleware) AdminMiddleware() gin.HandlerFunc {
 		}
 
 		if auth.Role != "admin" {
-			response.ResponseError(ctx, http.StatusForbidden, "forbidden: admin access required", nil)
+			response.ResponseError(ctx, http.StatusForbidden, "admin access required", nil)
 			return
 		}
 

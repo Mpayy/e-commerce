@@ -31,6 +31,8 @@ var (
 	ErrValidationFailed     = errors.New("Validation Failed")
 	ErrInsufficientStock    = errors.New("Insufficient Stock")
 	ErrInvalidQuantity      = errors.New("Invalid Quantity")
+
+	ErrCartEmpty = errors.New("Cart is Empty")
 )
 
 func ExtractValidationErrors(err error) map[string]string {

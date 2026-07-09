@@ -1,4 +1,4 @@
-package cartusecase
+package usecase
 
 import (
 	"context"

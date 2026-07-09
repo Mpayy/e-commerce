@@ -1,4 +1,4 @@
-package cartrepository
+package repository
 
 import (
 	"context"
