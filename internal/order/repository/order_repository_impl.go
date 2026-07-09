@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/Mpayy/e-commerce/internal/order/entity"
 	"github.com/Mpayy/e-commerce/pkg/apperror"
@@ -27,6 +28,16 @@ func (r *OrderRepositoryImpl) GetTx(ctx context.Context) *gorm.DB {
 
 func (r *OrderRepositoryImpl) CreateOrderWithItems(ctx context.Context, order *entity.Order, items []entity.OrderItem) error {
 	err := r.GetTx(ctx).Create(order).Error
+	if err != nil {
+		return err
+	}
+
+	invoiceNumber := fmt.Sprintf("INV-%s-%06d",
+		order.CreatedAt.Format("20060102"),
+		order.ID,
+	)
+
+	err = r.GetTx(ctx).Model(order).Update("invoice_number", invoiceNumber).Error
 	if err != nil {
 		return err
 	}

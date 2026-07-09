@@ -17,6 +17,5 @@ type CartItemResponse struct {
 
 type CartUnavailableItemResp struct {
 	ProductID uint   `json:"product_id"`
-	Quantity  int    `json:"quantity"`
 	Message   string `json:"message"`
 }

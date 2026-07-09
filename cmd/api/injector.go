@@ -9,6 +9,9 @@ import (
 	cartrepository "github.com/Mpayy/e-commerce/internal/cart/repository"
 	cartusecase "github.com/Mpayy/e-commerce/internal/cart/usecase"
 	"github.com/Mpayy/e-commerce/internal/middleware"
+	orderhttp "github.com/Mpayy/e-commerce/internal/order/delivery/http"
+	orderrepository "github.com/Mpayy/e-commerce/internal/order/repository"
+	orderusecase "github.com/Mpayy/e-commerce/internal/order/usecase"
 	producthttp "github.com/Mpayy/e-commerce/internal/product/delivery/http"
 	productrepository "github.com/Mpayy/e-commerce/internal/product/repository"
 	productusecase "github.com/Mpayy/e-commerce/internal/product/usecase"
@@ -49,6 +52,12 @@ var cartSet = wire.NewSet(
 	carthttp.NewCartHandler,
 )
 
+var orderSet = wire.NewSet(
+	orderrepository.NewOrderRepository,
+	orderusecase.NewOrderUsecase,
+	orderhttp.NewOrderHandler,
+)
+
 var middlewareSet = wire.NewSet(
 	middleware.NewAuthMiddleware,
 	middleware.NewAdminMiddleware,
@@ -80,6 +89,9 @@ func InitializeApplication() *Application {
 
 		// Cart
 		cartSet,
+
+		// Order
+		orderSet,
 
 		// Middleware
 		middlewareSet,

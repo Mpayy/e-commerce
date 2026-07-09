@@ -3,6 +3,7 @@ package routes
 import (
 	carthttp "github.com/Mpayy/e-commerce/internal/cart/delivery/http"
 	"github.com/Mpayy/e-commerce/internal/middleware"
+	orderhttp "github.com/Mpayy/e-commerce/internal/order/delivery/http"
 	producthttp "github.com/Mpayy/e-commerce/internal/product/delivery/http"
 	userhttp "github.com/Mpayy/e-commerce/internal/user/delivery/http"
 	"github.com/gin-gonic/gin"
@@ -16,12 +17,23 @@ type Router struct {
 	UserHandler     userhttp.UserHandler
 	CategoryHandler producthttp.CategoryHandler
 	ProductHandler  producthttp.ProductHandler
+	OrderHandler    orderhttp.OrderHandler
 	CartHandler     carthttp.CartHandler
 	Log             *logrus.Logger
 }
 
-func NewRouter(app *gin.Engine, authMiddleware *middleware.AuthMiddleware, adminMiddleware *middleware.AdminMiddleware, userHandler userhttp.UserHandler, categoryHandler producthttp.CategoryHandler, productHandler producthttp.ProductHandler, cartHandler carthttp.CartHandler, log *logrus.Logger) *Router {
-	return &Router{App: app, AuthMiddleware: authMiddleware, AdminMiddleware: adminMiddleware, UserHandler: userHandler, CategoryHandler: categoryHandler, ProductHandler: productHandler, CartHandler: cartHandler, Log: log}
+func NewRouter(app *gin.Engine, authMiddleware *middleware.AuthMiddleware, adminMiddleware *middleware.AdminMiddleware, userHandler userhttp.UserHandler, categoryHandler producthttp.CategoryHandler, productHandler producthttp.ProductHandler, orderHandler orderhttp.OrderHandler, cartHandler carthttp.CartHandler, log *logrus.Logger) *Router {
+	return &Router{
+		App:             app,
+		AuthMiddleware:  authMiddleware,
+		AdminMiddleware: adminMiddleware,
+		UserHandler:     userHandler,
+		CategoryHandler: categoryHandler,
+		ProductHandler:  productHandler,
+		OrderHandler:    orderHandler,
+		CartHandler:     cartHandler,
+		Log:             log,
+	}
 }
 
 func (r *Router) SetupRouter() {
@@ -45,6 +57,9 @@ func (r *Router) SetupRouter() {
 	protected.PATCH("/cart/:product_id", r.CartHandler.UpdateItem)
 	protected.DELETE("/cart/:product_id", r.CartHandler.RemoveItem)
 	protected.DELETE("/cart", r.CartHandler.ClearCart)
+
+	order := protected.Group("/orders")
+	order.POST("/checkout", r.OrderHandler.Checkout)
 
 	adminOnly := protected.Group("/admin", r.AdminMiddleware.AdminMiddleware())
 	adminOnly.POST("/categories", r.CategoryHandler.Create)

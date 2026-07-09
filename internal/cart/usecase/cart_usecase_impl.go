@@ -1,4 +1,4 @@
-package cartusecase
+package usecase
 
 import (
 	"context"
@@ -150,10 +150,9 @@ func (u *CartUsecaseImpl) GetCartDetail(ctx context.Context, userID uint) (*dto.
 	if err != nil {
 		if errors.Is(err, apperror.ErrProductNotFound) {
 			var unavailableItems []dto.CartUnavailableItemResp
-			for pID, qty := range cartMap {
+			for pID := range cartMap {
 				unavailableItems = append(unavailableItems, dto.CartUnavailableItemResp{
 					ProductID: pID,
-					Quantity:  qty,
 					Message:   "Produk sudah tidak tersedia atau dihapus",
 				})
 			}
@@ -190,11 +189,10 @@ func (u *CartUsecaseImpl) GetCartDetail(ctx context.Context, userID uint) (*dto.
 	}
 
 	var unavailableItems []dto.CartUnavailableItemResp
-	for redisProductID, qty := range cartMap {
+	for redisProductID := range cartMap {
 		if !foundProductsInDB[redisProductID] {
 			unavailableItems = append(unavailableItems, dto.CartUnavailableItemResp{
 				ProductID: redisProductID,
-				Quantity:  qty,
 				Message:   "Product is not available",
 			})
 		}
