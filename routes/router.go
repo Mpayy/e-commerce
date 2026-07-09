@@ -52,14 +52,17 @@ func (r *Router) SetupRouter() {
 	protected.GET("/profile", r.UserHandler.GetProfile)
 	protected.DELETE("/logout", r.UserHandler.Logout)
 
-	protected.POST("/cart", r.CartHandler.AddItem)
-	protected.GET("/cart", r.CartHandler.GetCart)
-	protected.PATCH("/cart/:product_id", r.CartHandler.UpdateItem)
-	protected.DELETE("/cart/:product_id", r.CartHandler.RemoveItem)
-	protected.DELETE("/cart", r.CartHandler.ClearCart)
+	cart := protected.Group("/cart")
+	cart.POST("", r.CartHandler.AddItem)
+	cart.GET("", r.CartHandler.GetCart)
+	cart.PATCH("/:product_id", r.CartHandler.UpdateItem)
+	cart.DELETE("/:product_id", r.CartHandler.RemoveItem)
+	cart.DELETE("", r.CartHandler.ClearCart)
 
 	order := protected.Group("/orders")
-	order.POST("/checkout", r.OrderHandler.Checkout)
+	order.POST("", r.OrderHandler.Checkout)
+	order.GET("", r.OrderHandler.GetHistory)
+	order.GET("/:order_id", r.OrderHandler.GetDetail)
 
 	adminOnly := protected.Group("/admin", r.AdminMiddleware.AdminMiddleware())
 	adminOnly.POST("/categories", r.CategoryHandler.Create)

@@ -6,4 +6,6 @@ import (
 
 type OrderHandler interface {
 	Checkout(ctx *gin.Context)
+	GetHistory(ctx *gin.Context)
+	GetDetail(ctx *gin.Context)
 }
