@@ -55,7 +55,7 @@ func InitializeApplication() *Application {
 	cartRedisRepository := repository3.NewCartRedisRepository(client)
 	cartUsecaseImpl := usecase2.NewCartUsecase(cartRedisRepository, productUsecaseImpl, logger)
 	orderUsecase := usecase3.NewOrderUsecase(orderRepository, transactionTransaction, logger, cartUsecaseImpl, productUsecaseImpl)
-	orderHandler := orderhttp.NewOrderHandler(orderUsecase)
+	orderHandler := orderhttp.NewOrderHandler(orderUsecase, logger)
 	cartHandler := carthttp.NewCartHandler(cartUsecaseImpl, cartUsecaseImpl, validate, logger)
 	router := routes.NewRouter(engine, authMiddleware, adminMiddleware, userHandler, categoryHandler, productHandler, orderHandler, cartHandler, logger)
 	application := NewApplication(app, router)
