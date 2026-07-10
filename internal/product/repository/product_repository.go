@@ -6,6 +6,10 @@ import (
 	"github.com/Mpayy/e-commerce/internal/product/entity"
 )
 
+//go:generate mockery
+
+//mockery:generate: true
+//mockery:filename: ../mocks/mock_product_repository.go
 type ProductRepository interface {
 	Create(ctx context.Context, product *entity.Product) error
 	FindByID(ctx context.Context, id uint) (*entity.Product, error)
