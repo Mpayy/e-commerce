@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -14,18 +13,12 @@ import (
 )
 
 func main() {
-	shouldSeed := flag.Bool("seed", false, "Run database seeder if value is true")
-	flag.Parse()
 
 	application := InitializeApplication()
 	app := application.App
 	router := application.Router
 
-	if *shouldSeed {
-		seeder.RunSeeder(app.Log, app.DB)
-		app.Log.Info("Server is shutting down after seeding completed.")
-		return
-	}
+	seeder.RunSeeder(app.Log, app.DB)
 
 	router.SetupRouter()
 
