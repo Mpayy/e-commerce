@@ -36,11 +36,6 @@ func (u *CartUsecaseImpl) AddToCart(ctx context.Context, userID uint, productID 
 		return err
 	}
 
-	// TODO: ini di comment karena stock akan dicek saat checkout / soft warning
-	// if product.Stock < quantity {
-	// 	return apperror.ErrInsufficientStock
-	// }
-
 	err = u.CartRedisRepository.AddItem(ctx, userID, product.ID, quantity)
 	if err != nil {
 		u.Log.WithFields(logrus.Fields{

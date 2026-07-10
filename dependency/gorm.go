@@ -20,15 +20,28 @@ func NewGorm(config *viper.Viper, log *logrus.Logger) *gorm.DB {
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", username, password, host, port, database)
 
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.New(&logrusWriter{Log: log}, logger.Config{
-			SlowThreshold:             time.Second * 5,
-			Colorful:                  false,
-			IgnoreRecordNotFoundError: true,
-			ParameterizedQueries:      true,
-			LogLevel:                  logger.Info,
-		}),
-	})
+	var db *gorm.DB
+	var err error
+
+	for i := range 10 {
+		db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
+			Logger: logger.New(&logrusWriter{Log: log}, logger.Config{
+				SlowThreshold:             time.Second * 5,
+				Colorful:                  false,
+				IgnoreRecordNotFoundError: true,
+				ParameterizedQueries:      true,
+				LogLevel:                  logger.Info,
+			}),
+		})
+
+		if err != nil {
+			log.Printf("Waiting for database... attempt %d/10", i+1)
+			time.Sleep(3 * time.Second)
+			continue
+		}
+
+		break
+	}
 
 	if err != nil {
 		log.Fatalf("Failed to open database connection: %v", err)
