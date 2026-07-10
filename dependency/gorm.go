@@ -23,14 +23,19 @@ func NewGorm(config *viper.Viper, log *logrus.Logger) *gorm.DB {
 	var db *gorm.DB
 	var err error
 
+	gormLogLevel := logger.Warn
+	if config.GetString("LOG_LEVEL") == "debug" {
+		gormLogLevel = logger.Info
+	}
+
 	for i := range 10 {
 		db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
 			Logger: logger.New(&logrusWriter{Log: log}, logger.Config{
-				SlowThreshold:             time.Second * 5,
+				SlowThreshold:             200 * time.Millisecond,
 				Colorful:                  false,
 				IgnoreRecordNotFoundError: true,
 				ParameterizedQueries:      true,
-				LogLevel:                  logger.Info,
+				LogLevel:                  gormLogLevel,
 			}),
 		})
 

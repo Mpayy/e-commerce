@@ -1,0 +1,17 @@
+.git
+.gitignore
+
+.env
+.env.*
+
+main
+*.exe
+
+*_test.go
+coverage.out
+
+*.md
+docs/
+
+.idea/
+.vscode/

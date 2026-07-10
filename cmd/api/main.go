@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,12 +14,18 @@ import (
 )
 
 func main() {
+	shouldSeed := flag.Bool("seed", false, "Run database seeder if value is true")
+	flag.Parse()
 
 	application := InitializeApplication()
 	app := application.App
 	router := application.Router
 
-	seeder.RunSeeder(app.Log, app.DB)
+	if *shouldSeed {
+		seeder.RunSeeder(app.Log, app.DB)
+		app.Log.Info("Server is shutting down after seeding completed.")
+		return
+	}
 
 	router.SetupRouter()
 
@@ -60,4 +67,9 @@ func main() {
 		app.Log.Fatalf("Failed to close database connection: %v", err)
 	}
 	app.Log.Infof("Database connection closed")
+
+	if err := app.Redis.Close(); err != nil {
+		app.Log.Fatalf("Failed to close redis connection: %v", err)
+	}
+	app.Log.Infof("Redis connection closed")
 }
