@@ -9,15 +9,15 @@ package main
 import (
 	"github.com/Mpayy/e-commerce/dependency"
 	"github.com/Mpayy/e-commerce/internal/cart/delivery/http"
-	repository3 "github.com/Mpayy/e-commerce/internal/cart/repository"
-	usecase2 "github.com/Mpayy/e-commerce/internal/cart/usecase"
+	repository4 "github.com/Mpayy/e-commerce/internal/cart/repository"
+	usecase3 "github.com/Mpayy/e-commerce/internal/cart/usecase"
 	"github.com/Mpayy/e-commerce/internal/middleware"
 	"github.com/Mpayy/e-commerce/internal/order/delivery/http"
-	repository2 "github.com/Mpayy/e-commerce/internal/order/repository"
-	usecase3 "github.com/Mpayy/e-commerce/internal/order/usecase"
+	repository3 "github.com/Mpayy/e-commerce/internal/order/repository"
+	usecase4 "github.com/Mpayy/e-commerce/internal/order/usecase"
 	"github.com/Mpayy/e-commerce/internal/product/delivery/http"
-	"github.com/Mpayy/e-commerce/internal/product/repository"
-	"github.com/Mpayy/e-commerce/internal/product/usecase"
+	repository2 "github.com/Mpayy/e-commerce/internal/product/repository"
+	usecase2 "github.com/Mpayy/e-commerce/internal/product/usecase"
 	"github.com/Mpayy/e-commerce/internal/user/delivery/http"
 	"github.com/Mpayy/e-commerce/internal/user/repository"
 	"github.com/Mpayy/e-commerce/internal/user/usecase"
@@ -40,21 +40,21 @@ func InitializeApplication() *Application {
 	redis := dependency.NewRedis(client)
 	authMiddleware := middleware.NewAuthMiddleware(jwtToken, redis)
 	adminMiddleware := middleware.NewAdminMiddleware()
-	userRepository := userrepository.NewUserRepository(db)
+	userRepository := repository.NewUserRepository(db)
 	transactionTransaction := transaction.NewTransaction(db)
-	userUsecase := userusecase.NewUserUsecase(userRepository, redis, transactionTransaction, logger, jwtToken)
+	userUsecase := usecase.NewUserUsecase(userRepository, redis, transactionTransaction, logger, jwtToken)
 	validate := dependency.NewValidator()
 	userHandler := userhttp.NewUserHandler(userUsecase, validate, logger)
-	categoryRepository := repository.NewCategoryRepository(db)
-	categoryUsecase := usecase.NewCategoryUsecase(categoryRepository, logger, transactionTransaction)
+	categoryRepository := repository2.NewCategoryRepository(db)
+	categoryUsecase := usecase2.NewCategoryUsecase(categoryRepository, logger, transactionTransaction)
 	categoryHandler := producthttp.NewCategoryHandler(categoryUsecase, validate, logger)
-	productRepository := repository.NewProductRepository(db)
-	productUsecaseImpl := usecase.NewProductUsecase(productRepository, categoryUsecase, logger, transactionTransaction)
+	productRepository := repository2.NewProductRepository(db)
+	productUsecaseImpl := usecase2.NewProductUsecase(productRepository, categoryUsecase, logger, transactionTransaction)
 	productHandler := producthttp.NewProductHandler(productUsecaseImpl, validate, logger)
-	orderRepository := repository2.NewOrderRepository(db)
-	cartRedisRepository := repository3.NewCartRedisRepository(client)
-	cartUsecaseImpl := usecase2.NewCartUsecase(cartRedisRepository, productUsecaseImpl, logger)
-	orderUsecase := usecase3.NewOrderUsecase(orderRepository, transactionTransaction, logger, cartUsecaseImpl, productUsecaseImpl)
+	orderRepository := repository3.NewOrderRepository(db)
+	cartRedisRepository := repository4.NewCartRedisRepository(client)
+	cartUsecaseImpl := usecase3.NewCartUsecase(cartRedisRepository, productUsecaseImpl, logger)
+	orderUsecase := usecase4.NewOrderUsecase(orderRepository, transactionTransaction, logger, cartUsecaseImpl, productUsecaseImpl)
 	orderHandler := orderhttp.NewOrderHandler(orderUsecase, logger)
 	cartHandler := carthttp.NewCartHandler(cartUsecaseImpl, cartUsecaseImpl, validate, logger)
 	router := routes.NewRouter(engine, authMiddleware, adminMiddleware, userHandler, categoryHandler, productHandler, orderHandler, cartHandler, logger)
@@ -64,15 +64,15 @@ func InitializeApplication() *Application {
 
 // injector.go:
 
-var userSet = wire.NewSet(userrepository.NewUserRepository, userusecase.NewUserUsecase, userhttp.NewUserHandler)
+var userSet = wire.NewSet(repository.NewUserRepository, usecase.NewUserUsecase, userhttp.NewUserHandler)
 
-var categorySet = wire.NewSet(repository.NewCategoryRepository, usecase.NewCategoryUsecase, producthttp.NewCategoryHandler)
+var categorySet = wire.NewSet(repository2.NewCategoryRepository, usecase2.NewCategoryUsecase, producthttp.NewCategoryHandler)
 
-var productSet = wire.NewSet(repository.NewProductRepository, usecase.NewProductUsecase, wire.Bind(new(usecase.ProductService), new(*usecase.ProductUsecaseImpl)), wire.Bind(new(usecase.ProductUsecase), new(*usecase.ProductUsecaseImpl)), producthttp.NewProductHandler)
+var productSet = wire.NewSet(repository2.NewProductRepository, usecase2.NewProductUsecase, wire.Bind(new(usecase2.ProductService), new(*usecase2.ProductUsecaseImpl)), wire.Bind(new(usecase2.ProductUsecase), new(*usecase2.ProductUsecaseImpl)), producthttp.NewProductHandler)
 
-var cartSet = wire.NewSet(repository3.NewCartRedisRepository, usecase2.NewCartUsecase, wire.Bind(new(usecase2.CartService), new(*usecase2.CartUsecaseImpl)), wire.Bind(new(usecase2.CartUsecase), new(*usecase2.CartUsecaseImpl)), carthttp.NewCartHandler)
+var cartSet = wire.NewSet(repository4.NewCartRedisRepository, usecase3.NewCartUsecase, wire.Bind(new(usecase3.CartService), new(*usecase3.CartUsecaseImpl)), wire.Bind(new(usecase3.CartUsecase), new(*usecase3.CartUsecaseImpl)), carthttp.NewCartHandler)
 
-var orderSet = wire.NewSet(repository2.NewOrderRepository, usecase3.NewOrderUsecase, orderhttp.NewOrderHandler)
+var orderSet = wire.NewSet(repository3.NewOrderRepository, usecase4.NewOrderUsecase, orderhttp.NewOrderHandler)
 
 var middlewareSet = wire.NewSet(middleware.NewAuthMiddleware, middleware.NewAdminMiddleware)
 

@@ -122,6 +122,49 @@ func TestCategoryUsecaseImpl_CreateCategory(t *testing.T) {
 	})
 }
 
+// go test -v ./internal/product/usecase -run "TestCategoryUsecaseImpl_GetAllCategories"
+func TestCategoryUsecaseImpl_GetAllCategories(t *testing.T) {
+	ctx := context.Background()
+
+	//go test -v ./internal/product/usecase -run "TestCategoryUsecaseImpl_GetAllCategories/successful_get_all_categories"
+	t.Run("successful_get_all_categories", func(t *testing.T) {
+		usecase, repo, _ := setupCategoryUsecase(t)
+
+		categories := []entity.Category{
+			{
+				ID:   uint(1),
+				Name: "Test Category 1",
+				Slug: "test-category-1",
+			},
+			{
+				ID:   uint(2),
+				Name: "Test Category 2",
+				Slug: "test-category-2",
+			},
+		}
+
+		repo.On("FindAll", mock.Anything).
+			Return(categories, nil)
+
+		result, err := usecase.GetAllCategories(ctx)
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Len(t, result, 2)
+	})
+
+	//go test -v ./internal/product/usecase -run "TestCategoryUsecaseImpl_GetAllCategories/failed_unexpected_error_from_repository"
+	t.Run("failed_unexpected_error_from_repository", func(t *testing.T) {
+		usecase, repo, _ := setupCategoryUsecase(t)
+
+		repo.On("FindAll", mock.Anything).
+			Return(nil, errors.New("unexpected error"))
+
+		result, err := usecase.GetAllCategories(ctx)
+		assert.Nil(t, result)
+		assert.ErrorIs(t, err, apperror.ErrInternalServer)
+	})
+}
+
 func TestCategoryUsecaseImpl_ValidateCategoryExists(t *testing.T) {
 	ctx := context.Background()
 
@@ -168,4 +211,3 @@ func TestCategoryUsecaseImpl_ValidateCategoryExists(t *testing.T) {
 		assert.ErrorIs(t, err, apperror.ErrInternalServer)
 	})
 }
-	

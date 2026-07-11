@@ -1,4 +1,4 @@
-package userusecase
+package usecase
 
 import (
 	"context"
