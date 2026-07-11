@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func newTestLogger() *logrus.Logger {
+func newTestLoggerCategory() *logrus.Logger {
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 	return log
@@ -26,7 +26,7 @@ func newTestLogger() *logrus.Logger {
 func setupCategoryUsecase(t *testing.T) (CategoryUsecase, *repoMock.MockCategoryRepository, *configMock.MockTransaction) {
 	categoryRepository := repoMock.NewMockCategoryRepository(t)
 	transactionMock := configMock.NewMockTransaction(t)
-	log := newTestLogger()
+	log := newTestLoggerCategory()
 	usecase := NewCategoryUsecase(categoryRepository, log, transactionMock)
 	return usecase, categoryRepository, transactionMock
 }
