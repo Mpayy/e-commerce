@@ -2,21 +2,19 @@
 
 # 🛒 E-Commerce API
 
-### Go · Gin · GORM · MySQL · Redis · JWT
+### Go · Gin · GORM · MySQL · Redis · JWT · Docker
 
 [![Go Version](https://img.shields.io/badge/Go-1.26.4-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)
 [![Gin Framework](https://img.shields.io/badge/Gin-v1.12.0-00ACD7?style=for-the-badge&logo=go&logoColor=white)](https://github.com/gin-gonic/gin)
 [![GORM](https://img.shields.io/badge/GORM-v1.31.2-E10098?style=for-the-badge)](https://gorm.io/)
-[![Redis](https://img.shields.io/badge/Redis-v9.21.0-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
+[![Redis](https://img.shields.io/badge/Redis-v9-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docs.docker.com/compose/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-In%20Development-orange?style=for-the-badge)]()
 
 <p align="center">
-  <em>A production-grade, modular monolith e-commerce backend built with <strong>Clean Architecture</strong> principles and deliberate engineering decisions — designed to scale horizontally into microservices when business demands it.</em>
-</p>
-
-<p align="center">
-  Implements <strong>session-based token management via Redis</strong> for instant token revocation on logout — a pattern used in high-traffic production systems where JWT invalidation at the application layer is both faster and more reliable than database polling.
+  <em>A modular monolith e-commerce REST API written in Go, structured with Clean Architecture principles.<br>
+  Focused on clear module boundaries, testable business logic, and a straightforward path toward horizontal scalability.</em>
 </p>
 
 </div>
@@ -25,142 +23,142 @@
 
 ## 📋 Table of Contents
 
-- [Key Features & Roadmap](#-key-features--roadmap)
-- [Tech Stack & Architectural Decisions](#-tech-stack--architectural-decisions)
-- [System Architecture](#-system-architecture)
+- [Features & Roadmap](#-features--roadmap)
+- [Tech Stack](#-tech-stack)
+- [Architecture Overview](#-architecture-overview)
 - [Directory Structure](#-directory-structure)
 - [API Endpoints](#-api-endpoints)
 - [Request & Response Samples](#-request--response-samples)
-- [Local Setup Guide](#-local-setup-guide)
-- [Engineering Notes](#-engineering-notes)
+- [Getting Started](#-getting-started)
+- [Architecture Notes](#-architecture-notes)
 
 ---
 
-## ✅ Key Features & Roadmap
-
-> Features are scoped into **Implemented** (current codebase) and **Planned** (defined in the architecture blueprint).
+## ✅ Features & Roadmap
 
 ### 🟢 Implemented
 
-- [x] **User Registration** — bcrypt password hashing with configurable cost factor; duplicate email detection with domain-specific error typing
-- [x] **JWT Authentication (HS256)** — 30-day token lifecycle; signed with a configurable secret key loaded via Viper
-- [x] **Redis Session Management (Token Revocation)** — On login, JWT is stored in Redis under `auth:session:<token>`; on logout, the key is atomically deleted — making the token immediately invalid even before JWT expiry
-- [x] **Auth Middleware** — Parses `Authorization: Bearer <token>` → validates JWT signature → checks token existence in Redis → injects `auth` and `token` into Gin context
-- [x] **Role-Based Access Control (RBAC)** — `AdminMiddleware` inspects the `role` claim from the JWT payload; returns `403 Forbidden` for non-admin routes
-- [x] **User Profile** — Authenticated endpoint returning user data from a JWT-derived `user_id` lookup
-- [x] **Category Management (Admin)** — Create + list categories with slug auto-generation; conflict detection on duplicate names
-- [x] **Product Management — Create (Admin)** — Create product with SKU auto-generation, category validation, and duplicate SKU/name detection
-- [x] **Product Management — Update (Admin)** — `PUT /admin/products/:product_id`; partial field updates including `is_active` toggle; re-validates category only on change; detects duplicate slug/SKU
-- [x] **Product Management — Soft Delete (Admin)** — `DELETE /admin/products/:product_id` sets `is_active = false`; product is hidden from public listing without hard deletion
-- [x] **Product Listing & Search** — `GET /products` with `search`, `category_id`, `page`, and `limit` query params; paginated response with `meta` (total, page, limit); filters only active products
-- [x] **Product Detail** — `GET /products/:product_id`; returns 404 for inactive or non-existent products
-- [x] **Stock Adjustment (Admin)** — `PATCH /admin/products/:product_id/adjust-stock` sets absolute stock value; wrapped in a DB transaction
-- [x] **Cart System (Redis Hash)** — Cart stored as `HSET cart:{user_id} {product_id} {quantity}`; 7-day TTL auto-refreshed on every write; price is never stored in cart (always fetched real-time from Product module via interface call)
-- [x] **Cart — Add Item** — `POST /cart`; validates product existence via `ProductService` interface; increments quantity via `HINCRBY` if item already exists; refreshes TTL
-- [x] **Cart — Update Item** — `PATCH /cart/:product_id`; if quantity ≤ 0 automatically delegates to RemoveFromCart; checks item existence before update
-- [x] **Cart — Remove Item** — `DELETE /cart/:product_id`; removes a single product field from the Redis hash (`HDEL`)
-- [x] **Cart — Clear Cart** — `DELETE /cart`; atomically deletes the entire cart hash key (`DEL`)
-- [x] **Cart Enrichment (GetCart)** — `GET /cart`; fetches raw quantities from Redis, makes a single bulk `ProductService.GetProductsByIDs()` call to enrich with name, price, and available stock; computes `subtotal` and `grand_total`; includes `unavailable_items` list for products removed from catalog
-- [x] **Cross-Module Contracts** — `ProductService` interface (`GetByProductID`, `GetProductsByIDs`, `DecreaseStock`) and `CartService` interface (`GetRawCart`, `ClearCart`) defined in `contract.go` files — enforces module boundary isolation
-- [x] **Structured Logging** — Logrus-powered request logger middleware with per-request `method`, `path`, `status`, `latency_ms`, and `client_ip` fields; log level adapts to HTTP status range (Info / Warn / Error)
-- [x] **Standardized JSON Response** — Global `ResponseSuccess` / `ResponseError` helpers enforce a consistent response envelope across all handlers
-- [x] **Versioned SQL Migrations** — `golang-migrate`-compatible timestamp-prefixed SQL files; intentionally **no FOREIGN KEY constraints** between modules (by design — see [Engineering Notes](#-engineering-notes))
-- [x] **Graceful Shutdown** — `SIGINT`/`SIGTERM` signal handling with a 5-second drain window before forced shutdown
-- [x] **Dependency Injection via Wire** — Google Wire generates compile-time DI wiring; zero runtime reflection overhead
-- [x] **Database Seeder** — Bootstrap admin/customer seed data via `--seed` CLI flag
-- [x] **Unit Tests with Mocks** — `mockery`-generated mocks for `Redis` and `JwtToken` interfaces; test coverage for `UserUsecase` (register, login, logout, profile)
+**Authentication & User**
+- [x] **User Registration** — Password hashing with bcrypt; domain-specific error on duplicate email
+- [x] **JWT Authentication (HS256)** — 30-day tokens; secret key loaded from environment config via Viper
+- [x] **Redis Session Management** — JWT stored in Redis (`auth:session:<token>`) on login; atomically deleted on logout for immediate invalidation
+- [x] **Auth Middleware** — Validates Bearer token signature, expiry, and Redis session existence; injects `auth` context
+- [x] **Role-Based Access Control (RBAC)** — Admin middleware reads role from JWT claims; returns `403` for unauthorized access
+- [x] **User Profile** — Returns authenticated user data resolved from `user_id` in the JWT
 
-### 🔜 Planned (Blueprint Defined)
+**Product Catalog**
+- [x] **Category Management** — Admin: create categories with auto-generated slugs, conflict detection on duplicate names
+- [x] **Product — Create** — Admin: validates category, auto-generates SKU if not provided, detects duplicate slug/SKU
+- [x] **Product — Update** — Admin: full field update including `is_active` toggle; re-validates category only when changed
+- [x] **Product — Soft Delete** — Admin: sets `is_active = false` instead of hard deleting
+- [x] **Product — Listing & Search** — Public: paginated list with optional `search` (name), `category_id`, `page`, and `limit` query params
+- [x] **Product — Detail** — Public: returns a single product by ID; 404 for inactive or non-existent products
+- [x] **Stock Adjustment** — Admin: set absolute stock value via `PATCH` endpoint, wrapped in a DB transaction
 
-- [ ] **Checkout (ACID-safe)** — Converts Redis cart to MySQL `orders`+`order_items` inside a single DB transaction; uses `SELECT ... FOR UPDATE` row-level locking via `productService.DecreaseStock(tx, ...)` to prevent race-condition oversell; `CartService.ClearCart()` called post-commit
+**Cart**
+- [x] **Add Item** — Validates product existence through the `ProductService` interface; uses `HINCRBY` to increment if already in cart; refreshes 7-day TTL
+- [x] **Update Item** — Updates quantity; automatically delegates to remove if quantity ≤ 0
+- [x] **Remove Item** — Removes a single product from the Redis hash (`HDEL`)
+- [x] **Clear Cart** — Deletes the entire cart key from Redis (`DEL`)
+- [x] **Get Cart** — Fetches raw quantities from Redis, then enriches with a single bulk DB call (`WHERE id IN (...)`); computes `subtotal` and `grand_total`; surfaces `unavailable_items` for products removed from catalog
+
+**Infrastructure & Quality**
+- [x] **Docker Compose** — Single-command local environment: App + MySQL 8.0 + Redis 7 in an isolated bridge network
+- [x] **Multi-stage Dockerfile** — Builder stage (Go 1.26 Alpine) produces a minimal Alpine runtime image (~10MB final)
+- [x] **Unit Tests — User Module** — 4 test functions covering `Login`, `Register`, `Logout`, `GetProfile` with mockery-generated mocks
+- [x] **Unit Tests — Product Module** — 9 test functions covering `CreateProduct`, `UpdateProduct`, `DeleteProduct`, `SearchProducts`, `GetProductDetail`, `AdjustStock`, `GetByProductID`, `GetProductsByIDs`, `DecreaseStock`
+- [x] **Unit Tests — Category Module** — 3 test functions covering `CreateCategory`, `GetAllCategories`, `ValidateCategoryExists`
+- [x] **Mockery Configuration** — `.mockery.yml` registers all interfaces (repositories, usecases, Redis, JWT, Transaction) for consistent mock generation
+- [x] **Cross-Module Contracts** — `ProductService` and `CartService` interfaces defined in `contract.go` files enforce module boundary isolation
+- [x] **Structured Logging** — Logrus middleware logs `method`, `path`, `status`, `latency_ms`, `client_ip` per request
+- [x] **Standardized JSON Response** — `ResponseSuccess` / `ResponseError` helpers ensure a consistent response envelope
+- [x] **Versioned SQL Migrations** — `golang-migrate`-compatible, timestamp-prefixed `.up.sql`/`.down.sql` pairs
+- [x] **Graceful Shutdown** — Handles `SIGINT`/`SIGTERM` with a 5-second drain window
+- [x] **Dependency Injection via Wire** — Compile-time DI wiring; injection errors surface at `go generate` not at runtime
+- [x] **Database Seeder** — `--seed` CLI flag bootstraps admin user and sample categories
+
+### 🔜 Planned
+
+- [ ] **Checkout** — Convert Redis cart to MySQL `orders` + `order_items` in a single ACID transaction; pessimistic stock locking via `SELECT ... FOR UPDATE`
 - [ ] **Order History** — `GET /orders` and `GET /orders/:id` for authenticated users
-- [ ] **Invoice Snapshot** — `OrderItem` stores `product_name` and `price` at transaction time — history is immutable regardless of future product edits
-- [ ] **Saga Pattern Readiness** — Checkout rollback leaves Redis cart intact; user can safely retry without re-adding items
-- [ ] **Swagger / OpenAPI Docs** — `swaggo`-generated interactive API documentation
-- [ ] **Docker Compose** — One-command local environment spin-up (App + MySQL + Redis)
+- [ ] **Invoice Snapshot** — `OrderItem` stores `product_name` and `price` at checkout time; order history remains accurate regardless of future catalog changes
+- [ ] **Swagger / OpenAPI Docs** — Interactive API documentation via `swaggo`
 
 ---
 
-## 🏗️ Tech Stack & Architectural Decisions
+## 🏗️ Tech Stack
 
-| Technology | Version | Engineering Justification |
+| Technology | Version | Purpose |
 |---|---|---|
-| **Go** | 1.26.4 | Compiled, garbage-collected, goroutine-based concurrency — delivers sub-millisecond p99 latency for I/O-bound API workloads with minimal operational overhead |
-| **Gin** | v1.12.0 | Zero-allocation router with radix-tree path matching; Sonic JSON encoder under the hood — benchmarks significantly faster than `net/http` with `encoding/json` on serialization-heavy paths |
-| **GORM** | v1.31.2 | ORM with explicit query control; `ParameterizedQueries: true` enforces SQL injection prevention at the driver level; custom `logrusWriter` integrates slow-query logging |
-| **MySQL** | 8.0+ | ACID-compliant relational store with `SELECT ... FOR UPDATE` row-level locking — prerequisite for the concurrent checkout stock-deduction pattern |
-| **Redis** | go-redis v9 | Dual-purpose: (1) Session store for JWT tokens (`auth:session:<token>`); `DEL` on logout provides O(1) immediate revocation. (2) Cart storage layer via Redis Hash (`HSET cart:{user_id} {product_id} {qty}`) with 7-day TTL auto-refresh on every write |
-| **JWT (HS256)** | golang-jwt v5 | Stateless token format with `user_id` and `role` claims embedded; Redis existence check converts it into a stateful session without sacrificing bearer-token ergonomics |
-| **Viper** | v1.21.0 | Hierarchical config with `.env` file support and environment-variable override — 12-factor app compliant |
-| **Logrus** | v1.9.4 | Structured, leveled logging with JSON output capability; request middleware logs `latency_ms` per request enabling p95/p99 monitoring integration |
-| **Wire** | v0.7.0 | Compile-time dependency injection — injection errors surface at `go generate`, not at runtime; zero reflection overhead in the hot path |
-| **golang-migrate** | latest | Versioned, Git-reviewable SQL migrations; explicit `CREATE TABLE` without `FOREIGN KEY` makes cross-module data boundaries unambiguous and schema evolution auditable |
-| **Mockery** | latest | Interface-driven mocks auto-generated from `//go:generate` annotations; enables isolated unit testing of business logic without database or Redis dependencies |
-| **bcrypt** | x/crypto | Password hashing with `DefaultCost` (10 rounds); resistant to timing attacks; cost factor is tunable for future hardware scaling |
+| **Go** | 1.26.4 | Primary language — compiled, goroutine-based concurrency |
+| **Gin** | v1.12.0 | HTTP router; radix-tree path matching, request binding, middleware chain |
+| **GORM** | v1.31.2 | ORM with parameterized queries and connection pool management |
+| **MySQL** | 8.0 | Primary relational store; supports row-level locking (`SELECT FOR UPDATE`) |
+| **Redis** | go-redis v9 | JWT session store + cart storage (Redis Hash with TTL) |
+| **JWT (HS256)** | golang-jwt v5 | Stateless tokens with `user_id` and `role` claims |
+| **Viper** | v1.21.0 | Config management from `.env` files and environment variables |
+| **Logrus** | v1.9.4 | Structured, leveled logging |
+| **Wire** | v0.7.0 | Compile-time dependency injection |
+| **golang-migrate** | latest | Versioned SQL schema migrations |
+| **Mockery** | latest | Auto-generated interface mocks for unit testing |
+| **Docker Compose** | — | Local development environment orchestration |
+| **bcrypt** | x/crypto | Secure password hashing |
 
-### Clean Architecture Layer Contracts
+### Clean Architecture Layers
 
 ```
-HTTP Request --> Handler --> Usecase --> Repository --> Database/Redis
-     ^                                                       |
-     └──────────────── DTO (Response) ──────────────────────┘
+HTTP Request → Handler → Usecase → Repository → Database / Redis
+     ↑                                                   |
+     └──────────────── DTO (Response) ───────────────────┘
 ```
 
-- **Handler** layer: HTTP protocol concerns only — binding, validation, status code mapping
-- **Usecase** layer: Pure business logic, orchestrates cross-domain calls via **interfaces only**
-- **Repository** layer: Data access abstraction; database implementation is fully swappable
-- **Entity** layer: Naked domain structs — no HTTP tags, no business logic, no cross-module associations
+| Layer | Responsibility |
+|---|---|
+| **Handler** | HTTP concerns: request binding, input validation, status code mapping |
+| **Usecase** | Business logic; communicates with other modules via interfaces only |
+| **Repository** | Data access abstraction; DB implementation is independently swappable |
+| **Entity** | Plain domain structs; no HTTP tags, no business logic, no cross-module fields |
 
 ---
 
-## 🔄 System Architecture
+## 🔄 Architecture Overview
 
-### Session-Based JWT Flow (Login & Logout)
+### JWT Session Flow
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant C as Client
-    participant H as UserHandler
+    participant H as Handler
     participant U as UserUsecase
     participant DB as MySQL
     participant J as pkg/jwt
     participant R as Redis
 
-    Note over C,R: LOGIN FLOW
-    C->>H: POST /api/v1/login · { email, password }
-    H->>H: Validate request struct (go-playground/validator)
+    Note over C,R: LOGIN
+    C->>H: POST /api/v1/login
     H->>U: Login(ctx, request)
     U->>DB: FindByEmail(email)
-    DB-->>U: User{id, email, password_hash, role}
+    DB-->>U: User{ id, email, password_hash, role }
     U->>U: bcrypt.CompareHashAndPassword()
-    U->>J: CreateToken({user_id, role})
-    J-->>U: signed JWT string (HS256, 30d TTL)
-    U->>R: SET auth:session:TOKEN · {user_id,role} · EX 2592000
-    R-->>U: OK
-    U-->>H: TokenResponse{ token }
-    H-->>C: 200 OK · { success: true, data: { token } }
+    U->>J: CreateToken({ user_id, role })
+    J-->>U: signed JWT (HS256, 30d)
+    U->>R: SET auth:session:TOKEN EX 2592000
+    H-->>C: 200 · { token }
 
-    Note over C,R: AUTHENTICATED REQUEST FLOW
-    C->>H: GET /api/v1/profile · Authorization: Bearer TOKEN
-    H->>H: AuthMiddleware - Extract Bearer token
-    H->>J: ParseToken(token) - validate signature + expiry
-    J-->>H: Auth{ user_id, role }
+    Note over C,R: AUTHENTICATED REQUEST
+    C->>H: GET /api/v1/profile · Bearer TOKEN
+    H->>J: ParseToken — validate signature + expiry
     H->>R: EXISTS auth:session:TOKEN
-    R-->>H: 1 (key exists)
-    H->>H: ctx.Set("auth", Auth) · ctx.Set("token", token)
-    H->>H: ctx.Next() - route handler proceeds
-    H-->>C: 200 OK · profile data
+    R-->>H: 1 (exists)
+    H-->>C: 200 · profile data
 
-    Note over C,R: LOGOUT FLOW
-    C->>H: DELETE /api/v1/logout · Authorization: Bearer TOKEN
-    H->>H: AuthMiddleware passes (token still valid in Redis)
+    Note over C,R: LOGOUT
+    C->>H: DELETE /api/v1/logout · Bearer TOKEN
     H->>U: Logout(ctx, token)
     U->>R: DEL auth:session:TOKEN
-    R-->>U: 1 (key deleted)
-    U-->>H: nil error
-    H-->>C: 200 OK · { success: true }
-    Note right of R: Token permanently invalid. Any subsequent request returns 401.
+    H-->>C: 200 · logged out
+    Note right of R: Token is immediately invalid for all future requests.
 ```
 
 ### Cart Flow (Redis Hash)
@@ -172,38 +170,35 @@ sequenceDiagram
     participant H as CartHandler
     participant U as CartUsecase
     participant PS as ProductService
-    participant R as "Redis (cart:)"
+    participant R as Redis
 
-    Note over C,R: ADD TO CART
+    Note over C,R: ADD ITEM
     C->>H: POST /api/v1/cart · { product_id, quantity }
-    H->>H: AuthMiddleware - extract user_id from JWT
     H->>U: AddToCart(userID, productID, quantity)
-    U->>PS: GetByProductID(productID) — validate exists & is_active
+    U->>PS: GetByProductID(productID)
     PS-->>U: Product{ id, price, stock }
     U->>R: HINCRBY cart:{userID} {productID} {qty}
     U->>R: EXPIRE cart:{userID} 7d
-    R-->>U: OK
-    H-->>C: 200 OK · item added to cart successfully
+    H-->>C: 200 · item added
 
-    Note over C,R: GET CART (single bulk DB call — no N+1)
+    Note over C,R: GET CART — single bulk query, no N+1
     C->>H: GET /api/v1/cart
     H->>U: GetCartDetail(userID)
     U->>R: HGETALL cart:{userID}
-    R-->>U: map[product_id → quantity]
-    U->>PS: GetProductsByIDs([]productIDs) — one WHERE IN query
-    PS-->>U: []Product{ id, name, price, stock }
-    U->>U: compute subtotal + grand_total in memory
-    U->>U: detect unavailable_items (in Redis, not in DB)
-    H-->>C: 200 OK · CartDetailResponse{ items, unavailable_items, grand_total }
+    R-->>U: map[ product_id → quantity ]
+    U->>PS: GetProductsByIDs([ ids... ]) — one WHERE IN query
+    PS-->>U: []Product
+    U->>U: compute subtotal + grand_total · detect unavailable_items
+    H-->>C: 200 · CartDetailResponse
 ```
 
-### Token Revocation Strategy Comparison
+### Token Revocation Approaches
 
-| Approach | Lookup Cost | Scalability | Instant Revocation |
+| Approach | Lookup Cost | Instant Revocation | Notes |
 |---|---|---|---|
-| Pure Stateless JWT | O(0) — no lookup | ✅ Infinite | ❌ Must wait for expiry |
-| DB Blacklist Table | O(log n) — indexed query | ⚠️ DB bottleneck under load | ✅ Yes |
-| **Redis Session Store (this project)** | **O(1) — hash lookup** | **✅ Redis cluster-ready** | **✅ Immediate on DEL** |
+| Pure Stateless JWT | O(0) | ❌ Waits for expiry | No server-side state |
+| DB Blacklist | O(log n) | ✅ | Can become a DB bottleneck at scale |
+| **Redis Session (this project)** | **O(1)** | **✅ On DEL** | Redis cluster-ready; cart reuses same client |
 
 ---
 
@@ -212,150 +207,105 @@ sequenceDiagram
 ```
 e-commerce/
 │
+├── Dockerfile                   # Multi-stage build: Go builder → Alpine runtime
+├── docker-compose.yml           # App + MySQL 8.0 + Redis 7 in ecommerce-network
+├── .dockerignore
+├── .mockery.yml                 # Mockery config: registers all interfaces for mock generation
+│
 ├── cmd/
 │   └── api/
-│       ├── main.go              # Entry point: CLI flags (--seed), graceful shutdown, server lifecycle
-│       ├── application.go       # Application struct binding (Gin, DB, Config, Logger)
+│       ├── main.go              # Entry point: --seed flag, graceful shutdown
+│       ├── application.go       # App struct wiring
 │       ├── injector.go          # Wire provider declarations
-│       └── wire_gen.go          # Auto-generated DI wiring (do not edit manually)
+│       └── wire_gen.go          # Auto-generated DI (do not edit)
 │
 ├── database/
-│   ├── migrations/              # Versioned SQL files (timestamp-prefixed, .up/.down pairs)
+│   ├── migrations/              # Timestamp-prefixed .up.sql / .down.sql pairs
 │   │   ├── *_create_users_table.up.sql
 │   │   ├── *_create_categories_table.up.sql
 │   │   ├── *_create_products_table.up.sql
 │   │   ├── *_create_orders_table.up.sql
 │   │   └── *_create_order_items_table.up.sql
 │   └── seeder/
-│       └── seeder.go            # Bootstrap seed data (admin user, sample categories)
+│       └── seeder.go            # Seed admin user + sample categories
 │
-├── dependency/                  # Infrastructure adapters for external services
-│   ├── app.go                   # Application container struct
-│   ├── gin.go                   # Gin engine initialization (mode, trusted proxies)
-│   ├── gorm.go                  # GORM setup: DSN, connection pool (MaxOpen=25, MaxIdle=10)
-│   ├── redis.go                 # Redis client + Redis interface (CheckToRedis, SetToRedis, DeleteFromRedis)
-│   │                            #   Constants: AuthPrefix="auth:session:", CartPrefix="cart:", CartTTL=7d
-│   ├── logrus.go                # Logger initialization with configurable log level
+├── dependency/                  # Infrastructure adapters
+│   ├── gin.go                   # Gin engine setup
+│   ├── gorm.go                  # GORM DSN + connection pool (MaxOpen=25, MaxIdle=10)
+│   ├── redis.go                 # Redis client + interface (Check/Set/Delete)
+│   │                            #   AuthPrefix = "auth:session:"
+│   │                            #   CartPrefix = "cart:"  |  CartTTL = 7 days
+│   ├── logrus.go                # Structured logger setup
 │   ├── validator.go             # go-playground/validator singleton
-│   └── viper.go                 # Config loader: reads .env -> Viper struct
+│   └── viper.go                 # .env → Viper config
 │
-├── internal/                    # All business domain code — the core of the application
+├── internal/
 │   │
 │   ├── user/                    # MODULE: Auth & User Identity
-│   │   ├── entity/
-│   │   │   └── user.go          # Domain model: User{ID, Name, Email, Password, Role}
-│   │   │                        #   Role constants: "customer" | "admin"
-│   │   ├── dto/
-│   │   │   ├── user_request.go  # UserRegisterRequest, UserLoginRequest (with validator tags)
-│   │   │   └── user_response.go # UserResponse (no password field), TokenResponse{Token}
-│   │   ├── repository/          # Data access: FindByEmail, FindByID, Create (within TX)
-│   │   ├── usecase/
-│   │   │   ├── user_usecase.go       # Interface: Register, Login, GetProfile, Logout
-│   │   │   ├── user_usecase_impl.go  # Impl: bcrypt hashing, JWT creation, Redis session write/delete
-│   │   │   └── user_usecase_test.go  # Unit tests with mockery-generated Redis + JWT mocks
-│   │   ├── delivery/http/
-│   │   │   ├── user_handler.go       # Interface: Register, Login, GetProfile, Logout
-│   │   │   └── user_handler_impl.go  # HTTP adapter: bind JSON → validate → usecase → respond
-│   │   └── mocks/                # Auto-generated mocks for JWT and Redis interfaces
+│   │   ├── entity/user.go       # User{ ID, Name, Email, Password, Role }
+│   │   ├── dto/                 # Request/Response structs with validator tags
+│   │   ├── repository/          # FindByEmail, FindByID, Create
+│   │   ├── mocks/               # MockUserRepository, MockJwtToken
+│   │   └── usecase/
+│   │       ├── user_usecase.go       # Interface: Register, Login, GetProfile, Logout
+│   │       ├── user_usecase_impl.go  # bcrypt, JWT creation, Redis session lifecycle
+│   │       └── user_usecase_test.go  # 4 test functions (Login, Register, Logout, GetProfile)
 │   │
-│   ├── product/                 # MODULE: Catalog (Products & Categories)
+│   ├── product/                 # MODULE: Catalog
 │   │   ├── entity/
-│   │   │   ├── category.go      # Category{ID, Name, Slug, CreatedAt, UpdatedAt}
-│   │   │   └── product.go       # Product{ID, CategoryID, Name, Slug, Price, Stock, SKU, IsActive}
-│   │   │                        #   ProductFilter{Search, CategoryID, Page, Limit} for paginated queries
-│   │   │                        #   CategoryID is a plain uint — NOT a GORM association field
-│   │   │                        #   => GORM will never auto-generate a FOREIGN KEY constraint
-│   │   ├── dto/
-│   │   │   ├── category_request.go        # CategoryRequest{Name} with validator tags
-│   │   │   ├── category_response.go       # CategoryResponse DTO
-│   │   │   ├── product_request.go         # ProductCreateRequest, ProductUpdateRequest (is_active *bool),
-│   │   │   │                              #   ProductSearchRequest{search, category_id, page, limit},
-│   │   │   │                              #   ProductStockAdjustmentRequest{Stock *int}
-│   │   │   └── product_response.go        # ProductResponse, ProductSearchResponse{Data, Meta},
-│   │   │                                  #   MetaPagination{Page, Limit, Total int64}
-│   │   ├── repository/
-│   │   │   ├── category_repository.go     # Interface: FindAll, Create, FindByID
-│   │   │   ├── category_repository_impl.go
-│   │   │   ├── product_repository.go      # Interface: Create, FindByID, FindByIDs, FindAll,
-│   │   │   │                              #   Update, Delete, DecreaseStock, AdjustStock
-│   │   │   └── product_repository_impl.go # FindAll: filters is_active=true, supports search+category+pagination
-│   │   │                                  # Delete: soft-delete (is_active=false, RowsAffected check)
-│   │   │                                  # DecreaseStock: SELECT FOR UPDATE + stock guard
-│   │   │                                  # AdjustStock: sets absolute stock value
-│   │   ├── usecase/
-│   │   │   ├── category_usecase.go        # Interface: CreateCategory, GetAllCategories, ValidateCategoryExists
-│   │   │   ├── category_usecase_impl.go   # Slug generation (gosimple/slug), duplicate check
-│   │   │   ├── product_usecase.go         # Interface: CreateProduct, UpdateProduct, DeleteProduct,
-│   │   │   │                              #   SearchProducts, GetProductDetail, AdjustStock
-│   │   │   ├── product_usecase_impl.go    # Full product lifecycle; UpdateProduct re-validates category only on change
-│   │   │   └── contract.go                # ProductService interface (consumed by Cart module):
-│   │   │                                  #   GetByProductID, GetProductsByIDs, DecreaseStock
-│   │   └── delivery/http/
-│   │       ├── category_handler.go        # Interface: Create, GetAll
-│   │       ├── category_handler_impl.go   # Handles 409 Conflict on duplicate category name
-│   │       ├── product_handler.go         # Interface: Create, Update, Delete, AdjustStock, GetByID, Search
-│   │       └── product_handler_impl.go    # Full CRUD + Search + AdjustStock handlers
+│   │   │   ├── category.go      # Category{ ID, Name, Slug }
+│   │   │   └── product.go       # Product{ ID, CategoryID, Name, Slug, Price, Stock, SKU, IsActive }
+│   │   │                        #   ProductFilter for paginated queries
+│   │   ├── dto/                 # Create/Update/Search/StockAdjust requests; paginated response
+│   │   ├── repository/          # CRUD + FindByIDs, FindAll(filter), DecreaseStock, AdjustStock
+│   │   ├── mocks/               # MockProductRepository, MockCategoryRepository,
+│   │   │                        # MockCategoryUsecase, MockProductService
+│   │   └── usecase/
+│   │       ├── category_usecase.go        # Interface: CreateCategory, GetAllCategories, ValidateCategoryExists
+│   │       ├── category_usecase_impl.go   # Slug generation, duplicate check
+│   │       ├── category_usecase_test.go   # 3 test functions
+│   │       ├── product_usecase.go         # Interface: Create, Update, Delete, Search, GetDetail, AdjustStock
+│   │       ├── product_usecase_impl.go    # Full lifecycle; re-validates category only on change
+│   │       ├── product_usecase_test.go    # 9 test functions (full CRUD + service contract methods)
+│   │       └── contract.go                # ProductService{ GetByProductID, GetProductsByIDs, DecreaseStock }
 │   │
 │   ├── cart/                    # MODULE: Shopping Cart (Redis-backed)
 │   │   ├── dto/
-│   │   │   ├── cart_request.go            # CartItemCreateRequest{ProductID, Quantity}
-│   │   │   │                              # CartItemUpdateRequest{Quantity *int}
-│   │   │   └── cart_response.go           # CartDetailResponse{Items, UnavailableItems, GrandTotal}
-│   │   │                                  # CartItemResponse{ProductID, Name, Price, Quantity, Subtotal, StockAvailable}
-│   │   │                                  # CartUnavailableItemResp{ProductID, Quantity, Message}
-│   │   ├── repository/
-│   │   │   ├── cart_redis_repository.go   # Interface: AddItem, UpdateItem, RemoveItem, GetCart, ClearCart
-│   │   │   └── cart_redis_repository_impl.go # Redis HINCRBY/HSET/HDEL/HGETALL/DEL + TTL refresh on write
-│   │   ├── usecase/
-│   │   │   ├── cart_usecase.go            # Interface: AddToCart, UpdateCartItem, RemoveFromCart, GetCartDetail
-│   │   │   ├── cart_usecase_impl.go       # Bulk product enrichment (N+1 avoided), unavailable_items detection,
-│   │   │   │                              #   grand_total + subtotal computation, quantity=0 → auto-remove
-│   │   │   └── contract.go                # CartService interface (consumed by Checkout module):
-│   │   │                                  #   GetRawCart, ClearCart
-│   │   └── delivery/http/
-│   │       ├── cart_handler.go            # Interface: AddItem, UpdateItem, RemoveItem, GetCart, ClearCart
-│   │       └── cart_handler_impl.go       # All cart endpoints; reads user_id from JWT context
+│   │   │   ├── cart_request.go   # CartItemCreateRequest, CartItemUpdateRequest
+│   │   │   └── cart_response.go  # CartDetailResponse{ Items, UnavailableItems, GrandTotal }
+│   │   ├── repository/           # Interface + Redis impl: HINCRBY/HSET/HDEL/HGETALL/DEL
+│   │   └── usecase/
+│   │       ├── cart_usecase.go        # Interface: AddToCart, UpdateCartItem, RemoveFromCart, GetCartDetail
+│   │       ├── cart_usecase_impl.go   # Bulk enrichment, unavailable_items detection, grand_total
+│   │       └── contract.go            # CartService{ GetRawCart, ClearCart }
 │   │
-│   ├── middleware/              # CROSS-CUTTING: HTTP Middleware
-│   │   ├── auth_middleware.go   # 1. Extract Bearer token
-│   │   │                        # 2. ParseToken (JWT signature + expiry validation)
-│   │   │                        # 3. EXISTS auth:session:<token> in Redis
-│   │   │                        # 4. ctx.Set("auth", Auth) -> ctx.Next()
-│   │   ├── admin_middleware.go  # Reads auth.Role from context; 403 if role != "admin"
-│   │   └── logger_middleware.go # Per-request structured log: method, path, status, latency_ms, client_ip
+│   ├── middleware/
+│   │   ├── auth_middleware.go    # Token extraction → JWT validation → Redis session check
+│   │   ├── admin_middleware.go   # Role check from JWT context; 403 if not admin
+│   │   └── logger_middleware.go  # Per-request: method, path, status, latency_ms, client_ip
 │   │
-│   └── mocks/                   # Shared mocks (mock_redis.go — used across module tests)
+│   └── mocks/                   # Shared mocks: MockRedis, MockTransaction
 │
-├── pkg/                         # Shared utilities — zero domain-specific logic
-│   ├── response/
-│   │   └── response.go          # ResponseSuccess(ctx, code, message, data)
-│   │                            # ResponseError(ctx, code, message, err) -> AbortWithStatusJSON
-│   ├── jwt/
-│   │   └── jwt.go               # JwtToken interface + HS256 implementation
-│   │                            # Auth{UserID, Role} struct | TokenDuration = 30 days
-│   ├── apperror/
-│   │   └── apperror.go          # Sentinel errors: ErrNotFound, ErrUnauthorized, ErrDuplicatedEmail,
-│   │                            #   ErrProductNotFound, ErrCategoryNotFound, ErrCartNotFound,
-│   │                            #   ErrInsufficientStock, ErrInvalidQuantity, ErrDuplicatedProductSku...
-│   │                            # ExtractValidationErrors() maps FieldError -> map[field]message
-│   ├── skugen/                  # Auto-generates SKU string if not provided in ProductRequest
-│   └── transaction/
-│       └── transaction.go       # WithTransaction(ctx, fn) wrapper — isolates TX boilerplate from usecases
+├── pkg/
+│   ├── response/response.go     # ResponseSuccess / ResponseError envelope helpers
+│   ├── jwt/jwt.go               # JwtToken interface + HS256 impl; Auth{ UserID, Role }
+│   ├── apperror/apperror.go     # Typed sentinel errors (ErrProductNotFound, ErrInsufficientStock, etc.)
+│   ├── skugen/                  # SKU auto-generation
+│   └── transaction/             # WithTransaction(ctx, fn) — isolates TX boilerplate from usecases
 │
-└── routes/
-    └── router.go                # Route groups: public | protected (AuthMiddleware) | admin (+AdminMiddleware)
+└── routes/router.go             # Route groups: public · protected · admin
 ```
 
-### Module Isolation Rules (Enforced at Code Level)
+### Module Boundary Rules
 
 ```
-ALLOWED:   internal/cart   -> imports internal/product/usecase  (contract.go interface only)
-ALLOWED:   internal/order  -> imports internal/cart/usecase     (contract.go interface only)
-FORBIDDEN: internal/cart   -> imports internal/product/entity   (direct struct coupling)
-FORBIDDEN: internal/cart   -> imports internal/product/repository (direct DB access)
+✅ ALLOWED:   internal/cart   → internal/product/usecase  (via contract.go interface)
+✅ ALLOWED:   internal/order  → internal/cart/usecase     (via contract.go interface)
+❌ FORBIDDEN: internal/cart   → internal/product/entity   (direct struct dependency)
+❌ FORBIDDEN: internal/cart   → internal/product/repository (direct data access)
 ```
 
-Every module that exposes capabilities to other modules **must** do so exclusively through a `contract.go` file containing only Go interfaces. This is the single, auditable boundary between modules — directly analogous to a service API surface in a microservices architecture.
+Each module exposes its capabilities to other modules **only** through a `contract.go` file containing Go interfaces — a clear and auditable boundary similar to an API contract between services.
 
 ---
 
@@ -363,43 +313,43 @@ Every module that exposes capabilities to other modules **must** do so exclusive
 
 ### Authentication & User
 
-| Method | Endpoint | Description | Auth Required |
+| Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| `POST` | `/api/v1/register` | Register a new user account | No |
-| `POST` | `/api/v1/login` | Authenticate and receive a JWT session token | No |
-| `GET` | `/api/v1/profile` | Retrieve the authenticated user's profile | ✅ JWT |
-| `DELETE` | `/api/v1/logout` | Revoke the current JWT session token in Redis | ✅ JWT |
+| `POST` | `/api/v1/register` | Register a new user | — |
+| `POST` | `/api/v1/login` | Login and receive JWT session token | — |
+| `GET` | `/api/v1/profile` | Get authenticated user profile | ✅ JWT |
+| `DELETE` | `/api/v1/logout` | Revoke current JWT session | ✅ JWT |
 
 ### Product Catalog
 
-| Method | Endpoint | Description | Auth Required |
+| Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| `GET` | `/api/v1/categories` | List all product categories | No |
-| `POST` | `/api/v1/admin/categories` | Create a new category (slug auto-generated) | ✅ JWT + Admin |
-| `GET` | `/api/v1/products` | Search & list products with pagination (`search`, `category_id`, `page`, `limit`) | No |
-| `GET` | `/api/v1/products/:product_id` | Get product detail by ID | No |
-| `POST` | `/api/v1/admin/products` | Create a new product (validates category, auto-generates SKU) | ✅ JWT + Admin |
-| `PUT` | `/api/v1/admin/products/:product_id` | Update product details (name, price, stock, is_active, etc.) | ✅ JWT + Admin |
-| `DELETE` | `/api/v1/admin/products/:product_id` | Soft-delete a product (`is_active = false`) | ✅ JWT + Admin |
-| `PATCH` | `/api/v1/admin/products/:product_id/adjust-stock` | Set absolute stock value (restock operation) | ✅ JWT + Admin |
+| `GET` | `/api/v1/categories` | List all categories | — |
+| `POST` | `/api/v1/admin/categories` | Create category (auto slug) | ✅ Admin |
+| `GET` | `/api/v1/products` | List & search products with pagination | — |
+| `GET` | `/api/v1/products/:product_id` | Get product detail | — |
+| `POST` | `/api/v1/admin/products` | Create product | ✅ Admin |
+| `PUT` | `/api/v1/admin/products/:product_id` | Update product | ✅ Admin |
+| `DELETE` | `/api/v1/admin/products/:product_id` | Soft-delete product | ✅ Admin |
+| `PATCH` | `/api/v1/admin/products/:product_id/adjust-stock` | Set stock value | ✅ Admin |
 
 ### Cart
 
-| Method | Endpoint | Description | Auth Required |
+| Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| `GET` | `/api/v1/cart` | View cart (enriched with live product data, grand total, unavailable items) | ✅ JWT |
-| `POST` | `/api/v1/cart` | Add a product to cart (increments if already exists) | ✅ JWT |
-| `PATCH` | `/api/v1/cart/:product_id` | Update item quantity (quantity ≤ 0 auto-removes the item) | ✅ JWT |
-| `DELETE` | `/api/v1/cart/:product_id` | Remove a single item from cart | ✅ JWT |
+| `GET` | `/api/v1/cart` | View cart with enriched product data | ✅ JWT |
+| `POST` | `/api/v1/cart` | Add item to cart | ✅ JWT |
+| `PATCH` | `/api/v1/cart/:product_id` | Update item quantity | ✅ JWT |
+| `DELETE` | `/api/v1/cart/:product_id` | Remove single item | ✅ JWT |
 | `DELETE` | `/api/v1/cart` | Clear entire cart | ✅ JWT |
 
 ### Checkout & Orders *(Planned)*
 
-| Method | Endpoint | Description | Auth Required |
+| Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| `POST` | `/api/v1/checkout` | Convert Redis cart to MySQL order (ACID transaction) | ✅ JWT |
-| `GET` | `/api/v1/orders` | List current user's order history | ✅ JWT |
-| `GET` | `/api/v1/orders/:id` | Get order detail / invoice | ✅ JWT |
+| `POST` | `/api/v1/checkout` | Create order from cart | ✅ JWT |
+| `GET` | `/api/v1/orders` | List user orders | ✅ JWT |
+| `GET` | `/api/v1/orders/:id` | Order detail | ✅ JWT |
 
 ---
 
@@ -407,475 +357,311 @@ Every module that exposes capabilities to other modules **must** do so exclusive
 
 ### `POST /api/v1/register`
 
-**Request Body:**
 ```json
-{
-  "name": "Budi Santoso",
-  "email": "budi@example.com",
-  "password": "securepassword123"
-}
-```
+// Request
+{ "name": "Budi Santoso", "email": "budi@example.com", "password": "securepassword123" }
 
-**201 Created:**
-```json
-{
-  "success": true,
-  "message": "user registered successfully",
-  "data": {
-    "id": 1,
-    "name": "Budi Santoso",
-    "email": "budi@example.com"
-  }
-}
-```
+// 201 Created
+{ "success": true, "message": "user registered successfully", "data": { "id": 1, "name": "Budi Santoso", "email": "budi@example.com" } }
 
-**400 Bad Request (validation failure):**
-```json
-{
-  "success": false,
-  "message": "Validation Failed",
-  "error": {
-    "email": "must be a valid email",
-    "password": "must be at least 6 characters long"
-  }
-}
+// 409 Conflict
+{ "success": false, "message": "Email Already Exists" }
 ```
-
-**409 Conflict (duplicate email):**
-```json
-{
-  "success": false,
-  "message": "Email Already Exists"
-}
-```
-
----
 
 ### `POST /api/v1/login`
 
-**Request Body:**
 ```json
-{
-  "email": "budi@example.com",
-  "password": "securepassword123"
-}
+// Request
+{ "email": "budi@example.com", "password": "securepassword123" }
+
+// 200 OK
+{ "success": true, "message": "user logged in successfully", "data": { "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." } }
+
+// 401 Unauthorized
+{ "success": false, "message": "Wrong Email or Password" }
 ```
 
-**200 OK:**
+### `GET /api/v1/products?search=keyboard&category_id=1&page=1&limit=10`
+
 ```json
-{
-  "success": true,
-  "message": "user logged in successfully",
-  "data": {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTk2NjM..."
-  }
-}
-```
-
-**401 Unauthorized (wrong credentials):**
-```json
-{
-  "success": false,
-  "message": "Wrong Email or Password"
-}
-```
-
----
-
-### `GET /api/v1/products`
-
-**Query Params:** `?search=keyboard&category_id=1&page=1&limit=10`
-
-**200 OK:**
-```json
+// 200 OK
 {
   "success": true,
   "message": "Product fetched successfully",
   "data": {
     "data": [
       {
-        "id": 12,
-        "category_id": 1,
-        "name": "Mechanical Keyboard 60%",
-        "slug": "mechanical-keyboard-60",
-        "description": "Hot-swappable switches, RGB backlight, compact 60% layout",
-        "price": 750000,
-        "stock": 50,
-        "sku": "KBD-60-001",
-        "is_active": true
+        "id": 12, "category_id": 1, "name": "Mechanical Keyboard 60%",
+        "slug": "mechanical-keyboard-60", "price": 750000, "stock": 50,
+        "sku": "KBD-60-001", "is_active": true
       }
     ],
-    "meta": {
-      "page": 1,
-      "limit": 10,
-      "total": 1
-    }
+    "meta": { "page": 1, "limit": 10, "total": 1 }
   }
 }
 ```
-
----
 
 ### `POST /api/v1/admin/products`
 
-> Requires header: `Authorization: Bearer <admin_token>`
-
-**Request Body:**
 ```json
+// Request — Authorization: Bearer <admin_token>
 {
-  "category_id": 1,
-  "name": "Mechanical Keyboard 60%",
-  "description": "Hot-swappable switches, RGB backlight, compact 60% layout",
-  "price": 750000,
-  "stock": 50,
-  "sku": "KBD-60-001"
+  "category_id": 1, "name": "Mechanical Keyboard 60%",
+  "description": "Hot-swappable switches, RGB backlight", "price": 750000, "stock": 50
 }
+
+// 201 Created
+{
+  "success": true, "message": "Product created successfully",
+  "data": { "id": 12, "slug": "mechanical-keyboard-60", "sku": "PRD-XXXXXXXX", "is_active": true, ... }
+}
+
+// 404 — category not found
+{ "success": false, "message": "Category Not Found" }
 ```
 
-**201 Created:**
+### `POST /api/v1/cart` & `GET /api/v1/cart`
+
 ```json
+// POST Request — Authorization: Bearer <token>
+{ "product_id": 12, "quantity": 2 }
+// 200 OK
+{ "success": true, "message": "item added to cart successfully" }
+
+// GET Response
 {
-  "success": true,
-  "message": "Product created successfully",
+  "success": true, "message": "cart detail retrieved successfully",
   "data": {
-    "id": 12,
-    "category_id": 1,
-    "name": "Mechanical Keyboard 60%",
-    "slug": "mechanical-keyboard-60",
-    "description": "Hot-swappable switches, RGB backlight, compact 60% layout",
-    "price": 750000,
-    "stock": 50,
-    "sku": "KBD-60-001",
-    "is_active": true
-  }
-}
-```
-
-**404 Not Found (invalid category):**
-```json
-{
-  "success": false,
-  "message": "Category Not Found"
-}
-```
-
-**403 Forbidden (non-admin token):**
-```json
-{
-  "success": false,
-  "message": "Forbidden"
-}
-```
-
----
-
-### `PATCH /api/v1/admin/products/:product_id/adjust-stock`
-
-> Requires header: `Authorization: Bearer <admin_token>`
-
-**Request Body:**
-```json
-{
-  "stock": 100
-}
-```
-
-**200 OK:**
-```json
-{
-  "success": true,
-  "message": "Stock adjusted successfully"
-}
-```
-
----
-
-### `POST /api/v1/cart`
-
-> Requires header: `Authorization: Bearer <token>`
-
-**Request Body:**
-```json
-{
-  "product_id": 12,
-  "quantity": 2
-}
-```
-
-**200 OK:**
-```json
-{
-  "success": true,
-  "message": "item added to cart successfully"
-}
-```
-
-**404 Not Found (product doesn't exist or inactive):**
-```json
-{
-  "success": false,
-  "message": "Product Not Found"
-}
-```
-
----
-
-### `GET /api/v1/cart`
-
-> Requires header: `Authorization: Bearer <token>`
-
-**200 OK:**
-```json
-{
-  "success": true,
-  "message": "cart detail retrieved successfully",
-  "data": {
-    "items": [
-      {
-        "product_id": 12,
-        "name": "Mechanical Keyboard 60%",
-        "price": 750000,
-        "quantity": 2,
-        "subtotal": 1500000,
-        "stock_available": 50
-      }
-    ],
+    "items": [{ "product_id": 12, "name": "Mechanical Keyboard 60%", "price": 750000, "quantity": 2, "subtotal": 1500000, "stock_available": 50 }],
     "unavailable_items": [],
     "grand_total": 1500000
   }
 }
 ```
 
-> `unavailable_items` contains entries where the product was removed from the catalog after being added to cart — the cart does not auto-clean stale entries, allowing users to review before retrying.
-
----
+> **`unavailable_items`**: Products that exist in Redis but have since been deactivated or deleted from the catalog. They are surfaced for user review rather than silently removed.
 
 ### `DELETE /api/v1/logout`
 
-> Requires header: `Authorization: Bearer <token>`
-
-**200 OK:**
 ```json
-{
-  "success": true,
-  "message": "user logged out successfully"
-}
-```
-
-> After this response, any subsequent request using the same token will immediately return `401 Unauthorized` — the Redis key `auth:session:<token>` has been atomically deleted.
-
-**401 Unauthorized (token already expired or invalid):**
-```json
-{
-  "success": false,
-  "message": "Unauthorized"
-}
+// 200 OK
+{ "success": true, "message": "user logged out successfully" }
+// Token is immediately invalid — Redis key deleted.
 ```
 
 ---
 
-## 🚀 Local Setup Guide
+## 🚀 Getting Started
 
-### Prerequisites
-
-| Tool | Minimum Version | Notes |
-|---|---|---|
-| Go | 1.22+ | [Download](https://go.dev/dl/) |
-| MySQL | 8.0+ | Local instance or Docker |
-| Redis | 7.0+ | Local instance or Docker |
-| `golang-migrate` CLI | latest | For running SQL migrations |
-
-Install `golang-migrate`:
-```bash
-go install -tags 'mysql' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
-```
+You can run this project using **Docker Compose** (recommended) or manually.
 
 ---
 
-### 1. Clone the Repository
+### Option A: Docker Compose (Recommended)
 
+This starts the API, MySQL, and Redis together in an isolated network. No local database setup required.
+
+**1. Clone the repository**
 ```bash
 git clone https://github.com/Mpayy/e-commerce.git
 cd e-commerce
 ```
 
-### 2. Install Dependencies
+**2. Configure environment variables**
+```bash
+cp .env.example .env
+# Edit .env with your preferred values
+```
+
+**3. Start all services**
+```bash
+docker compose up --build -d
+```
+
+**4. Run database migrations** (inside the running container)
+```bash
+docker exec -it ecommerce-app sh -c \
+  "migrate -database 'mysql://root:root@tcp(mysql:3306)/ecommerce' -path database/migrations up"
+```
+
+> The `DATABASE_NAME` for Docker Compose is `ecommerce` (set in `docker-compose.yml`).
+
+**5. (Optional) Seed initial data**
+```bash
+docker exec -it ecommerce-app ./main --seed
+```
+
+**6. Verify the server is running**
+```bash
+curl -s http://localhost:8080/api/v1/products | jq .
+```
+
+**Stop all services:**
+```bash
+docker compose down
+```
+
+---
+
+### Option B: Manual Setup
+
+**Prerequisites**
+
+| Tool | Minimum Version |
+|---|---|
+| Go | 1.22+ |
+| MySQL | 8.0+ |
+| Redis | 7.0+ |
+| `golang-migrate` CLI | latest |
 
 ```bash
+go install -tags 'mysql' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+```
+
+**1. Clone & install dependencies**
+```bash
+git clone https://github.com/Mpayy/e-commerce.git
+cd e-commerce
 go mod download
 ```
 
-### 3. Configure Environment Variables
-
-Copy the example file and fill in your values:
-
+**2. Configure environment**
 ```bash
 cp .env.example .env
 ```
 
 `.env` reference:
 ```env
-# Database (MySQL)
 DATABASE_HOST=127.0.0.1
 DATABASE_PORT=3306
 DATABASE_NAME=ecommerce_db
 DATABASE_USERNAME=root
 DATABASE_PASSWORD=your_password
 
-# Redis
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 REDIS_DB=0
 
-# Application
 APP_HOST=0.0.0.0
 APP_PORT=8080
 
-# Logging level: trace | debug | info | warn | error
 LOG_LEVEL=debug
 
-# JWT — use a cryptographically random string in production (min 32 chars)
+# Use a long, random string in production
 JWT_SECRET_KEY=change-me-to-a-strong-random-secret-key
 ```
 
-### 4. Create the Database
-
+**3. Create database**
 ```bash
 mysql -u root -p -e "CREATE DATABASE ecommerce_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 ```
 
-### 5. Run Database Migrations
-
+**4. Run migrations**
 ```bash
 migrate -database "mysql://root:your_password@tcp(127.0.0.1:3306)/ecommerce_db" \
-        -path database/migrations \
-        up
+        -path database/migrations up
 ```
 
-To roll back the last migration batch:
+To rollback:
 ```bash
 migrate -database "mysql://root:your_password@tcp(127.0.0.1:3306)/ecommerce_db" \
-        -path database/migrations \
-        down 1
+        -path database/migrations down 1
 ```
 
-### 6. (Optional) Seed Initial Data
-
+**5. (Optional) Seed initial data**
 ```bash
 go run ./cmd/api/... --seed
 ```
 
-> Seeds an admin user and sample categories to bootstrap development. Run once after migrations.
-
-### 7. Run the Application
-
+**6. Run the application**
 ```bash
 go run ./cmd/api/...
 ```
 
-The server starts at `http://0.0.0.0:8080` (or your configured `APP_HOST:APP_PORT`).
-
-**Verify the server is running:**
-```bash
-curl -s http://localhost:8080/api/v1/products | jq .
-```
+Server starts at `http://0.0.0.0:8080`.
 
 ---
 
-### 8. Regenerate Dependency Injection
+### Developer Commands
 
-Run this after adding or modifying provider functions in `injector.go`:
-
+**Regenerate Wire DI** (after modifying `injector.go`):
 ```bash
 cd cmd/api && go generate ./...
 ```
 
-> Regenerates `wire_gen.go`. Wire injection errors are caught at compile time, not at runtime.
-
-### 9. Regenerate Mocks
-
-Run this after modifying any interface that has `//go:generate mockery` annotations:
-
+**Regenerate mocks** (after modifying any interface):
 ```bash
 go generate ./...
 ```
 
-### 10. Run Unit Tests
-
+**Run unit tests:**
 ```bash
 go test ./internal/... -v -race
 ```
 
-> The `-race` flag enables Go's built-in data race detector — essential for validating concurrent usecase logic.
+The `-race` flag enables Go's built-in data race detector. All business logic tests run without a live database or Redis — dependencies are mocked via `mockery`.
+
+**Run tests for a specific module:**
+```bash
+# User module
+go test -v ./internal/user/usecase -run "TestUserUsecaseImpl"
+
+# Product module
+go test -v ./internal/product/usecase -run "TestProductUsecaseImpl"
+
+# Category module
+go test -v ./internal/product/usecase -run "TestCategoryUsecaseImpl"
+```
 
 ---
 
-## 🔬 Engineering Notes
+## 📝 Architecture Notes
 
-### Why No FOREIGN KEY Constraints Between Modules?
+### No Foreign Key Constraints Between Modules
 
-This is a deliberate architectural decision, not an oversight.
+Each module (`user`, `product`, `cart`, `order`) is treated as an independent **Bounded Context**. Cross-module database-level FK constraints would create infrastructure-layer coupling that conflicts with the modular design goal.
 
-In a Modular Monolith, each module (`user`, `product`, `cart`, `order`) represents an independent **Bounded Context**. Database-level FK constraints between modules create tight coupling at the infrastructure layer, directly conflicting with the modular design goal:
+Instead:
+- `products.category_id` is a plain `uint` field — GORM will not auto-create an FK constraint without an explicit struct association field
+- `order_items` stores a snapshot of `product_name` and `price` at checkout time, making order history immutable regardless of future catalog changes
 
-- `products.category_id` is a **logical reference** (plain `uint`), not a GORM association field. GORM only auto-generates FK constraints when you define a struct association (e.g., `Category Category`). Since we deliberately omit that field, no FK constraint is ever created — confirmed by reviewing every entity struct in the codebase.
-- `order_items.product_id` is a **cross-module logical reference** — `OrderItem` will never `JOIN` against `products`. Instead, it stores a **snapshot** of `product_name` and `price` at checkout time, making invoices historically immutable regardless of future catalog changes.
+If the need arises to split modules into independent services, the only change required would be replacing Go interface calls with gRPC or HTTP calls. The database schema needs no restructuring.
 
-**Path to Microservices:** When the time comes to split modules into separate services with independent databases, the only required change is replacing Go interface calls (e.g., `productService.GetByID()`) with gRPC/HTTP calls. The database schema requires zero restructuring.
+### Cart Enrichment Without N+1
 
-### Cart N+1 Prevention Pattern
+The `GET /cart` flow uses a two-step approach:
 
-The `GetCartDetail` flow is deliberately designed to avoid N+1 queries:
+1. **One Redis call**: `HGETALL cart:{userID}` returns the full `map[product_id → quantity]`
+2. **One DB query**: `FindByIDs` executes a single `WHERE id IN (...)` with all product IDs from step 1
+3. Everything else (subtotal, grand_total, unavailable_items) is computed in memory
 
-1. `HGETALL cart:{userID}` — one Redis call returns the full `map[product_id → quantity]`
-2. All `product_id` keys are collected into a slice in-memory
-3. A **single** `FindByIDs(ctx, []uint{...})` repository call executes one `WHERE id IN (...)` query against MySQL
-4. Product enrichment and `grand_total` computation are done in-memory
+This keeps database round trips constant regardless of cart size.
 
-This pattern scales linearly regardless of cart size — no per-item DB round trips.
+### Concurrent Stock Deduction (Checkout, Planned)
 
-### Checkout Race Condition Prevention
-
-The planned checkout flow uses `SELECT ... FOR UPDATE` (row-level pessimistic locking) via GORM's `clause.Locking` within a single MySQL transaction. This is already implemented in `ProductRepository.DecreaseStock`:
+`ProductRepository.DecreaseStock` already implements pessimistic row-level locking:
 
 ```go
 tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&product, productID)
 ```
 
-When two concurrent checkout requests compete for the same product with `stock = 1`, only one goroutine acquires the row lock. The second waits, then fails the stock check (`ErrInsufficientStock`) and rolls back the entire transaction. The Redis cart is **not deleted** on rollback — the user can retry seamlessly without re-adding items.
+When two concurrent checkout requests compete for the same low-stock product, only one goroutine acquires the lock. The other waits, then fails the stock check and rolls back cleanly. The Redis cart is preserved on rollback so the user can retry without re-adding items.
 
-### Cross-Module Contract Pattern
+### Transaction Abstraction
 
-Each module exposes capabilities to other modules exclusively via a `contract.go` file:
+`pkg/transaction.WithTransaction(ctx, fn)` wraps transaction boilerplate, keeping it out of usecase logic. This also allows the transaction itself to be mocked in unit tests — usecases remain testable without a live database connection.
 
-```
-internal/product/usecase/contract.go  → ProductService{ GetByProductID, GetProductsByIDs, DecreaseStock }
-internal/cart/usecase/contract.go     → CartService{ GetRawCart, ClearCart }
-```
-
-This is the single, auditable boundary between modules — directly analogous to a service API surface in a microservices architecture. No module ever imports another module's `entity`, `repository`, or concrete `usecase` struct.
-
-### Transaction Abstraction (`pkg/transaction`)
-
-Database transaction management is abstracted behind a `WithTransaction(ctx, fn)` interface. This prevents transaction boilerplate from leaking into usecase logic and keeps usecases unit-testable without a live database connection — the transaction itself can be mocked in tests.
-
-### Connection Pool Tuning
-
-The GORM setup in `dependency/gorm.go` is pre-configured for production workloads:
+### Connection Pool Configuration
 
 ```
-MaxOpenConns:    25       # Max simultaneous DB connections
-MaxIdleConns:    10       # Connections held ready in pool
-ConnMaxLifetime: 5 min    # Recycles connections to avoid stale handles
-ConnMaxIdleTime: 1 min    # Evicts idle connections faster
+MaxOpenConns:    25    — max simultaneous connections
+MaxIdleConns:    10    — connections kept ready in the pool
+ConnMaxLifetime: 5min  — recycles connections to prevent stale handles
+ConnMaxIdleTime: 1min  — evicts idle connections sooner
 ```
-
-These values align with common production tuning for a single-instance API serving moderate traffic loads.
 
 ---
 
 <div align="center">
-
-**Built with deliberate engineering decisions, not tutorial defaults.**
-
+<sub>MIT License · Contributions welcome</sub>
 </div>
