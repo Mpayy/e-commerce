@@ -96,23 +96,23 @@ func (_c *MockCategoryRepository_Create_Call) RunAndReturn(run func(ctx context.
 }
 
 // FindAll provides a mock function for the type MockCategoryRepository
-func (_mock *MockCategoryRepository) FindAll(ctx context.Context) ([]*entity.Category, error) {
+func (_mock *MockCategoryRepository) FindAll(ctx context.Context) ([]entity.Category, error) {
 	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindAll")
 	}
 
-	var r0 []*entity.Category
+	var r0 []entity.Category
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]*entity.Category, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]entity.Category, error)); ok {
 		return returnFunc(ctx)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context) []*entity.Category); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context) []entity.Category); ok {
 		r0 = returnFunc(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*entity.Category)
+			r0 = ret.Get(0).([]entity.Category)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
@@ -147,12 +147,12 @@ func (_c *MockCategoryRepository_FindAll_Call) Run(run func(ctx context.Context)
 	return _c
 }
 
-func (_c *MockCategoryRepository_FindAll_Call) Return(categorys []*entity.Category, err error) *MockCategoryRepository_FindAll_Call {
+func (_c *MockCategoryRepository_FindAll_Call) Return(categorys []entity.Category, err error) *MockCategoryRepository_FindAll_Call {
 	_c.Call.Return(categorys, err)
 	return _c
 }
 
-func (_c *MockCategoryRepository_FindAll_Call) RunAndReturn(run func(ctx context.Context) ([]*entity.Category, error)) *MockCategoryRepository_FindAll_Call {
+func (_c *MockCategoryRepository_FindAll_Call) RunAndReturn(run func(ctx context.Context) ([]entity.Category, error)) *MockCategoryRepository_FindAll_Call {
 	_c.Call.Return(run)
 	return _c
 }

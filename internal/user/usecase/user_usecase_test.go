@@ -1,4 +1,4 @@
-package userusecase
+package usecase
 
 import (
 	"context"
@@ -184,14 +184,9 @@ func TestUserUsecaseImpl_Register(t *testing.T) {
 			Password: plainPassword,
 		}
 
-		var errFromRepo error
 		transactionMock.On("WithTransaction", mock.Anything, mock.Anything).
-			Run(func(args mock.Arguments) {
-				fn := args.Get(1).(func(context.Context) error)
-				errFromRepo = fn(ctx)
-			}).
 			Return(func(ctx context.Context, fn func(context.Context) error) error {
-				return errFromRepo
+				return fn(ctx)
 			})
 
 		userRepo.On("Create", mock.Anything, mock.MatchedBy(func(u *entity.User) bool {
@@ -219,14 +214,9 @@ func TestUserUsecaseImpl_Register(t *testing.T) {
 			Password: plainPassword,
 		}
 
-		var errFromRepo error
 		transactionMock.On("WithTransaction", mock.Anything, mock.Anything).
-			Run(func(args mock.Arguments) {
-				fn := args.Get(1).(func(context.Context) error)
-				errFromRepo = fn(ctx)
-			}).
 			Return(func(ctx context.Context, fn func(context.Context) error) error {
-				return errFromRepo
+				return fn(ctx)
 			})
 
 		userRepo.On("Create", mock.Anything, mock.MatchedBy(func(u *entity.User) bool {
@@ -253,14 +243,9 @@ func TestUserUsecaseImpl_Register(t *testing.T) {
 			Password: plainPassword,
 		}
 
-		var errFromRepo error
 		transactionMock.On("WithTransaction", mock.Anything, mock.Anything).
-			Run(func(args mock.Arguments) {
-				fn := args.Get(1).(func(context.Context) error)
-				errFromRepo = fn(ctx)
-			}).
 			Return(func(ctx context.Context, fn func(context.Context) error) error {
-				return errFromRepo
+				return fn(ctx)
 			})
 
 		userRepo.On("Create", mock.Anything, mock.MatchedBy(func(u *entity.User) bool {
