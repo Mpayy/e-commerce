@@ -9,6 +9,7 @@
 [![GORM](https://img.shields.io/badge/GORM-v1.31.2-E10098?style=for-the-badge)](https://gorm.io/)
 [![Redis](https://img.shields.io/badge/Redis-v9-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docs.docker.com/compose/)
+[![Swagger](https://img.shields.io/badge/Swagger-OpenAPI-85EA2D?style=for-the-badge&logo=swagger&logoColor=black)](http://localhost:8080/swagger/index.html)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-In%20Development-orange?style=for-the-badge)]()
 
@@ -28,6 +29,7 @@
 - [Architecture Overview](#-architecture-overview)
 - [Directory Structure](#-directory-structure)
 - [API Endpoints](#-api-endpoints)
+- [API Documentation](#-api-documentation)
 - [Request & Response Samples](#-request--response-samples)
 - [Getting Started](#-getting-started)
 - [Architecture Notes](#-architecture-notes)
@@ -62,27 +64,28 @@
 - [x] **Clear Cart** — Deletes the entire cart key from Redis (`DEL`)
 - [x] **Get Cart** — Fetches raw quantities from Redis, then enriches with a single bulk DB call (`WHERE id IN (...)`); computes `subtotal` and `grand_total`; surfaces `unavailable_items` for products removed from catalog
 
+**Order**
+- [x] **Checkout** — Fetches raw cart from Redis, then inside a single `WithTransaction` block: loops each item calling `DecreaseStock` (pessimistic `SELECT ... FOR UPDATE` row lock), inserts `orders` + `order_items` via `CreateOrderWithItems`; clears Redis cart only after the DB transaction commits; rolls back without touching the cart on any failure
+- [x] **Invoice Snapshot** — `OrderItem` stores `product_name` and `price` at time of purchase; invoice number auto-generated as `INV-YYYYMMDD-NNNNNN` post-insert; history is immutable to future catalog changes
+- [x] **Order History** — `GET /orders`: fetches all orders for the authenticated user with their items in two queries (`WHERE user_id = ?` + `WHERE order_id IN (?)`); avoids N+1
+- [x] **Order Detail** — `GET /orders/:order_id`: ownership check (`order.UserID != userID`) returns `404` rather than `403` to avoid leaking order existence
+
 **Infrastructure & Quality**
 - [x] **Docker Compose** — Single-command local environment: App + MySQL 8.0 + Redis 7 in an isolated bridge network
 - [x] **Multi-stage Dockerfile** — Builder stage (Go 1.26 Alpine) produces a minimal Alpine runtime image (~10MB final)
 - [x] **Unit Tests — User Module** — 4 test functions covering `Login`, `Register`, `Logout`, `GetProfile` with mockery-generated mocks
 - [x] **Unit Tests — Product Module** — 9 test functions covering `CreateProduct`, `UpdateProduct`, `DeleteProduct`, `SearchProducts`, `GetProductDetail`, `AdjustStock`, `GetByProductID`, `GetProductsByIDs`, `DecreaseStock`
 - [x] **Unit Tests — Category Module** — 3 test functions covering `CreateCategory`, `GetAllCategories`, `ValidateCategoryExists`
+- [x] **Unit Tests — Order Module** — 3 test functions (`TestOrderUsecase_Checkout`, `TestOrderUsecase_GetOrderHistory`, `TestOrderUsecase_GetOrderDetail`) with 11 sub-cases covering: success checkout, empty cart, insufficient stock mid-loop, product not found mid-loop, history with items, history empty, history DB error, detail success, order not found, wrong ownership, items DB error
 - [x] **Mockery Configuration** — `.mockery.yml` registers all interfaces (repositories, usecases, Redis, JWT, Transaction) for consistent mock generation
 - [x] **Cross-Module Contracts** — `ProductService` and `CartService` interfaces defined in `contract.go` files enforce module boundary isolation
+- [x] **Swagger / OpenAPI Docs** — All 20 handler functions have `@Router` annotations; docs generated via `swaggo/swag`; served at `/swagger/*any` via `gin-swagger`
 - [x] **Structured Logging** — Logrus middleware logs `method`, `path`, `status`, `latency_ms`, `client_ip` per request
 - [x] **Standardized JSON Response** — `ResponseSuccess` / `ResponseError` helpers ensure a consistent response envelope
 - [x] **Versioned SQL Migrations** — `golang-migrate`-compatible, timestamp-prefixed `.up.sql`/`.down.sql` pairs
 - [x] **Graceful Shutdown** — Handles `SIGINT`/`SIGTERM` with a 5-second drain window
 - [x] **Dependency Injection via Wire** — Compile-time DI wiring; injection errors surface at `go generate` not at runtime
 - [x] **Database Seeder** — `--seed` CLI flag bootstraps admin user and sample categories
-
-### 🔜 Planned
-
-- [ ] **Checkout** — Convert Redis cart to MySQL `orders` + `order_items` in a single ACID transaction; pessimistic stock locking via `SELECT ... FOR UPDATE`
-- [ ] **Order History** — `GET /orders` and `GET /orders/:id` for authenticated users
-- [ ] **Invoice Snapshot** — `OrderItem` stores `product_name` and `price` at checkout time; order history remains accurate regardless of future catalog changes
-- [ ] **Swagger / OpenAPI Docs** — Interactive API documentation via `swaggo`
 
 ---
 
@@ -192,6 +195,41 @@ sequenceDiagram
     H-->>C: 200 · CartDetailResponse
 ```
 
+### Checkout Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant H as OrderHandler
+    participant U as OrderUsecase
+    participant CS as CartService
+    participant PS as ProductService
+    participant R as MySQL
+
+    Note over C,R: CHECKOUT
+    C->>H: POST /api/v1/orders · Bearer TOKEN
+    H->>U: Checkout(ctx, userID)
+    U->>CS: GetRawCart(userID)
+    CS-->>U: map[ product_id → quantity ] (from Redis HGETALL)
+    U->>PS: GetProductsByIDs([ ids... ]) — one WHERE IN query
+    PS-->>U: []Product{ id, name, price, stock }
+    Note over U,R: BEGIN TRANSACTION
+    loop for each product_id in cart
+        U->>PS: DecreaseStock(ctx, productID, qty)
+        PS->>R: SELECT ... FOR UPDATE (row lock)
+        R-->>PS: current stock
+        PS->>R: UPDATE products SET stock = stock - qty
+    end
+    U->>R: INSERT INTO orders (user_id, total_amount, status)
+    R-->>U: order.ID
+    U->>R: UPDATE orders SET invoice_number = INV-YYYYMMDD-NNNNNN
+    U->>R: INSERT INTO order_items (order_id, product_name, price, quantity, subtotal)
+    Note over U,R: COMMIT
+    U->>CS: ClearCart(userID) — DEL cart:{userID} after commit
+    H-->>C: 201 · OrderResponse{ order_id, invoice_number, total_amount, items }
+```
+
 ### Token Revocation Approaches
 
 | Approach | Lookup Cost | Instant Revocation | Notes |
@@ -279,6 +317,27 @@ e-commerce/
 │   │       ├── cart_usecase_impl.go   # Bulk enrichment, unavailable_items detection, grand_total
 │   │       └── contract.go            # CartService{ GetRawCart, ClearCart }
 │   │
+│   ├── order/                   # MODULE: Checkout & Order History
+│   │   ├── entity/
+│   │   │   ├── order.go         # Order{ ID, UserID, InvoiceNumber, TotalAmount, Status }
+│   │   │   └── order_item.go    # OrderItem{ ID, OrderID, ProductID, ProductName, Price, Quantity, Subtotal }
+│   │   │                        #   ProductName/Price are snapshot fields — immutable after insert
+│   │   ├── dto/
+│   │   │   └── order_response.go # OrderResponse, OrderItemResponse, OrderHistoryResponse
+│   │   ├── repository/
+│   │   │   ├── order_repository.go      # Interface: CreateOrderWithItems, FindByUserID, FindByID, FindItemsByOrderID
+│   │   │   └── order_repository_impl.go # CreateOrderWithItems: insert order → generate INV-YYYYMMDD-NNNNNN → insert items
+│   │   │                                #   FindByUserID: two queries (orders + items WHERE order_id IN ?)
+│   │   ├── mocks/               # MockOrderRepository
+│   │   ├── delivery/http/
+│   │   │   ├── order_handler.go       # Interface: Checkout, GetHistory, GetDetail
+│   │   │   └── order_handler_impl.go  # Full swaggo annotations; ownership check on GetDetail
+│   │   └── usecase/
+│   │       ├── order_usecase.go       # Interface: Checkout, GetOrderHistory, GetOrderDetail
+│   │       ├── order_usecase_impl.go  # Checkout: GetRawCart → GetProductsByIDs → WithTransaction(
+│   │       │                          #   loop DecreaseStock → CreateOrderWithItems) → ClearCart
+│   │       └── order_usecase_test.go  # 3 test functions, 11 sub-cases
+│   │
 │   ├── middleware/
 │   │   ├── auth_middleware.go    # Token extraction → JWT validation → Redis session check
 │   │   ├── admin_middleware.go   # Role check from JWT context; 403 if not admin
@@ -343,13 +402,25 @@ Each module exposes its capabilities to other modules **only** through a `contra
 | `DELETE` | `/api/v1/cart/:product_id` | Remove single item | ✅ JWT |
 | `DELETE` | `/api/v1/cart` | Clear entire cart | ✅ JWT |
 
-### Checkout & Orders *(Planned)*
+### Orders
 
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| `POST` | `/api/v1/checkout` | Create order from cart | ✅ JWT |
-| `GET` | `/api/v1/orders` | List user orders | ✅ JWT |
-| `GET` | `/api/v1/orders/:id` | Order detail | ✅ JWT |
+| `POST` | `/api/v1/orders` | Checkout cart into a new order | ✅ JWT |
+| `GET` | `/api/v1/orders` | List authenticated user's order history | ✅ JWT |
+| `GET` | `/api/v1/orders/:order_id` | Get single order detail | ✅ JWT |
+
+---
+
+## 📖 API Documentation
+
+All endpoints are documented interactively via Swagger UI, generated from swaggo annotations (`@Summary`, `@Description`, `@Router`, `@Security`, etc.) in each handler file.
+
+**Access the UI:**
+1. Start the application: `docker compose up -d`
+2. Open [http://localhost:8080/swagger/index.html](http://localhost:8080/swagger/index.html)
+
+**Testing authenticated endpoints:** Click the **Authorize** button in the top-right of the Swagger UI and enter the Bearer token returned by `POST /login`. All subsequent requests in that session will include the `Authorization` header.
 
 ---
 
@@ -440,6 +511,61 @@ Each module exposes its capabilities to other modules **only** through a `contra
 ```
 
 > **`unavailable_items`**: Products that exist in Redis but have since been deactivated or deleted from the catalog. They are surfaced for user review rather than silently removed.
+
+### `POST /api/v1/orders` (Checkout)
+
+```json
+// Request — Authorization: Bearer <token>
+// No request body needed; cart is resolved server-side from JWT user_id
+
+// 201 Created
+{
+  "success": true,
+  "message": "Checkout successful",
+  "data": {
+    "order_id": 6,
+    "invoice_number": "INV-20260710-000006",
+    "total_amount": 200000,
+    "status": "PAID",
+    "items": [
+      { "product_id": 1, "product_name": "Produk A", "price": 10000, "quantity": 10, "subtotal": 100000 },
+      { "product_id": 2, "product_name": "Produk B", "price": 20000, "quantity": 5,  "subtotal": 100000 }
+    ]
+  }
+}
+
+// 400 Bad Request — cart is empty
+{ "success": false, "message": "Cart Is Empty" }
+
+// 404 Not Found — a product in cart was removed from catalog
+{ "success": false, "message": "Product Not Found" }
+
+// 422 Unprocessable Entity — stock insufficient for one or more items
+{ "success": false, "message": "Insufficient Stock" }
+```
+
+### `GET /api/v1/orders`
+
+```json
+// 200 OK
+{
+  "success": true,
+  "message": "Order history retrieved successfully",
+  "data": {
+    "orders": [
+      {
+        "order_id": 6,
+        "invoice_number": "INV-20260710-000006",
+        "total_amount": 200000,
+        "status": "PAID",
+        "items": [
+          { "product_id": 1, "product_name": "Produk A", "price": 10000, "quantity": 10, "subtotal": 100000 }
+        ]
+      }
+    ]
+  }
+}
+```
 
 ### `DELETE /api/v1/logout`
 
@@ -594,6 +720,11 @@ cd cmd/api && go generate ./...
 go generate ./...
 ```
 
+**Regenerate Swagger docs** (after modifying any handler annotation):
+```bash
+swag init -g cmd/api/main.go --output docs
+```
+
 **Run unit tests:**
 ```bash
 go test ./internal/... -v -race
@@ -611,6 +742,9 @@ go test -v ./internal/product/usecase -run "TestProductUsecaseImpl"
 
 # Category module
 go test -v ./internal/product/usecase -run "TestCategoryUsecaseImpl"
+
+# Order module
+go test -v ./internal/order/usecase -run "TestOrderUsecase"
 ```
 
 ---
