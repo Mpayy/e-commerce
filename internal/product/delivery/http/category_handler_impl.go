@@ -27,6 +27,21 @@ func NewCategoryHandler(categoryUsecase productusecase.CategoryUsecase, validato
 	}
 }
 
+// CreateCategory godoc
+// @Summary      Create a new category
+// @Description  Creates a product category and auto-generates its slug from the name. Requires admin role. Returns 409 if a category with the same name already exists.
+// @Tags         categories
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body dto.CategoryRequest true "Category payload"
+// @Success      201 {object} response.SuccessResponse{data=dto.CategoryResponse}
+// @Failure      400 {object} response.ValidationErrorResponse "Validation error"
+// @Failure      401 {object} response.ErrorResponse "Unauthorized"
+// @Failure      403 {object} response.ErrorResponse "Forbidden — admin role required"
+// @Failure      409 {object} response.ErrorResponse "Category name already exists"
+// @Failure      500 {object} response.ErrorResponse "Internal server error"
+// @Router       /admin/categories [post]
 func (h *CategoryHandlerImpl) Create(ctx *gin.Context) {
 	var request dto.CategoryRequest
 
@@ -58,6 +73,14 @@ func (h *CategoryHandlerImpl) Create(ctx *gin.Context) {
 	response.ResponseSuccess(ctx, http.StatusCreated, "Category created successfully", category)
 }
 
+// GetAllCategories godoc
+// @Summary      List all categories
+// @Description  Returns every product category. This endpoint is public and does not require authentication.
+// @Tags         categories
+// @Produce      json
+// @Success      200 {object} response.SuccessResponse{data=[]dto.CategoryResponse}
+// @Failure      500 {object} response.ErrorResponse "Internal server error"
+// @Router       /categories [get]
 func (h *CategoryHandlerImpl) GetAll(ctx *gin.Context) {
 	categories, err := h.CategoryUsecase.GetAllCategories(ctx.Request.Context())
 	if err != nil {
