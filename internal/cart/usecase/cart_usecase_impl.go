@@ -183,7 +183,7 @@ func (u *CartUsecaseImpl) GetCartDetail(ctx context.Context, userID uint) (*dto.
 		})
 	}
 
-	var unavailableItems []dto.CartUnavailableItemResp
+	unavailableItems := []dto.CartUnavailableItemResp{}
 	for redisProductID := range cartMap {
 		if !foundProductsInDB[redisProductID] {
 			unavailableItems = append(unavailableItems, dto.CartUnavailableItemResp{

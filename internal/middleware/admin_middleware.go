@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 
+	"github.com/Mpayy/e-commerce/pkg/apperror"
 	"github.com/Mpayy/e-commerce/pkg/jwt"
 	"github.com/Mpayy/e-commerce/pkg/response"
 	"github.com/gin-gonic/gin"
@@ -18,18 +19,18 @@ func (m *AdminMiddleware) AdminMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		authValue, exists := ctx.Get("auth")
 		if !exists {
-			response.ResponseError(ctx, http.StatusUnauthorized, "unauthorized", nil)
+			response.ResponseError(ctx, http.StatusUnauthorized, apperror.ErrUnauthorized.Error(), nil)
 			return
 		}
 
-		auth, ok := authValue.(*jwt.Auth) 
+		auth, ok := authValue.(*jwt.Auth)
 		if !ok {
-			response.ResponseError(ctx, http.StatusInternalServerError, "internal server error", nil)
+			response.ResponseError(ctx, http.StatusInternalServerError, apperror.ErrInternalServer.Error(), nil)
 			return
 		}
 
 		if auth.Role != "admin" {
-			response.ResponseError(ctx, http.StatusForbidden, "admin access required", nil)
+			response.ResponseError(ctx, http.StatusForbidden, apperror.ErrForbidden.Error(), nil)
 			return
 		}
 

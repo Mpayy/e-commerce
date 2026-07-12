@@ -1,0 +1,1089 @@
+basePath: /api/v1
+definitions:
+  dto.CartDetailResponse:
+    properties:
+      grand_total:
+        type: number
+      items:
+        items:
+          $ref: '#/definitions/dto.CartItemResponse'
+        type: array
+      unavailable_items:
+        items:
+          $ref: '#/definitions/dto.CartUnavailableItemResp'
+        type: array
+    type: object
+  dto.CartItemCreateRequest:
+    properties:
+      product_id:
+        type: integer
+      quantity:
+        minimum: 1
+        type: integer
+    required:
+    - product_id
+    - quantity
+    type: object
+  dto.CartItemResponse:
+    properties:
+      name:
+        type: string
+      price:
+        type: number
+      product_id:
+        type: integer
+      quantity:
+        type: integer
+      stock_available:
+        type: integer
+      subtotal:
+        type: number
+    type: object
+  dto.CartItemUpdateRequest:
+    properties:
+      quantity:
+        minimum: 0
+        type: integer
+    required:
+    - quantity
+    type: object
+  dto.CartUnavailableItemResp:
+    properties:
+      message:
+        type: string
+      product_id:
+        type: integer
+    type: object
+  dto.CategoryRequest:
+    properties:
+      name:
+        maxLength: 100
+        type: string
+    required:
+    - name
+    type: object
+  dto.CategoryResponse:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+      slug:
+        type: string
+    type: object
+  dto.MetaPagination:
+    properties:
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+    type: object
+  dto.OrderHistoryResponse:
+    properties:
+      orders:
+        items:
+          $ref: '#/definitions/dto.OrderResponse'
+        type: array
+    type: object
+  dto.OrderItemResponse:
+    properties:
+      price:
+        type: number
+      product_id:
+        type: integer
+      product_name:
+        type: string
+      quantity:
+        type: integer
+      subtotal:
+        type: number
+    type: object
+  dto.OrderResponse:
+    properties:
+      invoice_number:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/dto.OrderItemResponse'
+        type: array
+      order_id:
+        type: integer
+      status:
+        type: string
+      total_amount:
+        type: number
+    type: object
+  dto.ProductCreateRequest:
+    properties:
+      category_id:
+        type: integer
+      description:
+        type: string
+      name:
+        maxLength: 150
+        type: string
+      price:
+        type: number
+      sku:
+        maxLength: 50
+        type: string
+      stock:
+        minimum: 0
+        type: integer
+    required:
+    - category_id
+    - name
+    - price
+    type: object
+  dto.ProductResponse:
+    properties:
+      category_id:
+        type: integer
+      description:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      name:
+        type: string
+      price:
+        type: number
+      sku:
+        type: string
+      slug:
+        type: string
+      stock:
+        type: integer
+    type: object
+  dto.ProductSearchResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/dto.ProductResponse'
+        type: array
+      meta:
+        $ref: '#/definitions/dto.MetaPagination'
+    type: object
+  dto.ProductStockAdjustmentRequest:
+    properties:
+      stock:
+        minimum: 0
+        type: integer
+    required:
+    - stock
+    type: object
+  dto.ProductUpdateRequest:
+    properties:
+      category_id:
+        type: integer
+      description:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        maxLength: 150
+        type: string
+      price:
+        type: number
+      sku:
+        maxLength: 50
+        type: string
+      stock:
+        minimum: 0
+        type: integer
+    required:
+    - category_id
+    - name
+    - price
+    type: object
+  dto.TokenResponse:
+    properties:
+      token:
+        type: string
+    type: object
+  dto.UserLoginRequest:
+    properties:
+      email:
+        maxLength: 150
+        type: string
+      password:
+        maxLength: 255
+        minLength: 6
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  dto.UserRegisterRequest:
+    properties:
+      email:
+        maxLength: 150
+        type: string
+      name:
+        maxLength: 100
+        type: string
+      password:
+        maxLength: 255
+        minLength: 6
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+  dto.UserResponse:
+    properties:
+      email:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  response.ErrorResponse:
+    properties:
+      error: {}
+      message:
+        type: string
+      success:
+        example: false
+        type: boolean
+    type: object
+  response.SuccessResponse:
+    properties:
+      data: {}
+      message:
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  response.ValidationErrorResponse:
+    properties:
+      error:
+        additionalProperties:
+          type: string
+        example:
+          field_name: error message
+          quantity: must be at least 1
+        type: object
+      message:
+        example: Validation failed
+        type: string
+      success:
+        example: false
+        type: boolean
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Modular monolith e-commerce backend built with Go, Gin, GORM, and Redis.
+  title: E-Commerce API
+  version: "1.0"
+paths:
+  /admin/categories:
+    post:
+      consumes:
+      - application/json
+      description: Creates a product category and auto-generates its slug from the
+        name. Requires admin role. Returns 409 if a category with the same name already
+        exists.
+      parameters:
+      - description: Category payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.CategoryResponse'
+              type: object
+        "400":
+          description: Validation error
+          schema:
+            $ref: '#/definitions/response.ValidationErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Forbidden — admin role required
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "409":
+          description: Category name already exists
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a new category
+      tags:
+      - categories
+  /admin/products:
+    post:
+      consumes:
+      - application/json
+      description: Creates a product under an existing category. Slug is auto-generated
+        from the name; SKU is auto-generated if left blank, otherwise the provided
+        SKU is sanitized and used as-is. Requires admin role.
+      parameters:
+      - description: Product payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ProductCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ProductResponse'
+              type: object
+        "400":
+          description: Validation error
+          schema:
+            $ref: '#/definitions/response.ValidationErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Forbidden — admin role required
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Category not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "409":
+          description: Conflict (duplicate slug or SKU)
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a new product
+      tags:
+      - products
+  /admin/products/{product_id}:
+    delete:
+      description: Deactivates a product by setting is_active to false instead of
+        removing the row, so past order history referencing this product remains intact.
+        Requires admin role.
+      parameters:
+      - description: Product ID
+        in: path
+        name: product_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Product deleted successfully
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Invalid product ID
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Forbidden — admin role required
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Product not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Soft-delete a product
+      tags:
+      - products
+    put:
+      consumes:
+      - application/json
+      description: Updates all fields of a product, including its active status. The
+        category is re-validated only if category_id is changed. Requires admin role.
+      parameters:
+      - description: Product ID
+        in: path
+        name: product_id
+        required: true
+        type: integer
+      - description: Product payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ProductUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ProductResponse'
+              type: object
+        "400":
+          description: Validation error
+          schema:
+            $ref: '#/definitions/response.ValidationErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Forbidden — admin role required
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Not Found (Product or Category not found)
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "409":
+          description: Conflict (duplicate slug or SKU)
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update an existing product
+      tags:
+      - products
+  /admin/products/{product_id}/adjust-stock:
+    patch:
+      description: Overwrites the product's stock to the given absolute value (not
+        a delta), typically used to reconcile stock after a physical count. Requires
+        admin role.
+      parameters:
+      - description: Product ID
+        in: path
+        name: product_id
+        required: true
+        type: integer
+      - description: Stock adjustment payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ProductStockAdjustmentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Product stock adjusted successfully
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Validation error
+          schema:
+            $ref: '#/definitions/response.ValidationErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Forbidden — admin role required
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Product not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Set a product's stock quantity
+      tags:
+      - products
+  /cart:
+    delete:
+      description: Removes all items from the authenticated user's cart in a single
+        operation.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: cart cleared successfully
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Empty the cart
+      tags:
+      - carts
+    get:
+      description: Returns cart items enriched with live product name, price, and
+        stock via a single bulk lookup, along with the computed grand total. Products
+        removed from the catalog since being added are silently excluded.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: cart detail retrieved successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.CartDetailResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get the authenticated user's cart
+      tags:
+      - carts
+    post:
+      consumes:
+      - application/json
+      description: Adds a product and quantity to the authenticated user's Redis-backed
+        cart. If the product is already in the cart, the quantity is incremented rather
+        than overwritten.
+      parameters:
+      - description: Cart payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CartItemCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Item added to cart successfully
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Validation error
+          schema:
+            $ref: '#/definitions/response.ValidationErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Product not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Add an item to the cart
+      tags:
+      - carts
+  /cart/{product_id}:
+    delete:
+      description: Removes one product from the authenticated user's cart by product
+        ID. Removing a product that isn't in the cart is treated as a no-op, not an
+        error.
+      parameters:
+      - description: Product ID
+        in: path
+        name: product_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Item removed from cart successfully
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Invalid product ID
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Remove a single item from the cart
+      tags:
+      - carts
+    patch:
+      consumes:
+      - application/json
+      description: Overwrites the quantity of a product already in the cart with the
+        given value. Returns 404 if the product was never added to this cart. Sending
+        a quantity of 0 removes the item instead.
+      parameters:
+      - description: Product ID
+        in: path
+        name: product_id
+        required: true
+        type: integer
+      - description: Cart payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CartItemUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Item updated in cart successfully
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Validation error
+          schema:
+            $ref: '#/definitions/response.ValidationErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Cart item not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a cart item's quantity
+      tags:
+      - carts
+  /categories:
+    get:
+      description: Returns every product category. This endpoint is public and does
+        not require authentication.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.CategoryResponse'
+                  type: array
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: List all categories
+      tags:
+      - categories
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates a user by email and password, then issues a JWT stored
+        in Redis for session tracking. Returns a generic error for both wrong password
+        and unknown email to avoid leaking which emails are registered.
+      parameters:
+      - description: User payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UserLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.TokenResponse'
+              type: object
+        "400":
+          description: Validation error
+          schema:
+            $ref: '#/definitions/response.ValidationErrorResponse'
+        "401":
+          description: Wrong email or password
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Login and obtain a JWT token
+      tags:
+      - users
+  /logout:
+    post:
+      description: Logs out a user.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User logged out successfully
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Logout a user
+      tags:
+      - users
+  /orders:
+    get:
+      description: Returns every order placed by the authenticated user along with
+        their line items, using the price and product name captured at checkout time
+        rather than current catalog data.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.OrderHistoryResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List the authenticated user's past orders
+      tags:
+      - orders
+    post:
+      description: 'Converts the cart into a permanent order: validates and decrements
+        stock for each item under a row lock inside a single database transaction,
+        snapshots product name and price at time of purchase, then clears the cart
+        only after the transaction commits successfully. If any item fails validation,
+        the entire order is rolled back and the cart is left untouched so the user
+        can retry.'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.OrderResponse'
+              type: object
+        "400":
+          description: Cart is empty
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Product not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "422":
+          description: Insufficient stock
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Checkout the current cart into an order
+      tags:
+      - orders
+  /orders/{order_id}:
+    get:
+      description: Returns the full detail of one order, including its line items.
+        Returns 404 both when the order doesn't exist and when it belongs to a different
+        user, so ownership is never leaked through the error response.
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.OrderResponse'
+              type: object
+        "400":
+          description: Invalid order ID
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Order not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get a single order's detail
+      tags:
+      - orders
+  /products:
+    get:
+      description: Returns a paginated, publicly accessible list of active products,
+        optionally filtered by name (partial match) and category_id. A category_id
+        that matches no products returns an empty list, not a 404.
+      parameters:
+      - description: Search by product name
+        in: query
+        name: search
+        type: string
+      - description: Filter by category ID
+        in: query
+        name: category_id
+        type: integer
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ProductSearchResponse'
+              type: object
+        "400":
+          description: Validation error
+          schema:
+            $ref: '#/definitions/response.ValidationErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Search and list products
+      tags:
+      - products
+  /products/{product_id}:
+    get:
+      description: Returns a single product by ID. Inactive or non-existent products
+        both return 404, so publicly disabled products are indistinguishable from
+        products that were never created. This endpoint is public.
+      parameters:
+      - description: Product ID
+        in: path
+        name: product_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ProductResponse'
+              type: object
+        "400":
+          description: Invalid product ID
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Product not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Get product detail
+      tags:
+      - products
+  /profile:
+    get:
+      description: Returns the profile of the user identified by the JWT in the Authorization
+        header. The password hash is never included in the response.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.UserResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get the authenticated user's profile
+      tags:
+      - users
+  /register:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new user account with a bcrypt-hashed password. Email
+        must be unique; returns 409 if already registered.
+      parameters:
+      - description: User payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UserRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.UserResponse'
+              type: object
+        "400":
+          description: Validation error
+          schema:
+            $ref: '#/definitions/response.ValidationErrorResponse'
+        "409":
+          description: Email already exists
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Register a new user
+      tags:
+      - users
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

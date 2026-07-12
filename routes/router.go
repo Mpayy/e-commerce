@@ -1,6 +1,7 @@
 package routes
 
 import (
+	_ "github.com/Mpayy/e-commerce/docs"
 	carthttp "github.com/Mpayy/e-commerce/internal/cart/delivery/http"
 	"github.com/Mpayy/e-commerce/internal/middleware"
 	orderhttp "github.com/Mpayy/e-commerce/internal/order/delivery/http"
@@ -8,6 +9,8 @@ import (
 	userhttp "github.com/Mpayy/e-commerce/internal/user/delivery/http"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 type Router struct {
@@ -37,6 +40,7 @@ func NewRouter(app *gin.Engine, authMiddleware *middleware.AuthMiddleware, admin
 }
 
 func (r *Router) SetupRouter() {
+	r.App.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	r.App.Use(middleware.Logger(r.Log))
 
 	public := r.App.Group("/api/v1")
@@ -64,7 +68,9 @@ func (r *Router) SetupRouter() {
 	order.GET("", r.OrderHandler.GetHistory)
 	order.GET("/:order_id", r.OrderHandler.GetDetail)
 
-	adminOnly := protected.Group("/admin", r.AdminMiddleware.AdminMiddleware())
+	adminOnly := protected.Group("/admin")
+	adminOnly.Use(r.AdminMiddleware.AdminMiddleware())
+
 	adminOnly.POST("/categories", r.CategoryHandler.Create)
 	adminOnly.POST("/products", r.ProductHandler.Create)
 	adminOnly.PUT("/products/:product_id", r.ProductHandler.Update)

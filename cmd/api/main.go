@@ -13,6 +13,17 @@ import (
 	"github.com/Mpayy/e-commerce/database/seeder"
 )
 
+// @title           E-Commerce API
+// @version         1.0
+// @description     Modular monolith e-commerce backend built with Go, Gin, GORM, and Redis.
+// @host            localhost:8080
+// @BasePath        /api/v1
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
+
 func main() {
 	shouldSeed := flag.Bool("seed", false, "Run database seeder if value is true")
 	flag.Parse()
