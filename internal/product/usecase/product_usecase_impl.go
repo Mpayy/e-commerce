@@ -15,25 +15,26 @@ import (
 )
 
 type ProductUsecaseImpl struct {
-	ProductRepository productrepository.ProductRepository
-	CategoryUsecase   CategoryUsecase
-	Log               *logrus.Logger
-	Transaction       transaction.Transaction
+	productRepository productrepository.ProductRepository
+	categoryUsecase   CategoryUsecase
+	log               *logrus.Logger
+	transaction       transaction.Transaction
 }
 
 func NewProductUsecase(productRepository productrepository.ProductRepository, categoryUsecase CategoryUsecase, log *logrus.Logger, transaction transaction.Transaction) *ProductUsecaseImpl {
 	return &ProductUsecaseImpl{
-		ProductRepository: productRepository,
-		CategoryUsecase:   categoryUsecase,
-		Log:               log,
-		Transaction:       transaction,
+		productRepository: productRepository,
+		categoryUsecase:   categoryUsecase,
+		log:               log,
+		transaction:       transaction,
 	}
 }
 
 func (u *ProductUsecaseImpl) CreateProduct(ctx context.Context, request *dto.ProductCreateRequest) (*dto.ProductResponse, error) {
-	u.Log.WithField("name", request.Name).Debug("Attempting to create product")
+	logger := u.log.WithField("name", request.Name)
+	logger.Debug("Attempting to create product")
 
-	err := u.CategoryUsecase.ValidateCategoryExists(ctx, request.CategoryID)
+	err := u.categoryUsecase.ValidateCategoryExists(ctx, request.CategoryID)
 	if err != nil {
 		return nil, err
 	}
@@ -54,31 +55,17 @@ func (u *ProductUsecaseImpl) CreateProduct(ctx context.Context, request *dto.Pro
 		IsActive:    true,
 	}
 
-	err = u.Transaction.WithTransaction(ctx, func(ctx context.Context) error {
-		errCreate := u.ProductRepository.Create(ctx, product)
-		if errCreate != nil {
-			if errors.Is(errCreate, apperror.ErrDuplicatedProduct) {
-				u.Log.WithField("slug", product.Slug).Warn("Create product failed: duplicate slug")
-				return errCreate
-			}
-
-			if errors.Is(errCreate, apperror.ErrDuplicatedProductSku) {
-				u.Log.WithField("sku", product.SKU).Warn("Create product failed: duplicate SKU")
-				return errCreate
-			}
-
-			u.Log.WithFields(logrus.Fields{
-				"name":  request.Name,
-				"error": errCreate,
-			}).Error("Create product failed: unexpected DB error")
-
-			return apperror.ErrInternalServer
+	if err = u.productRepository.Create(ctx, product); err != nil {
+		if errors.Is(err, apperror.ErrDuplicatedProduct) {
+			logger.WithField("slug", product.Slug).Warn("Create product failed: duplicate slug")
+			return nil, err
 		}
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
+		if errors.Is(err, apperror.ErrDuplicatedProductSku) {
+			logger.WithField("sku", product.SKU).Warn("Create product failed: duplicate SKU")
+			return nil, err
+		}
+		logger.WithError(err).Error("Failed to create product")
+		return nil, apperror.ErrInternalServer
 	}
 
 	response := &dto.ProductResponse{
@@ -93,29 +80,26 @@ func (u *ProductUsecaseImpl) CreateProduct(ctx context.Context, request *dto.Pro
 		IsActive:    product.IsActive,
 	}
 
-	u.Log.WithField("name", request.Name).Info("Product created successfully")
+	logger.Info("Product created successfully")
 	return response, nil
 }
 
 func (u *ProductUsecaseImpl) UpdateProduct(ctx context.Context, id uint, request *dto.ProductUpdateRequest) (*dto.ProductResponse, error) {
-	u.Log.WithField("id", id).Debug("Attempting to update product")
+	logger := u.log.WithField("id", id)
+	logger.Debug("Attempting to update product")
 
-	product, err := u.ProductRepository.FindByID(ctx, id)
+	product, err := u.productRepository.FindByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, apperror.ErrNotFound) {
-			u.Log.WithField("id", id).Warn("Update product failed: product not found")
+			logger.Warn("Failed to update product: product not found")
 			return nil, apperror.ErrProductNotFound
 		}
-
-		u.Log.WithFields(logrus.Fields{
-			"id":    id,
-			"error": err,
-		}).Error("Update product failed: unexpected DB error")
+		logger.WithError(err).Error("Failed to update product")
 		return nil, apperror.ErrInternalServer
 	}
 
 	if product.CategoryID != request.CategoryID {
-		err = u.CategoryUsecase.ValidateCategoryExists(ctx, request.CategoryID)
+		err = u.categoryUsecase.ValidateCategoryExists(ctx, request.CategoryID)
 		if err != nil {
 			return nil, err
 		}
@@ -136,31 +120,18 @@ func (u *ProductUsecaseImpl) UpdateProduct(ctx context.Context, id uint, request
 		product.IsActive = *request.IsActive
 	}
 
-	err = u.Transaction.WithTransaction(ctx, func(ctx context.Context) error {
-		errUpdate := u.ProductRepository.Update(ctx, product)
-		if errUpdate != nil {
-			if errors.Is(errUpdate, apperror.ErrDuplicatedProduct) {
-				u.Log.WithField("slug", product.Slug).Warn("Update product failed: duplicate slug")
-				return errUpdate
-			}
-
-			if errors.Is(errUpdate, apperror.ErrDuplicatedProductSku) {
-				u.Log.WithField("sku", product.SKU).Warn("Update product failed: duplicate SKU")
-				return errUpdate
-			}
-
-			u.Log.WithFields(logrus.Fields{
-				"id":    id,
-				"error": errUpdate,
-			}).Error("Update product failed: unexpected DB error")
-
-			return apperror.ErrInternalServer
+	if err := u.productRepository.Update(ctx, product); err != nil {
+		if errors.Is(err, apperror.ErrDuplicatedProduct) {
+			logger.WithField("slug", product.Slug).Warn("Update product failed: duplicate slug")
+			return nil, err
 		}
-		return nil
-	})
 
-	if err != nil {
-		return nil, err
+		if errors.Is(err, apperror.ErrDuplicatedProductSku) {
+			logger.WithField("sku", product.SKU).Warn("Update product failed: duplicate SKU")
+			return nil, err
+		}
+		logger.WithError(err).Error("Failed to update product")
+		return nil, apperror.ErrInternalServer
 	}
 
 	response := &dto.ProductResponse{
@@ -175,38 +146,43 @@ func (u *ProductUsecaseImpl) UpdateProduct(ctx context.Context, id uint, request
 		IsActive:    product.IsActive,
 	}
 
-	u.Log.WithField("name", request.Name).Info("Product updated successfully")
+	logger.Info("Product updated successfully")
 	return response, nil
 }
 
 func (u *ProductUsecaseImpl) DeleteProduct(ctx context.Context, id uint) error {
-	u.Log.WithField("id", id).Debug("Attempting to delete product")
+	logger := u.log.WithField("id", id)
+	logger.Debug("Attempting to delete product")
 
-	err := u.ProductRepository.Delete(ctx, id)
+	err := u.productRepository.Delete(ctx, id)
 	if err != nil {
 		if errors.Is(err, apperror.ErrNotFound) {
-			u.Log.WithField("id", id).Warn("Delete product failed: product not found")
+			logger.Warn("Failed to delete product: product not found")
 			return apperror.ErrProductNotFound
 		}
-
-		u.Log.WithFields(logrus.Fields{
-			"id":    id,
-			"error": err,
-		}).Error("Delete product failed: unexpected DB error")
+		logger.WithError(err).Error("Failed to delete product: unexpected DB error")
 		return apperror.ErrInternalServer
 	}
 
-	u.Log.WithField("id", id).Info("Product deleted successfully")
+	logger.Info("Product deleted successfully")
 	return nil
 }
 
 func (u *ProductUsecaseImpl) SearchProducts(ctx context.Context, request *dto.ProductSearchRequest) (*dto.ProductSearchResponse, error) {
-	u.Log.WithFields(logrus.Fields{
+	logger := u.log.WithFields(logrus.Fields{
 		"search":      request.Search,
 		"category_id": request.CategoryID,
 		"page":        request.Page,
 		"limit":       request.Limit,
-	}).Debug("Attempting to search products")
+	})
+	logger.Debug("Attempting to search products")
+
+	if request.Page <= 0 {
+		request.Page = 1
+	}
+	if request.Limit <= 0 {
+		request.Limit = 10
+	}
 
 	filter := &entity.ProductFilter{
 		Search:     request.Search,
@@ -215,12 +191,9 @@ func (u *ProductUsecaseImpl) SearchProducts(ctx context.Context, request *dto.Pr
 		Limit:      request.Limit,
 	}
 
-	products, total, err := u.ProductRepository.FindAll(ctx, filter)
+	products, total, err := u.productRepository.FindAll(ctx, filter)
 	if err != nil {
-		u.Log.WithFields(logrus.Fields{
-			"filter": filter,
-			"error":  err,
-		}).Error("Search products failed: unexpected DB error")
+		logger.WithError(err).Error("Failed to search products")
 		return nil, apperror.ErrInternalServer
 	}
 
@@ -239,6 +212,7 @@ func (u *ProductUsecaseImpl) SearchProducts(ctx context.Context, request *dto.Pr
 		})
 	}
 
+	logger.Info("Products searched successfully")
 	return &dto.ProductSearchResponse{
 		Data: response,
 		Meta: dto.MetaPagination{
@@ -251,24 +225,22 @@ func (u *ProductUsecaseImpl) SearchProducts(ctx context.Context, request *dto.Pr
 }
 
 func (u *ProductUsecaseImpl) GetProductDetail(ctx context.Context, id uint) (*dto.ProductResponse, error) {
-	u.Log.WithField("id", id).Debug("Attempting to get product detail")
+	logger := u.log.WithField("id", id)
+	logger.Debug("Attempting to get product detail")
 
-	product, err := u.ProductRepository.FindByID(ctx, id)
+	product, err := u.productRepository.FindByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, apperror.ErrNotFound) {
-			u.Log.WithField("id", id).Warn("Get product detail failed: product not found")
+			logger.Warn("Failed to get product detail: product not found")
 			return nil, apperror.ErrProductNotFound
 		}
 
-		u.Log.WithFields(logrus.Fields{
-			"id":    id,
-			"error": err,
-		}).Error("Get product detail failed: unexpected DB error")
+		logger.WithError(err).Error("Failed to get product detail: unexpected DB error")
 		return nil, apperror.ErrInternalServer
 	}
 
 	if !product.IsActive {
-		u.Log.WithField("id", id).Warn("Get product detail failed: product not active")
+		logger.Warn("Get product detail failed: product not active")
 		return nil, apperror.ErrProductNotFound
 	}
 
@@ -284,38 +256,29 @@ func (u *ProductUsecaseImpl) GetProductDetail(ctx context.Context, id uint) (*dt
 		IsActive:    product.IsActive,
 	}
 
-	u.Log.WithField("name", response.Name).Info("Product detail retrieved successfully")
+	logger.Info("Product detail retrieved successfully")
 	return response, nil
 }
 
 func (u *ProductUsecaseImpl) AdjustStock(ctx context.Context, productID uint, stock int) error {
-	u.Log.WithFields(logrus.Fields{
+	logger := u.log.WithFields(logrus.Fields{
 		"product_id": productID,
 		"stock":      stock,
-	}).Debug("Attempting to adjust stock")
-
-	err := u.Transaction.WithTransaction(ctx, func(ctx context.Context) error {
-		err := u.ProductRepository.AdjustStock(ctx, productID, stock)
-		if err != nil {
-			if errors.Is(err, apperror.ErrNotFound) {
-				u.Log.WithField("product_id", productID).Warn("Adjust stock failed: product not found")
-				return apperror.ErrProductNotFound
-			}
-
-			u.Log.WithFields(logrus.Fields{
-				"product_id": productID,
-				"error":      err,
-			}).Error("Adjust stock failed: unexpected DB error")
-			return apperror.ErrInternalServer
-		}
-		return nil
 	})
+	logger.Debug("Attempting to adjust stock")
 
+	err := u.productRepository.AdjustStock(ctx, productID, stock)
 	if err != nil {
-		return err
+		if errors.Is(err, apperror.ErrNotFound) {
+			logger.Warn("Failed to adjust stock: product not found")
+			return apperror.ErrProductNotFound
+		}
+
+		logger.WithError(err).Error("Failed to adjust stock: unexpected DB error")
+		return apperror.ErrInternalServer
 	}
 
-	u.Log.WithField("product_id", productID).Info("Stock adjusted successfully")
+	logger.Info("Stock adjusted successfully")
 	return nil
 }
 
@@ -323,38 +286,35 @@ func (u *ProductUsecaseImpl) AdjustStock(ctx context.Context, productID uint, st
 // Consumption By Other Services (contract.go)
 // ═══════════════════════════════════════════════════════
 func (u *ProductUsecaseImpl) GetByProductID(ctx context.Context, id uint) (*entity.Product, error) {
-	u.Log.WithField("id", id).Debug("Attempting to get product by ID")
+	logger := u.log.WithField("id", id)
+	logger.Debug("Attempting to get product by ID")
 
-	product, err := u.ProductRepository.FindByID(ctx, id)
+	product, err := u.productRepository.FindByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, apperror.ErrNotFound) {
-			u.Log.WithField("id", id).Warn("Get product failed: product not found")
+			logger.Warn("Failed to get product: product not found")
 			return nil, apperror.ErrProductNotFound
 		}
 
-		u.Log.WithFields(logrus.Fields{
-			"id":    id,
-			"error": err,
-		}).Error("Get product failed: unexpected DB error")
+		logger.WithError(err).Error("Failed to get product: unexpected DB error")
 		return nil, apperror.ErrInternalServer
 	}
 
 	if !product.IsActive {
-		u.Log.WithField("id", id).Warn("Get product failed: product not active")
+		logger.Warn("Get product failed: product not active")
 		return nil, apperror.ErrProductNotFound
 	}
-	u.Log.WithField("id", id).Debug("Product retrieved")
+	logger.Debug("Product retrieved")
 	return product, nil
 }
 
 func (u *ProductUsecaseImpl) GetProductsByIDs(ctx context.Context, ids []uint) ([]entity.Product, error) {
-	u.Log.WithField("ids", ids).Debug("Attempting to get products by IDs")
-	products, err := u.ProductRepository.FindByIDs(ctx, ids)
+	logger := u.log.WithField("ids", ids)
+	logger.Debug("Attempting to get products by IDs")
+
+	products, err := u.productRepository.FindByIDs(ctx, ids)
 	if err != nil {
-		u.Log.WithFields(logrus.Fields{
-			"ids":   ids,
-			"error": err,
-		}).Error("Get products failed: unexpected DB error")
+		logger.WithError(err).Error("Failed to get products: unexpected DB error")
 		return nil, apperror.ErrInternalServer
 	}
 
@@ -366,37 +326,33 @@ func (u *ProductUsecaseImpl) GetProductsByIDs(ctx context.Context, ids []uint) (
 		result = append(result, product)
 	}
 	if len(result) == 0 {
-		u.Log.WithField("ids", ids).Warn("Get products failed: products not found")
+		logger.Warn("Get products failed: products not found")
 		return nil, apperror.ErrProductNotFound
 	}
-	u.Log.WithField("ids", ids).Debug("Products retrieved")
+
+	logger.Debug("Products retrieved")
 	return result, nil
 }
 
 func (u *ProductUsecaseImpl) DecreaseStock(ctx context.Context, productID uint, quantity int) error {
-	u.Log.WithFields(logrus.Fields{
+	logger := u.log.WithFields(logrus.Fields{
 		"product_id": productID,
 		"quantity":   quantity,
-	}).Debug("Attempting to decrease stock")
-	err := u.ProductRepository.DecreaseStock(ctx, productID, quantity)
+	})
+	logger.Debug("Attempting to decrease stock")
+	err := u.productRepository.DecreaseStock(ctx, productID, quantity)
 	if err != nil {
 		if errors.Is(err, apperror.ErrNotFound) {
-			u.Log.WithField("product_id", productID).Warn("Decrease stock failed: product not found")
+			logger.Warn("Failed to decrease stock: product not found")
 			return apperror.ErrProductNotFound
 		}
 		if errors.Is(err, apperror.ErrInsufficientStock) {
-			u.Log.WithFields(logrus.Fields{
-				"product_id": productID,
-				"quantity":   quantity,
-			}).Warn("Decrease stock failed: insufficient stock")
+			logger.Warn("Failed to decrease stock: insufficient stock")
 			return err
 		}
-		u.Log.WithFields(logrus.Fields{
-			"product_id": productID,
-			"error":      err,
-		}).Error("Decrease stock failed: unexpected DB error")
+		logger.WithError(err).Error("Failed to decrease stock: unexpected DB error")
 		return apperror.ErrInternalServer
 	}
-	u.Log.WithField("product_id", productID).Debug("Stock decreased successfully")
+	logger.Info("Stock decreased successfully")
 	return nil
 }

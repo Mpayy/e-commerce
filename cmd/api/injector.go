@@ -77,6 +77,8 @@ func InitializeApplication() (*Application, func(), error) {
 		dependency.NewValidator,
 		dependency.NewLogrus,
 		dependency.NewGin,
+		dependency.NewMongoClient,
+		dependency.NewMongoDatabase,
 
 		// User
 		userSet,

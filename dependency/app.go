@@ -5,23 +5,28 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 	"gorm.io/gorm"
 )
 
 type App struct {
-	Gin    *gin.Engine
-	Log    *logrus.Logger
-	Config *viper.Viper
-	DB     *gorm.DB
-	Redis  *redis.Client
+	Gin           *gin.Engine
+	Log           *logrus.Logger
+	Config        *viper.Viper
+	DB            *gorm.DB
+	Redis         *redis.Client
+	MongoClient   *mongo.Client
+	MongoDatabase *mongo.Database
 }
 
-func NewApp(gin *gin.Engine, log *logrus.Logger, config *viper.Viper, db *gorm.DB, redis *redis.Client) *App {
+func NewApp(gin *gin.Engine, log *logrus.Logger, config *viper.Viper, db *gorm.DB, redis *redis.Client, mongoClient *mongo.Client, mongoDatabase *mongo.Database) *App {
 	return &App{
-		Gin:    gin,
-		Log:    log,
-		Config: config,
-		DB:     db,
-		Redis:  redis,
+		Gin:           gin,
+		Log:           log,
+		Config:        config,
+		DB:            db,
+		Redis:         redis,
+		MongoClient:   mongoClient,
+		MongoDatabase: mongoDatabase,
 	}
 }

@@ -320,13 +320,6 @@ func (h *ProductHandlerImpl) Search(ctx *gin.Context) {
 		return
 	}
 
-	if request.Page == 0 {
-		request.Page = 1
-	}
-	if request.Limit == 0 {
-		request.Limit = 10
-	}
-
 	products, err := h.ProductUsecase.SearchProducts(ctx.Request.Context(), &request)
 	if err != nil {
 		response.ResponseError(ctx, http.StatusInternalServerError, err.Error(), nil)
