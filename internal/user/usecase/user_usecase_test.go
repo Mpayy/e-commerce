@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Mpayy/e-commerce/dependency"
 	configMock "github.com/Mpayy/e-commerce/internal/mocks"
 	"github.com/Mpayy/e-commerce/internal/user/dto"
 	"github.com/Mpayy/e-commerce/internal/user/entity"
@@ -32,15 +31,15 @@ func hashPassword(t *testing.T, plain string) string {
 	return string(hashed)
 }
 
-func setupUserUsecase(t *testing.T) (UserUsecase, *repoMock.MockUserRepository, *configMock.MockRedis, *repoMock.MockJwtToken, *configMock.MockTransaction) {
+func setupUserUsecase(t *testing.T) (UserUsecase, *repoMock.MockUserRepository, *repoMock.MockUserRedisRepository, *repoMock.MockJwtToken, *configMock.MockTransaction) {
 	userRepository := repoMock.NewMockUserRepository(t)
+	UserRedisRepository := repoMock.NewMockUserRedisRepository(t)
 	jwtTokenMock := repoMock.NewMockJwtToken(t)
-	redisClientMock := configMock.NewMockRedis(t)
 	transactionMock := configMock.NewMockTransaction(t)
 	log := newTestLogger()
 
-	usecase := NewUserUsecase(userRepository, redisClientMock, transactionMock, log, jwtTokenMock)
-	return usecase, userRepository, redisClientMock, jwtTokenMock, transactionMock
+	usecase := NewUserUsecase(userRepository, UserRedisRepository, transactionMock, log, jwtTokenMock)
+	return usecase, userRepository, UserRedisRepository, jwtTokenMock, transactionMock
 }
 
 // go test -v ./internal/user/usecase -run "TestUserUsecaseImpl_Login"
@@ -52,7 +51,7 @@ func TestUserUsecaseImpl_Login(t *testing.T) {
 	//go test -v ./internal/user/usecase -run "TestUserUsecaseImpl_Login/successful_login"
 	t.Run("successful_login", func(t *testing.T) {
 		// ARRANGE
-		usecase, userRepo, redisClient, jwtToken, _ := setupUserUsecase(t)
+		usecase, userRepo, UserRedisRepo, jwtToken, _ := setupUserUsecase(t)
 
 		request := &dto.UserLoginRequest{
 			Email:    "test@mail.com",
@@ -72,8 +71,8 @@ func TestUserUsecaseImpl_Login(t *testing.T) {
 		jwtToken.On("CreateToken", &jwt.Auth{UserID: 1, Role: "customer"}).
 			Return("dummy.jwt.token", nil)
 
-		redisClient.On("SetToRedis", ctx, mock.MatchedBy(func(key string) bool {
-			return strings.HasPrefix(key, dependency.AuthPrefix)
+		UserRedisRepo.On("SetToRedis", ctx, mock.MatchedBy(func(key string) bool {
+			return strings.HasPrefix(key, entity.AuthPrefix)
 		}), mock.Anything, jwt.TokenDuration).
 			Return(nil)
 
@@ -158,7 +157,7 @@ func TestUserUsecaseImpl_Login(t *testing.T) {
 			Return("dummy.jwt.token", nil)
 
 		redisClient.On("SetToRedis", ctx, mock.MatchedBy(func(key string) bool {
-			return strings.HasPrefix(key, dependency.AuthPrefix)
+			return strings.HasPrefix(key, entity.AuthPrefix)
 		}), mock.Anything, jwt.TokenDuration).
 			Return(errors.New("redis down"))
 
@@ -327,12 +326,12 @@ func TestUserUsecaseImpl_Logout(t *testing.T) {
 
 	//go test -v ./internal/user/usecase -run "TestUserUsecaseImpl_Logout/successful_logout"
 	t.Run("successful_logout", func(t *testing.T) {
-		usecase, _, redisClient, _, _ := setupUserUsecase(t)
+		usecase, _, UserRedisRepo, _, _ := setupUserUsecase(t)
 
 		token := "dummy.jwt.token"
 
-		redisClient.On("DeleteFromRedis", ctx, mock.MatchedBy(func(key string) bool {
-			return strings.HasPrefix(key, dependency.AuthPrefix+token)
+		UserRedisRepo.On("DeleteFromRedis", ctx, mock.MatchedBy(func(key string) bool {
+			return strings.HasPrefix(key, entity.AuthPrefix+token)
 		})).
 			Return(nil)
 
@@ -343,12 +342,12 @@ func TestUserUsecaseImpl_Logout(t *testing.T) {
 
 	//go test -v ./internal/user/usecase -run "TestUserUsecaseImpl_Logout/failed_unexpected_error_from_redis"
 	t.Run("failed_unexpected_error_from_redis", func(t *testing.T) {
-		usecase, _, redisClient, _, _ := setupUserUsecase(t)
+		usecase, _, UserRedisRepo, _, _ := setupUserUsecase(t)
 
 		token := "dummy.jwt.token"
 
-		redisClient.On("DeleteFromRedis", ctx, mock.MatchedBy(func(key string) bool {
-			return strings.HasPrefix(key, dependency.AuthPrefix+token)
+		UserRedisRepo.On("DeleteFromRedis", ctx, mock.MatchedBy(func(key string) bool {
+			return strings.HasPrefix(key, entity.AuthPrefix+token)
 		})).
 			Return(errors.New("connection refused"))
 

@@ -7,7 +7,6 @@ import (
 	"github.com/Mpayy/e-commerce/internal/product/entity"
 	"github.com/Mpayy/e-commerce/pkg/apperror"
 	"github.com/Mpayy/e-commerce/pkg/transaction"
-	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 )
 
@@ -29,8 +28,7 @@ func (r *CategoryRepositoryImpl) GetTx(ctx context.Context) *gorm.DB {
 func (r *CategoryRepositoryImpl) Create(ctx context.Context, category *entity.Category) error {
 	err := r.GetTx(ctx).Create(category).Error
 	if err != nil {
-		var mysqlErr *mysql.MySQLError
-		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
 			return apperror.ErrDuplicatedKey
 		}
 		return err

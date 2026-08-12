@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Mpayy/e-commerce/dependency"
+	"github.com/Mpayy/e-commerce/internal/user/repository"
 	"github.com/Mpayy/e-commerce/pkg/apperror"
 	"github.com/Mpayy/e-commerce/pkg/jwt"
 	"github.com/Mpayy/e-commerce/pkg/response"
@@ -12,12 +12,12 @@ import (
 )
 
 type AuthMiddleware struct {
-	TokenUtil jwt.JwtToken
-	Redis     dependency.Redis
+	TokenUtil     jwt.JwtToken
+	UserRedisRepo repository.UserRedisRepository
 }
 
-func NewAuthMiddleware(tokenUtil jwt.JwtToken, redisClient dependency.Redis) *AuthMiddleware {
-	return &AuthMiddleware{TokenUtil: tokenUtil, Redis: redisClient}
+func NewAuthMiddleware(tokenUtil jwt.JwtToken, userRedisRepo repository.UserRedisRepository) *AuthMiddleware {
+	return &AuthMiddleware{TokenUtil: tokenUtil, UserRedisRepo: userRedisRepo}
 }
 
 func (m *AuthMiddleware) AuthMiddleware() gin.HandlerFunc {
@@ -26,19 +26,19 @@ func (m *AuthMiddleware) AuthMiddleware() gin.HandlerFunc {
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 
 		if tokenString == "" || tokenString == "Bearer" {
-			response.ResponseError(ctx, http.StatusUnauthorized, apperror.ErrUnauthorized.Error() , nil)
+			response.ResponseError(ctx, http.StatusUnauthorized, apperror.ErrUnauthorized.Error(), nil)
 			return
 		}
 
 		auth, err := m.TokenUtil.ParseToken(tokenString)
 		if err != nil {
-			response.ResponseError(ctx, http.StatusUnauthorized, apperror.ErrUnauthorized.Error() , nil)
+			response.ResponseError(ctx, http.StatusUnauthorized, apperror.ErrUnauthorized.Error(), nil)
 			return
 		}
 
-		exists, err := m.Redis.CheckToRedis(ctx.Request.Context(), dependency.AuthPrefix+tokenString)
+		exists, err := m.UserRedisRepo.SessionExists(ctx.Request.Context(), tokenString)
 		if err != nil || !exists {
-			response.ResponseError(ctx, http.StatusUnauthorized, apperror.ErrUnauthorized.Error() , nil)
+			response.ResponseError(ctx, http.StatusUnauthorized, apperror.ErrUnauthorized.Error(), nil)
 			return
 		}
 
@@ -48,17 +48,17 @@ func (m *AuthMiddleware) AuthMiddleware() gin.HandlerFunc {
 		ctx.Next()
 	}
 }
-	
+
 func GetAuthUser(ctx *gin.Context) *jwt.Auth {
 	authValue, exists := ctx.Get("auth")
 	if !exists {
 		return nil
 	}
-	
+
 	auth, ok := authValue.(*jwt.Auth)
 	if !ok {
 		return nil
 	}
-	
+
 	return auth
 }

@@ -29,20 +29,20 @@ import (
 
 // Injectors from injector.go:
 
-func InitializeApplication() *Application {
+func InitializeApplication() (*Application, func(), error) {
 	viper := dependency.NewViper()
 	logger := dependency.NewLogrus(viper)
 	engine := dependency.NewGin(viper, logger)
-	db := dependency.NewGorm(viper, logger)
-	client := dependency.NewRedisClient(viper)
+	db, cleanup := dependency.NewGorm(viper, logger)
+	client, cleanup2 := dependency.NewRedisClient(viper, logger)
 	app := dependency.NewApp(engine, logger, viper, db, client)
 	jwtToken := jwt.NewJwtToken(viper)
-	redis := dependency.NewRedis(client)
-	authMiddleware := middleware.NewAuthMiddleware(jwtToken, redis)
+	userRedisRepository := repository.NewUserRedisRepository(client)
+	authMiddleware := middleware.NewAuthMiddleware(jwtToken, userRedisRepository)
 	adminMiddleware := middleware.NewAdminMiddleware()
 	userRepository := repository.NewUserRepository(db)
 	transactionTransaction := transaction.NewTransaction(db)
-	userUsecase := usecase.NewUserUsecase(userRepository, redis, transactionTransaction, logger, jwtToken)
+	userUsecase := usecase.NewUserUsecase(userRepository, userRedisRepository, transactionTransaction, logger, jwtToken)
 	validate := dependency.NewValidator()
 	userHandler := userhttp.NewUserHandler(userUsecase, validate, logger)
 	categoryRepository := repository2.NewCategoryRepository(db)
@@ -59,12 +59,15 @@ func InitializeApplication() *Application {
 	cartHandler := carthttp.NewCartHandler(cartUsecaseImpl, cartUsecaseImpl, validate, logger)
 	router := routes.NewRouter(engine, authMiddleware, adminMiddleware, userHandler, categoryHandler, productHandler, orderHandler, cartHandler, logger)
 	application := NewApplication(app, router)
-	return application
+	return application, func() {
+		cleanup2()
+		cleanup()
+	}, nil
 }
 
 // injector.go:
 
-var userSet = wire.NewSet(repository.NewUserRepository, usecase.NewUserUsecase, userhttp.NewUserHandler)
+var userSet = wire.NewSet(repository.NewUserRedisRepository, repository.NewUserRepository, usecase.NewUserUsecase, userhttp.NewUserHandler)
 
 var categorySet = wire.NewSet(repository2.NewCategoryRepository, usecase2.NewCategoryUsecase, producthttp.NewCategoryHandler)
 
