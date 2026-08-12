@@ -1,74 +1,47 @@
 package dependency
 
 import (
-	"context"
+	"crypto/tls"
 	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
-const AuthPrefix = "auth:session:"
 const CartPrefix = "cart:"
 
 const CartTTL = 24 * time.Hour * 7
 
-//go:generate mockery
-
-//mockery:generate: true
-//mockery:filename: ../internal/mocks/mock_redis.go
-type Redis interface {
-	CheckToRedis(ctx context.Context, key string) (bool, error)
-	SetToRedis(ctx context.Context, key string, value any, exp time.Duration) error
-	DeleteFromRedis(ctx context.Context, key string) error
-}
-
-type RedisImpl struct {
-	Client *redis.Client
-}
-
-func NewRedisClient(config *viper.Viper) *redis.Client {
+func NewRedisClient(config *viper.Viper, log *logrus.Logger) (*redis.Client, func()) {
 	addr := fmt.Sprintf("%s:%d", config.GetString("REDIS_HOST"), config.GetInt("REDIS_PORT"))
 	password := config.GetString("REDIS_PASSWORD")
 	db := config.GetInt("REDIS_DB")
+	enableTLS := config.GetBool("REDIS_TLS_ENABLED")
 
-	client := redis.NewClient(&redis.Options{
+	opts := &redis.Options{
 		Addr:     addr,
 		Password: password,
 		DB:       db,
-	})
-
-	return client
-}
-
-func NewRedis(client *redis.Client) Redis {
-	return &RedisImpl{Client: client}
-}
-
-func (r *RedisImpl) CheckToRedis(ctx context.Context, key string) (bool, error) {
-	result, err := r.Client.Exists(ctx, key).Result()
-	if err != nil {
-		return false, err
 	}
 
-	response := result > 0
-
-	return response, nil
-}
-
-func (r *RedisImpl) SetToRedis(ctx context.Context, key string, value any, exp time.Duration) error {
-	err := r.Client.Set(ctx, key, value, exp).Err()
-	if err != nil {
-		return err
+	if enableTLS {
+		opts.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
 	}
-	return nil
-}
 
-func (r *RedisImpl) DeleteFromRedis(ctx context.Context, key string) error {
-	err := r.Client.Del(ctx, key).Err()
-	if err != nil {
-		return err
+	client := redis.NewClient(opts)
+
+	log.Info("Connected to Redis successfully")
+
+	cleanup := func() {
+		if err := client.Close(); err != nil {
+			log.Errorf("failed to close redis client: %v", err)
+		}
+		log.Info("Redis connection closed")
 	}
-	return nil
+
+	return client, cleanup
 }

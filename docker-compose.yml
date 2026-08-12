@@ -8,38 +8,43 @@ services:
     ports:
       - "8080:8080"
 
-    depends_on:
-      - mysql
-      - redis
-
-    volumes:
-      - ./.env:/app/.env
+    env_file: [.env]
 
     environment:
-      - DATABASE_HOST=mysql 
-      - REDIS_HOST=redis
-      - DATABASE_PASSWORD=root
+      DATABASE_HOST: postgres 
+      REDIS_HOST: redis
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
     networks:
       - ecommerce-network
 
-  mysql:
-    image: mysql:8.0
+  postgres:
+    image: postgres:18-alpine
 
-    container_name: ecommerce-mysql
+    container_name: ecommerce-postgres
     restart: unless-stopped
 
     environment:
-      MYSQL_ROOT_PASSWORD: root        
-      MYSQL_DATABASE: ecommerce        
-      MYSQL_CHARACTER_SET_SERVER: utf8mb4   
-      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
-
+      POSTGRES_USER: postgres 
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ecommerce     
+    
     ports:
-      - "3306:3306"
+      - "5432:5432"
 
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ecommerce"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
     networks:
       - ecommerce-network
@@ -58,12 +63,18 @@ services:
 
     volumes:
       - redis_data:/data
+    
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
     networks:
       - ecommerce-network
 
 volumes:
-  mysql_data:
+  postgres_data:
   redis_data:  
 
 networks:

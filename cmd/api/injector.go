@@ -25,6 +25,7 @@ import (
 )
 
 var userSet = wire.NewSet(
+	userrepository.NewUserRedisRepository,
 	userrepository.NewUserRepository,
 	userusecase.NewUserUsecase,
 	userhttp.NewUserHandler,
@@ -67,13 +68,12 @@ var routeSet = wire.NewSet(
 	routes.NewRouter,
 )
 
-func InitializeApplication() *Application {
+func InitializeApplication() (*Application, func(), error) {
 	wire.Build(
 		// Dependency
 		dependency.NewViper,
 		dependency.NewGorm,
 		dependency.NewRedisClient,
-		dependency.NewRedis,
 		dependency.NewValidator,
 		dependency.NewLogrus,
 		dependency.NewGin,
@@ -111,5 +111,5 @@ func InitializeApplication() *Application {
 		// Injector
 		NewApplication,
 	)
-	return nil
+	return nil, nil, nil
 }

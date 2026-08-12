@@ -1,26 +1,30 @@
 package dependency
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
-func NewGorm(config *viper.Viper, log *logrus.Logger) *gorm.DB {
+func NewGorm(config *viper.Viper, log *logrus.Logger) (*gorm.DB, func()) {
 	username := config.GetString("DATABASE_USERNAME")
 	password := config.GetString("DATABASE_PASSWORD")
 	host := config.GetString("DATABASE_HOST")
 	port := config.GetInt("DATABASE_PORT")
 	database := config.GetString("DATABASE_NAME")
+	sslmode := config.GetString("DATABASE_SSLMODE")
 
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", username, password, host, port, database)
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=%s",
+		host, username, password, database, port, sslmode)
 
 	var db *gorm.DB
+	var sqlDB *sql.DB
 	var err error
 
 	gormLogLevel := logger.Warn
@@ -29,7 +33,7 @@ func NewGorm(config *viper.Viper, log *logrus.Logger) *gorm.DB {
 	}
 
 	for i := range 10 {
-		db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
+		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
 			Logger: logger.New(&logrusWriter{Log: log}, logger.Config{
 				SlowThreshold:             200 * time.Millisecond,
 				Colorful:                  false,
@@ -37,10 +41,26 @@ func NewGorm(config *viper.Viper, log *logrus.Logger) *gorm.DB {
 				ParameterizedQueries:      true,
 				LogLevel:                  gormLogLevel,
 			}),
+			TranslateError: true,
 		})
 
 		if err != nil {
-			log.Printf("Waiting for database... attempt %d/10", i+1)
+			log.Printf("Waiting for database... attempt %d/10 | Error: %v", i+1, err)
+			time.Sleep(3 * time.Second)
+			continue
+		}
+
+		sqlDB, err = db.DB()
+		if err != nil {
+			log.Printf("Waiting for database... attempt %d/10 | Error: %v", i+1, err)
+			time.Sleep(3 * time.Second)
+			continue
+		}
+
+		err = sqlDB.Ping()
+		if err != nil {
+			_ = sqlDB.Close()
+			log.Printf("Waiting for database... attempt %d/10 | Error: %v", i+1, err)
 			time.Sleep(3 * time.Second)
 			continue
 		}
@@ -62,7 +82,16 @@ func NewGorm(config *viper.Viper, log *logrus.Logger) *gorm.DB {
 	connection.SetConnMaxLifetime(5 * time.Minute)
 	connection.SetConnMaxIdleTime(1 * time.Minute)
 
-	return db
+	log.Info("Connected to database successfully")
+
+	cleanup := func() {
+		if err := sqlDB.Close(); err != nil {
+			log.Errorf("failed to close database connection: %v", err)
+		}
+		log.Info("Database connection closed")
+	}
+
+	return db, cleanup
 }
 
 type logrusWriter struct {

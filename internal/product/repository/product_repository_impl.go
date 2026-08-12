@@ -8,7 +8,6 @@ import (
 	"github.com/Mpayy/e-commerce/internal/product/entity"
 	"github.com/Mpayy/e-commerce/pkg/apperror"
 	"github.com/Mpayy/e-commerce/pkg/transaction"
-	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -31,15 +30,15 @@ func (r *ProductRepositoryImpl) GetTx(ctx context.Context) *gorm.DB {
 func (r *ProductRepositoryImpl) Create(ctx context.Context, product *entity.Product) error {
 	err := r.GetTx(ctx).Create(product).Error
 	if err != nil {
-		var mysqlErr *mysql.MySQLError
-		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
-			msg := strings.ToLower(mysqlErr.Message)
-			if strings.Contains(msg, "products.slug") {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			errMsg := strings.ToLower(err.Error())
+			if strings.Contains(errMsg, "slug") {
 				return apperror.ErrDuplicatedProduct
 			}
-			if strings.Contains(msg, "products.sku") {
+			if strings.Contains(errMsg, "sku") {
 				return apperror.ErrDuplicatedProductSku
 			}
+			return apperror.ErrDuplicatedProduct
 		}
 		return err
 	}
@@ -81,7 +80,7 @@ func (r *ProductRepositoryImpl) FindAll(ctx context.Context, filter *entity.Prod
 		return nil, 0, err
 	}
 	offset := (filter.Page - 1) * filter.Limit
-	err := query.Limit(filter.Limit).Offset(offset).Find(&products).Error
+	err := query.Order("name ASC").Limit(filter.Limit).Offset(offset).Find(&products).Error
 	if err != nil {
 		return nil, 0, err
 	}
@@ -91,14 +90,12 @@ func (r *ProductRepositoryImpl) FindAll(ctx context.Context, filter *entity.Prod
 func (r *ProductRepositoryImpl) Update(ctx context.Context, product *entity.Product) error {
 	result := r.GetTx(ctx).Model(product).Select("category_id", "name", "slug", "description", "price", "stock", "sku", "is_active").Updates(product)
 	if result.Error != nil {
-		var mysqlErr *mysql.MySQLError
-		if errors.As(result.Error, &mysqlErr) && mysqlErr.Number == 1062 {
-			msg := strings.ToLower(mysqlErr.Message)
-			if strings.Contains(msg, "products.slug") {
+		if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
+			errMsg := strings.ToLower(result.Error.Error())
+			if strings.Contains(errMsg, "slug") {
 				return apperror.ErrDuplicatedProduct
 			}
-
-			if strings.Contains(msg, "products.sku") {
+			if strings.Contains(errMsg, "sku") {
 				return apperror.ErrDuplicatedProductSku
 			}
 		}

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/Mpayy/e-commerce/dependency"
 	"github.com/Mpayy/e-commerce/internal/user/dto"
 	"github.com/Mpayy/e-commerce/internal/user/entity"
 	userrepository "github.com/Mpayy/e-commerce/internal/user/repository"
@@ -17,20 +16,20 @@ import (
 )
 
 type UserUsecaseImpl struct {
-	UserRepository userrepository.UserRepository
-	Redis          dependency.Redis
-	Transaction    transaction.Transaction
-	Log            *logrus.Logger
-	JwtToken       jwt.JwtToken
+	UserRepository      userrepository.UserRepository
+	UserRedisRepository userrepository.UserRedisRepository
+	Transaction         transaction.Transaction
+	Log                 *logrus.Logger
+	JwtToken            jwt.JwtToken
 }
 
-func NewUserUsecase(userRepo userrepository.UserRepository, redis dependency.Redis, tx transaction.Transaction, log *logrus.Logger, jwt jwt.JwtToken) UserUsecase {
+func NewUserUsecase(userRepo userrepository.UserRepository, userRedisRepo userrepository.UserRedisRepository, tx transaction.Transaction, log *logrus.Logger, jwt jwt.JwtToken) UserUsecase {
 	return &UserUsecaseImpl{
-		UserRepository: userRepo,
-		Redis:          redis,
-		Transaction:    tx,
-		Log:            log,
-		JwtToken:       jwt,
+		UserRepository:      userRepo,
+		UserRedisRepository: userRedisRepo,
+		Transaction:         tx,
+		Log:                 log,
+		JwtToken:            jwt,
 	}
 }
 
@@ -126,7 +125,7 @@ func (u *UserUsecaseImpl) Login(ctx context.Context, request *dto.UserLoginReque
 		return nil, apperror.ErrInternalServer
 	}
 
-	err = u.Redis.SetToRedis(ctx, dependency.AuthPrefix+token, authData, jwt.TokenDuration)
+	err = u.UserRedisRepository.SaveSession(ctx, token, authData, jwt.TokenDuration)
 	if err != nil {
 		u.Log.WithError(err).Error("Failed to save token to redis")
 		return nil, apperror.ErrInternalServer
@@ -169,7 +168,7 @@ func (u *UserUsecaseImpl) GetProfile(ctx context.Context, userId uint) (*dto.Use
 func (u *UserUsecaseImpl) Logout(ctx context.Context, token string) error {
 	u.Log.WithField("token", token).Debug("Logout attempt")
 
-	err := u.Redis.DeleteFromRedis(ctx, dependency.AuthPrefix+token)
+	err := u.UserRedisRepository.DeleteSession(ctx, token)
 	if err != nil {
 		u.Log.WithFields(logrus.Fields{
 			"token": token,

@@ -7,7 +7,6 @@ import (
 	"github.com/Mpayy/e-commerce/internal/user/entity"
 	"github.com/Mpayy/e-commerce/pkg/apperror"
 	"github.com/Mpayy/e-commerce/pkg/transaction"
-	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 )
 
@@ -29,13 +28,11 @@ func (r *UserRepositoryImpl) GetTx(ctx context.Context) *gorm.DB {
 func (r *UserRepositoryImpl) Create(ctx context.Context, user *entity.User) error {
 	err := r.GetTx(ctx).Create(user).Error
 	if err != nil {
-        var mysqlErr *mysql.MySQLError
-        if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
-            return apperror.ErrDuplicatedKey
-        }
-        return err
-    }
-
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return apperror.ErrDuplicatedKey
+		}
+		return err
+	}
 	return nil
 }
 
@@ -48,7 +45,6 @@ func (r *UserRepositoryImpl) FindByEmail(ctx context.Context, email string) (*en
 		}
 		return nil, err
 	}
-
 	return &user, nil
 }
 
@@ -61,6 +57,5 @@ func (r *UserRepositoryImpl) FindByID(ctx context.Context, id uint) (*entity.Use
 		}
 		return nil, err
 	}
-
 	return &user, nil
 }
