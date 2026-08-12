@@ -35,7 +35,14 @@ func InitializeApplication() (*Application, func(), error) {
 	engine := dependency.NewGin(viper, logger)
 	db, cleanup := dependency.NewGorm(viper, logger)
 	client, cleanup2 := dependency.NewRedisClient(viper, logger)
-	app := dependency.NewApp(engine, logger, viper, db, client)
+	mongoClient, cleanup3, err := dependency.NewMongoClient(viper, logger)
+	if err != nil {
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	database := dependency.NewMongoDatabase(mongoClient, viper)
+	app := dependency.NewApp(engine, logger, viper, db, client, mongoClient, database)
 	jwtToken := jwt.NewJwtToken(viper)
 	userRedisRepository := repository.NewUserRedisRepository(client)
 	authMiddleware := middleware.NewAuthMiddleware(jwtToken, userRedisRepository)
@@ -45,10 +52,10 @@ func InitializeApplication() (*Application, func(), error) {
 	userUsecase := usecase.NewUserUsecase(userRepository, userRedisRepository, transactionTransaction, logger, jwtToken)
 	validate := dependency.NewValidator()
 	userHandler := userhttp.NewUserHandler(userUsecase, validate, logger)
-	categoryRepository := repository2.NewCategoryRepository(db)
+	categoryRepository := repository2.NewCategoryRepository(database)
 	categoryUsecase := usecase2.NewCategoryUsecase(categoryRepository, logger, transactionTransaction)
 	categoryHandler := producthttp.NewCategoryHandler(categoryUsecase, validate, logger)
-	productRepository := repository2.NewProductRepository(db)
+	productRepository := repository2.NewProductRepository(database)
 	productUsecaseImpl := usecase2.NewProductUsecase(productRepository, categoryUsecase, logger, transactionTransaction)
 	productHandler := producthttp.NewProductHandler(productUsecaseImpl, validate, logger)
 	orderRepository := repository3.NewOrderRepository(db)
@@ -60,6 +67,7 @@ func InitializeApplication() (*Application, func(), error) {
 	router := routes.NewRouter(engine, authMiddleware, adminMiddleware, userHandler, categoryHandler, productHandler, orderHandler, cartHandler, logger)
 	application := NewApplication(app, router)
 	return application, func() {
+		cleanup3()
 		cleanup2()
 		cleanup()
 	}, nil

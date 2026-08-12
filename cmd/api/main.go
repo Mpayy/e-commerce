@@ -1,5 +1,20 @@
 package main
 
+import (
+	"context"
+	"flag"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/Mpayy/e-commerce/database/seeder"
+	"github.com/Mpayy/e-commerce/internal/product/repository"
+)
+
 // @title           E-Commerce API
 // @version         1.0
 // @description     Modular monolith e-commerce backend built with Go, Gin, GORM, and Redis.
@@ -12,62 +27,58 @@ package main
 // @description Type "Bearer" followed by a space and JWT token.
 
 func main() {
-	// shouldSeed := flag.Bool("seed", false, "Run database seeder if value is true")
-	// flag.Parse()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
-	// application := InitializeApplication()
-	// app := application.App
-	// router := application.Router
+	shouldSeed := flag.Bool("seed", false, "Run database seeder if value is true")
+	flag.Parse()
 
-	// if *shouldSeed {
-	// 	seeder.RunSeeder(app.Log, app.DB)
-	// 	app.Log.Info("Server is shutting down after seeding completed.")
-	// 	return
-	// }
+	application, cleanup, err := InitializeApplication()
+	if err != nil {
+		log.Fatalf("Failed to initialize API: %v", err)
+	}
+	defer cleanup()
 
-	// router.SetupRouter()
+	app := application.App
+	router := application.Router
 
-	// host := app.Config.GetString("APP_HOST")
-	// port := app.Config.GetInt("APP_PORT")
-	// addr := fmt.Sprintf("%s:%d", host, port)
+	if *shouldSeed {
+		seeder.RunSeeder(app.Log, app.DB)
+		app.Log.Info("Server is shutting down after seeding completed.")
+		return
+	}
 
-	// server := &http.Server{
-	// 	Addr:    addr,
-	// 	Handler: app.Gin,
-	// }
+	if err := repository.EnsureIndexes(ctx, app.MongoDatabase); err != nil {
+		app.Log.Fatalf("Failed to ensure indexes: %v", err)
+	}
 
-	// go func() {
-	// 	app.Log.Infof("Server starting on: %s", addr)
-	// 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-	// 		app.Log.Fatalf("Failed to start server: %v", err)
-	// 	}
-	// }()
+	router.SetupRouter()
 
-	// quit := make(chan os.Signal, 1)
-	// signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	// <-quit
+	host := app.Config.GetString("APP_HOST")
+	port := app.Config.GetInt("APP_PORT")
+	addr := fmt.Sprintf("%s:%d", host, port)
 
-	// app.Log.Infof("Shutting down server...")
+	server := &http.Server{
+		Addr:    addr,
+		Handler: app.Gin,
+	}
 
-	// ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	// defer cancel()
+	go func() {
+		app.Log.Infof("Server starting on: %s", addr)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			app.Log.Fatalf("Failed to start server: %v", err)
+		}
+	}()
 
-	// if err := server.Shutdown(ctx); err != nil {
-	// 	app.Log.Fatalf("Server forced to shutdown: %v", err)
-	// }
-	// app.Log.Infof("Server exited properly")
+	<-ctx.Done()
 
-	// db, err := app.DB.DB()
-	// if err != nil {
-	// 	app.Log.Fatalf("Failed to get database connection: %v", err)
-	// }
-	// if err := db.Close(); err != nil {
-	// 	app.Log.Fatalf("Failed to close database connection: %v", err)
-	// }
-	// app.Log.Infof("Database connection closed")
+	app.Log.Infof("Shutting down server...")
 
-	// if err := app.Redis.Close(); err != nil {
-	// 	app.Log.Fatalf("Failed to close redis connection: %v", err)
-	// }
-	// app.Log.Infof("Redis connection closed")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		app.Log.Fatalf("Server forced to shutdown: %v", err)
+	}
+	app.Log.Infof("Server exited properly")
 }
