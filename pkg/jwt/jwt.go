@@ -1,17 +1,26 @@
 package jwt
 
 import (
+	"errors"
+	"fmt"
 	"time"
 
+	"github.com/Mpayy/e-commerce/pkg/apperror"
+	"github.com/Mpayy/e-commerce/pkg/config"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/spf13/viper"
 )
 
 const TokenDuration = 24 * time.Hour * 30
 
 type Auth struct {
-	UserID uint
-	Role   string
+	ID   uint
+	Role string
+}
+
+type CustomClaim struct {
+	ID   uint   `json:"id"`
+	Role string `json:"role"`
+	jwt.RegisteredClaims
 }
 
 //go:generate mockery
@@ -19,66 +28,65 @@ type Auth struct {
 //mockery:generate: true
 //mockery:filename: ../../internal/user/mocks/mock_jwt.go
 type JwtToken interface {
-	CreateToken(auth *Auth) (string, error)
-	ParseToken(token string) (*Auth, error)
+	Create(auth *Auth) (string, error)
+	Validate(jwtToken string) (*Auth, error)
 }
 
 type JwtTokenImpl struct {
 	SecretKey string
 }
 
-func NewJwtToken(config *viper.Viper) JwtToken {
-	secretKey := config.GetString("JWT_SECRET_KEY")
+func NewJwtToken(cfg *config.Config) JwtToken {
+	secretKey := cfg.JWTSecretKey
 	return &JwtTokenImpl{
 		SecretKey: secretKey,
 	}
 }
 
-func (t *JwtTokenImpl) CreateToken(auth *Auth) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id": auth.UserID,
-		"role":    auth.Role,
-		"exp":     time.Now().Add(TokenDuration).Unix(),
-	})
+func (t *JwtTokenImpl) Create(auth *Auth) (string, error) {
+	claims := CustomClaim{
+		ID:   auth.ID,
+		Role: auth.Role,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(TokenDuration)),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	jwtToken, err := token.SignedString([]byte(t.SecretKey))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("create token failed: %w", err)
 	}
 
 	return jwtToken, nil
 }
 
-func (t *JwtTokenImpl) ParseToken(jwtToken string) (*Auth, error) {
-	token, err := jwt.Parse(jwtToken, func(token *jwt.Token) (any, error) {
+func (t *JwtTokenImpl) Validate(jwtToken string) (*Auth, error) {
+	var claims CustomClaim
+	token, err := jwt.ParseWithClaims(jwtToken, &claims, func(token *jwt.Token) (any, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
 		return []byte(t.SecretKey), nil
 	})
 
 	if err != nil {
+		if errors.Is(err, jwt.ErrTokenExpired) {
+			return nil, apperror.ErrExpiredToken
+		}
+		if errors.Is(err, jwt.ErrTokenSignatureInvalid) || errors.Is(err, jwt.ErrTokenMalformed) {
+			return nil, apperror.ErrInvalidToken
+		}
 		return nil, err
 	}
 
-	claim, ok := token.Claims.(jwt.MapClaims)
-
-	if !ok {
-		return nil, err
+	if !token.Valid {
+		return nil, apperror.ErrInvalidToken
 	}
 
-	id, ok := claim["user_id"].(float64)
-	if !ok {
-		return nil, err
-	}
-
-	role, ok := claim["role"].(string)
-	if !ok {
-		return nil, err
-	}
-
-	auth := &Auth{
-		UserID: uint(id),
-		Role:   role,
-	}
-
-	return auth, nil
-
+	return &Auth{
+		ID: claims.ID,
+		Role: claims.Role,
+	}, nil
 }
