@@ -5,25 +5,26 @@ package product.v1;
 option go_package = "github.com/Mpayy/e-commerce/proto/product/v1;productv1";
 
 service ProductService {
-    rpc GetByID(GetByIDRequest) returns (GetByIDResponse);
-    rpc GetByIDs(GetByIDsRequest) returns (GetByIDsResponse);
-    rpc DecreaseStock(DecreaseStockRequest) returns (DecreaseStockResponse);
+  rpc GetByID(GetByIDRequest) returns (GetByIDResponse);
+  rpc GetByIDs(GetByIDsRequest) returns (GetByIDsResponse);
+  rpc BulkDecreaseStock(BulkDecreaseStockRequest) returns (BulkDecreaseStockResponse);
+  rpc BulkRestoreStock(BulkRestoreStockRequest) returns (BulkRestoreStockResponse);
 }
 
 message Product {
-    uint64 id = 1;
-    uint64 category_id = 2;
-    string name = 3;
-    string slug = 4;
-    string description = 5;
-    double price = 6;
-    int32 stock = 7;
-    string sku = 8;
-    bool is_active = 9;
+  uint64 id = 1;
+  uint64 category_id = 2;
+  string name = 3;
+  string slug = 4;
+  string description = 5;
+  double price = 6;
+  int32 stock = 7;
+  string sku = 8;
+  bool is_active = 9;
 }
 
 message GetByIDRequest {
-    uint64 id = 1;
+  uint64 id = 1;
 }
 
 message GetByIDsRequest {
@@ -43,4 +44,15 @@ message DecreaseStockRequest {
   int32 quantity = 2;
 }
 
-message DecreaseStockResponse {}
+message BulkDecreaseStockRequest {
+  string checkout_id = 1;
+  repeated DecreaseStockRequest items = 2;
+}
+
+message BulkDecreaseStockResponse {}
+
+message BulkRestoreStockRequest {
+  string checkout_id = 1;
+}
+
+message BulkRestoreStockResponse {}

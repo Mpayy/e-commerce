@@ -22,3 +22,8 @@ type ProductFilter struct {
 	Page       int
 	Limit      int
 }
+
+type BulkDecreaseStock struct {
+	ProductID uint
+	Quantity  int
+}

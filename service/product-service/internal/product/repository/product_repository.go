@@ -17,6 +17,7 @@ type ProductRepository interface {
 	FindAll(ctx context.Context, filter *entity.ProductFilter) ([]entity.Product, int64, error)
 	Update(ctx context.Context, product *entity.Product) error
 	Delete(ctx context.Context, id uint) error
-	DecreaseStock(ctx context.Context, productID uint, quantity int) error
+	BulkDecreaseStock(ctx context.Context, checkoutID string, items []entity.BulkDecreaseStock) error
+	BulkRestoreStock(ctx context.Context, checkoutID string) error
 	AdjustStock(ctx context.Context, productID uint, quantity int) error
 }
