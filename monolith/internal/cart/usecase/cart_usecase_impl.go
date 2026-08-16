@@ -41,7 +41,7 @@ func (u *CartUsecaseImpl) AddToCart(ctx context.Context, userID uint, productID 
 
 	err = u.cartRedisRepository.AddItem(ctx, userID, product.ID, quantity)
 	if err != nil {
-		return fmt.Errorf("failed to add item to cart: %v", err)
+		return fmt.Errorf("failed to add item to cart: %w", err)
 	}
 
 	log.Debug("Item added to cart successfully")
@@ -66,7 +66,7 @@ func (u *CartUsecaseImpl) UpdateCartItem(ctx context.Context, userID uint, produ
 			logger.Warn("Cart item not found to update")
 			return apperror.ErrCartNotFound
 		}
-		return fmt.Errorf("failed to update item in cart: %v", err)
+		return fmt.Errorf("failed to update item in cart: %w", err)
 	}
 
 	logger.Debug("Item updated in cart successfully")
@@ -82,7 +82,7 @@ func (u *CartUsecaseImpl) RemoveFromCart(ctx context.Context, userID uint, produ
 
 	err := u.cartRedisRepository.RemoveItem(ctx, userID, productID)
 	if err != nil {
-		return fmt.Errorf("failed to remove item from cart: %v", err)
+		return fmt.Errorf("failed to remove item from cart: %w", err)
 	}
 
 	logger.Debug("Item removed from cart successfully")
@@ -97,7 +97,7 @@ func (u *CartUsecaseImpl) GetCartDetail(ctx context.Context, userID uint) (*dto.
 
 	cartMap, err := u.cartRedisRepository.GetCart(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get cart detail: %v", err)
+		return nil, fmt.Errorf("failed to get cart detail: %w", err)
 	}
 
 	var productIDs []uint
@@ -189,7 +189,7 @@ func (u *CartUsecaseImpl) GetRawCart(ctx context.Context, userID uint) (map[uint
 
 	cart, err := u.cartRedisRepository.GetCart(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get raw cart: %v", err)
+		return nil, fmt.Errorf("failed to get raw cart: %w", err)
 	}
 
 	log.Debug("Raw cart retrieved successfully")
@@ -204,7 +204,7 @@ func (u *CartUsecaseImpl) ClearCart(ctx context.Context, userID uint) error {
 
 	err := u.cartRedisRepository.ClearCart(ctx, userID)
 	if err != nil {
-		return fmt.Errorf("failed to clear cart: %v", err)
+		return fmt.Errorf("failed to clear cart: %w", err)
 	}
 
 	log.Debug("Cart cleared successfully")

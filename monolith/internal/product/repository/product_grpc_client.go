@@ -12,7 +12,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
-
 type ProductGRPCClient struct {
 	client productv1.ProductServiceClient
 }
