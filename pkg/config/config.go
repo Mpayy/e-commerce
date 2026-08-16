@@ -69,7 +69,7 @@ func Load() *Config {
 	v.SetDefault("MONGODB_URI", "mongodb://localhost:27017")
 	v.SetDefault("MONGODB_DATABASE", "ecommerce")
 
-	v.SetDefault("PRODUCT_SERVICE_ADDR", "product-service:50051")
+	v.SetDefault("PRODUCT_SERVICE_ADDR", "localhost:50051")
 
 	// Otomatis override jika ada Environment Variable di OS / Docker
 	v.AutomaticEnv()

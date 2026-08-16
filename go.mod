@@ -6,6 +6,7 @@ require (
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-playground/validator/v10 v10.30.3
 	github.com/golang-jwt/jwt/v5 v5.3.1
+	github.com/google/uuid v1.6.0
 	github.com/google/wire v0.7.0
 	github.com/gosimple/slug v1.15.0
 	github.com/jackc/pgx/v5 v5.10.0

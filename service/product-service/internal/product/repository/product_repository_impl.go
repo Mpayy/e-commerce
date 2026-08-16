@@ -15,13 +15,16 @@ import (
 )
 
 type ProductRepositoryImpl struct {
-	collection *mongo.Collection
+	collection       *mongo.Collection
+	ledgerCollection *mongo.Collection
 }
 
 func NewProductRepository(db *mongo.Database) ProductRepository {
 	var p model.ProductModel
+	var l model.StockLedgerModel
 	return &ProductRepositoryImpl{
-		collection: db.Collection(p.CollectionName()),
+		collection:       db.Collection(p.CollectionName()),
+		ledgerCollection: db.Collection(l.CollectionName()),
 	}
 }
 
@@ -267,40 +270,113 @@ func (r *ProductRepositoryImpl) Delete(ctx context.Context, id uint) error {
 	return nil
 }
 
-func (r *ProductRepositoryImpl) DecreaseStock(ctx context.Context, productID uint, quantity int) error {
-	filter := bson.M{
-		"_id": int64(productID),
-		"stock": bson.M{
-			"$gte": quantity, // mengambil product yang stoknya >= quantity
-		},
-	}
-
-	update := bson.M{
-		"$inc": bson.M{ // menggunakan $inc untuk update nilai stock kalau quantity positif maka stock bertambah kalau negatif maka stock berkurang
-			"stock": -quantity,
-		},
-		"$set": bson.M{
-			"updated_at": time.Now(),
-		},
-	}
-
-	result, err := r.collection.UpdateOne(ctx, filter, update)
+func (r *ProductRepositoryImpl) BulkDecreaseStock(ctx context.Context, checkoutID string, items []entity.BulkDecreaseStock) error {
+	session, err := r.collection.Database().Client().StartSession()
 	if err != nil {
 		return err
 	}
+	defer session.EndSession(ctx)
 
-	if result.MatchedCount == 0 {
-		count, err := r.collection.CountDocuments(ctx, bson.M{"_id": int64(productID)})
-		if err != nil {
-			return err
+	_, err = session.WithTransaction(ctx, func(sessCtx context.Context) (any, error) {
+		ledger := model.StockLedgerModel{
+			ID:         checkoutID + ":decrease",
+			CheckoutID: checkoutID,
+			Operation:  "decrease",
+			Items:      toLedgerItems(items),
+			CreatedAt:  time.Now(),
 		}
-		if count == 0 {
-			return apperror.ErrRecordNotFound
+		if _, err := r.ledgerCollection.InsertOne(sessCtx, ledger); err != nil {
+			if mongo.IsDuplicateKeyError(err) {
+				return nil, nil
+			}
+			return nil, err
 		}
-		return apperror.ErrInsufficientStock
+		now := time.Now()
+		for _, item := range items {
+			filter := bson.M{
+				"_id": int64(item.ProductID),
+				"stock": bson.M{
+					"$gte": item.Quantity,
+				},
+			}
+			update := bson.M{
+				"$inc": bson.M{
+					"stock": -item.Quantity,
+				},
+				"$set": bson.M{
+					"updated_at": now,
+				},
+			}
+
+			result, err := r.collection.UpdateOne(sessCtx, filter, update)
+			if err != nil {
+				return nil, err
+			}
+			if result.MatchedCount == 0 {
+				count, _ := r.collection.CountDocuments(sessCtx, bson.M{"_id": item.ProductID})
+				if count == 0 {
+					return nil, apperror.ErrRecordNotFound
+				}
+				return nil, apperror.ErrInsufficientStock
+			}
+		}
+		return nil, nil
+	})
+
+	return err
+}
+
+func (r *ProductRepositoryImpl) BulkRestoreStock(ctx context.Context, checkoutID string) error {
+	session, err := r.collection.Database().Client().StartSession()
+	if err != nil {
+		return err
 	}
+	defer session.EndSession(ctx)
 
-	return nil
+	_, err = session.WithTransaction(ctx, func(sessCtx context.Context) (any, error) {
+		restoreID := checkoutID + ":restore"
+		var existing model.StockLedgerModel
+		err := r.ledgerCollection.FindOne(ctx, bson.M{"_id": restoreID}).Decode(&existing)
+		if err == nil {
+			return nil, nil
+		}
+		if !errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, err
+		}
+
+		var decreaseLedger model.StockLedgerModel
+		err = r.ledgerCollection.FindOne(ctx, bson.M{"_id": checkoutID + ":decrase"}).Decode(&decreaseLedger)
+		if err != nil {
+			if errors.Is(err, mongo.ErrNoDocuments) {
+				return nil, nil
+			}
+			return nil, err
+		}
+
+		now := time.Now()
+		for _, item := range decreaseLedger.Items {
+			update := bson.M{
+				"$inc": bson.M{
+					"stock": item.Quantity,
+				},
+			}
+			if _, err := r.collection.UpdateOne(sessCtx, bson.M{"_id": item.ProductID, "$set": bson.M{"updated_at": now}}, update); err != nil {
+				return nil, err
+			}
+		}
+
+		restoreLedger := model.StockLedgerModel{
+			ID:         restoreID,
+			CheckoutID: checkoutID,
+			Operation:  "restore",
+			Items:      decreaseLedger.Items,
+			CreatedAt:  now,
+		}
+		_, err = r.ledgerCollection.InsertOne(sessCtx, restoreLedger)
+		return nil, err
+	})
+
+	return err
 }
 
 func (r *ProductRepositoryImpl) AdjustStock(ctx context.Context, productID uint, quantity int) error {
@@ -325,4 +401,15 @@ func (r *ProductRepositoryImpl) AdjustStock(ctx context.Context, productID uint,
 	}
 
 	return nil
+}
+
+func toLedgerItems(items []entity.BulkDecreaseStock) []model.StockLedgerItem {
+	ledgerItems := make([]model.StockLedgerItem, len(items))
+	for i, item := range items {
+		ledgerItems[i] = model.StockLedgerItem{
+			ProductID: int64(item.ProductID),
+			Quantity:  item.Quantity,
+		}
+	}
+	return ledgerItems
 }

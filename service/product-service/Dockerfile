@@ -1,24 +1,13 @@
 FROM golang:1.26-alpine AS builder
-
 WORKDIR /app
-
 COPY go.mod go.sum ./
-
 RUN go mod download
-
 COPY . .
-
-RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/api
-
+RUN CGO_ENABLED=0 GOOS=linux go build -o main ./service/product-service/cmd/main.go
 
 FROM alpine:3.24
-
 RUN apk --no-cache add ca-certificates
-
 WORKDIR /app
-
 COPY --from=builder /app/main .
-
-EXPOSE 8080
-
+EXPOSE 8081
 CMD ["./main"]

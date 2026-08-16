@@ -19,9 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ProductService_GetByID_FullMethodName       = "/product.v1.ProductService/GetByID"
-	ProductService_GetByIDs_FullMethodName      = "/product.v1.ProductService/GetByIDs"
-	ProductService_DecreaseStock_FullMethodName = "/product.v1.ProductService/DecreaseStock"
+	ProductService_GetByID_FullMethodName           = "/product.v1.ProductService/GetByID"
+	ProductService_GetByIDs_FullMethodName          = "/product.v1.ProductService/GetByIDs"
+	ProductService_BulkDecreaseStock_FullMethodName = "/product.v1.ProductService/BulkDecreaseStock"
+	ProductService_BulkRestoreStock_FullMethodName  = "/product.v1.ProductService/BulkRestoreStock"
 )
 
 // ProductServiceClient is the client API for ProductService service.
@@ -30,7 +31,8 @@ const (
 type ProductServiceClient interface {
 	GetByID(ctx context.Context, in *GetByIDRequest, opts ...grpc.CallOption) (*GetByIDResponse, error)
 	GetByIDs(ctx context.Context, in *GetByIDsRequest, opts ...grpc.CallOption) (*GetByIDsResponse, error)
-	DecreaseStock(ctx context.Context, in *DecreaseStockRequest, opts ...grpc.CallOption) (*DecreaseStockResponse, error)
+	BulkDecreaseStock(ctx context.Context, in *BulkDecreaseStockRequest, opts ...grpc.CallOption) (*BulkDecreaseStockResponse, error)
+	BulkRestoreStock(ctx context.Context, in *BulkRestoreStockRequest, opts ...grpc.CallOption) (*BulkRestoreStockResponse, error)
 }
 
 type productServiceClient struct {
@@ -61,10 +63,20 @@ func (c *productServiceClient) GetByIDs(ctx context.Context, in *GetByIDsRequest
 	return out, nil
 }
 
-func (c *productServiceClient) DecreaseStock(ctx context.Context, in *DecreaseStockRequest, opts ...grpc.CallOption) (*DecreaseStockResponse, error) {
+func (c *productServiceClient) BulkDecreaseStock(ctx context.Context, in *BulkDecreaseStockRequest, opts ...grpc.CallOption) (*BulkDecreaseStockResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(DecreaseStockResponse)
-	err := c.cc.Invoke(ctx, ProductService_DecreaseStock_FullMethodName, in, out, cOpts...)
+	out := new(BulkDecreaseStockResponse)
+	err := c.cc.Invoke(ctx, ProductService_BulkDecreaseStock_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *productServiceClient) BulkRestoreStock(ctx context.Context, in *BulkRestoreStockRequest, opts ...grpc.CallOption) (*BulkRestoreStockResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BulkRestoreStockResponse)
+	err := c.cc.Invoke(ctx, ProductService_BulkRestoreStock_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +89,8 @@ func (c *productServiceClient) DecreaseStock(ctx context.Context, in *DecreaseSt
 type ProductServiceServer interface {
 	GetByID(context.Context, *GetByIDRequest) (*GetByIDResponse, error)
 	GetByIDs(context.Context, *GetByIDsRequest) (*GetByIDsResponse, error)
-	DecreaseStock(context.Context, *DecreaseStockRequest) (*DecreaseStockResponse, error)
+	BulkDecreaseStock(context.Context, *BulkDecreaseStockRequest) (*BulkDecreaseStockResponse, error)
+	BulkRestoreStock(context.Context, *BulkRestoreStockRequest) (*BulkRestoreStockResponse, error)
 	mustEmbedUnimplementedProductServiceServer()
 }
 
@@ -94,8 +107,11 @@ func (UnimplementedProductServiceServer) GetByID(context.Context, *GetByIDReques
 func (UnimplementedProductServiceServer) GetByIDs(context.Context, *GetByIDsRequest) (*GetByIDsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetByIDs not implemented")
 }
-func (UnimplementedProductServiceServer) DecreaseStock(context.Context, *DecreaseStockRequest) (*DecreaseStockResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method DecreaseStock not implemented")
+func (UnimplementedProductServiceServer) BulkDecreaseStock(context.Context, *BulkDecreaseStockRequest) (*BulkDecreaseStockResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BulkDecreaseStock not implemented")
+}
+func (UnimplementedProductServiceServer) BulkRestoreStock(context.Context, *BulkRestoreStockRequest) (*BulkRestoreStockResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BulkRestoreStock not implemented")
 }
 func (UnimplementedProductServiceServer) mustEmbedUnimplementedProductServiceServer() {}
 func (UnimplementedProductServiceServer) testEmbeddedByValue()                        {}
@@ -154,20 +170,38 @@ func _ProductService_GetByIDs_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ProductService_DecreaseStock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DecreaseStockRequest)
+func _ProductService_BulkDecreaseStock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BulkDecreaseStockRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ProductServiceServer).DecreaseStock(ctx, in)
+		return srv.(ProductServiceServer).BulkDecreaseStock(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ProductService_DecreaseStock_FullMethodName,
+		FullMethod: ProductService_BulkDecreaseStock_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ProductServiceServer).DecreaseStock(ctx, req.(*DecreaseStockRequest))
+		return srv.(ProductServiceServer).BulkDecreaseStock(ctx, req.(*BulkDecreaseStockRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ProductService_BulkRestoreStock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BulkRestoreStockRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProductServiceServer).BulkRestoreStock(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProductService_BulkRestoreStock_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProductServiceServer).BulkRestoreStock(ctx, req.(*BulkRestoreStockRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -188,8 +222,12 @@ var ProductService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ProductService_GetByIDs_Handler,
 		},
 		{
-			MethodName: "DecreaseStock",
-			Handler:    _ProductService_DecreaseStock_Handler,
+			MethodName: "BulkDecreaseStock",
+			Handler:    _ProductService_BulkDecreaseStock_Handler,
+		},
+		{
+			MethodName: "BulkRestoreStock",
+			Handler:    _ProductService_BulkRestoreStock_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

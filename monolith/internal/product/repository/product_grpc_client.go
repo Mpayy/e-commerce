@@ -79,10 +79,17 @@ func (c *ProductGRPCClient) GetProductsByIDs(ctx context.Context, ids []uint) ([
 	return products, nil
 }
 
-func (c *ProductGRPCClient) DecreaseStock(ctx context.Context, productID uint, quantity int) error {
-	_, err := c.client.DecreaseStock(ctx, &productv1.DecreaseStockRequest{
-		ProductId: uint64(productID),
-		Quantity:  int32(quantity),
+func (c *ProductGRPCClient) BulkDecreaseStock(ctx context.Context, checkoutID string, items []entity.BulkDecreaseStock) error {
+	protoItems := make([]*productv1.DecreaseStockRequest, len(items))
+	for i, item := range items {
+		protoItems[i] = &productv1.DecreaseStockRequest{
+			ProductId: uint64(item.ProductID),
+			Quantity:  int32(item.Quantity),
+		}
+	}
+	_, err := c.client.BulkDecreaseStock(ctx, &productv1.BulkDecreaseStockRequest{
+		CheckoutId: checkoutID,
+		Items:      protoItems,
 	})
 	if err != nil {
 		st, _ := status.FromError(err)
@@ -94,6 +101,14 @@ func (c *ProductGRPCClient) DecreaseStock(ctx context.Context, productID uint, q
 		default:
 			return fmt.Errorf("failed decrease stock from grpc: %w", err)
 		}
+	}
+	return nil
+}
+
+func (c *ProductGRPCClient) BulkRestoreStock(ctx context.Context, checkoutID string) error {
+	_, err := c.client.BulkRestoreStock(ctx, &productv1.BulkRestoreStockRequest{CheckoutId: checkoutID})
+	if err != nil {
+		return fmt.Errorf("failed to restore stock from grpc: %w", err)
 	}
 	return nil
 }

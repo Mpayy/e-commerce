@@ -6,6 +6,7 @@ import (
 
 	"github.com/Mpayy/e-commerce/pkg/apperror"
 	productv1 "github.com/Mpayy/e-commerce/proto/product/v1"
+	"github.com/Mpayy/e-commerce/service/product-service/internal/product/entity"
 	"github.com/Mpayy/e-commerce/service/product-service/internal/product/usecase"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -78,8 +79,16 @@ func (s *ProductGRPCServer) GetByIDs(ctx context.Context, req *productv1.GetByID
 	}, nil
 }
 
-func (s *ProductGRPCServer) DecreaseStock(ctx context.Context, req *productv1.DecreaseStockRequest) (*productv1.DecreaseStockResponse, error) {
-	err := s.productUsecase.DecreaseStock(ctx, uint(req.ProductId), int(req.Quantity))
+func (s *ProductGRPCServer) BulkDecreaseStock(ctx context.Context, req *productv1.BulkDecreaseStockRequest) (*productv1.BulkDecreaseStockResponse, error) {
+	items := make([]entity.BulkDecreaseStock, 0, len(req.Items))
+	for _, item := range req.Items {
+		items = append(items, entity.BulkDecreaseStock{
+			ProductID: uint(item.ProductId),
+			Quantity:  int(item.Quantity),
+		})
+	}
+
+	err := s.productUsecase.BulkDecreaseStock(ctx, req.CheckoutId, items)
 	if err != nil {
 		switch {
 		case errors.Is(err, apperror.ErrProductNotFound):
@@ -90,5 +99,13 @@ func (s *ProductGRPCServer) DecreaseStock(ctx context.Context, req *productv1.De
 			return nil, status.Errorf(codes.Internal, "internal server error: %v", err)
 		}
 	}
-	return &productv1.DecreaseStockResponse{}, nil
+	return &productv1.BulkDecreaseStockResponse{}, nil
+}
+
+func (s *ProductGRPCServer) BulkRestoreStock(ctx context.Context, req *productv1.BulkRestoreStockRequest) (*productv1.BulkRestoreStockResponse, error) {
+	err := s.productUsecase.BulkRestoreStock(ctx, req.CheckoutId)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "internal server error: %v", err)
+	}
+	return &productv1.BulkRestoreStockResponse{}, nil
 }

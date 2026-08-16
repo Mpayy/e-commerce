@@ -15,3 +15,8 @@ type Product struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
+
+type BulkDecreaseStock struct {
+	ProductID uint
+	Quantity  int
+}

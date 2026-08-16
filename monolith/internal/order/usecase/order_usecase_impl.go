@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	cartUC "github.com/Mpayy/e-commerce/monolith/internal/cart/usecase"
 	"github.com/Mpayy/e-commerce/monolith/internal/order/dto"
@@ -14,6 +15,7 @@ import (
 	"github.com/Mpayy/e-commerce/pkg/apperror"
 	"github.com/Mpayy/e-commerce/pkg/logger"
 	"github.com/Mpayy/e-commerce/pkg/transaction"
+	"github.com/google/uuid"
 )
 
 type OrderUsecaseImpl struct {
@@ -66,10 +68,12 @@ func (u *OrderUsecaseImpl) Checkout(ctx context.Context, userID uint) (*dto.Orde
 
 	var finalizedOrder entity.Order
 	var finalizedOrderItems []entity.OrderItem
+	checkoutID := uuid.NewString()
 
 	err = u.transaction.WithTransaction(ctx, func(ctx context.Context) error {
 		var orderItems []entity.OrderItem
 		var grandTotal float64
+		var decrements []productentity.BulkDecreaseStock
 
 		for productID, qty := range rawCart {
 			if qty <= 0 {
@@ -81,10 +85,10 @@ func (u *OrderUsecaseImpl) Checkout(ctx context.Context, userID uint) (*dto.Orde
 				return apperror.ErrProductNotFound
 			}
 
-			err := u.productService.DecreaseStock(ctx, product.ID, qty)
-			if err != nil {
-				return err
-			}
+			decrements = append(decrements, productentity.BulkDecreaseStock{
+				ProductID: product.ID,
+				Quantity:  qty,
+			})
 
 			subtotal := product.Price * float64(qty)
 			grandTotal += subtotal
@@ -102,14 +106,27 @@ func (u *OrderUsecaseImpl) Checkout(ctx context.Context, userID uint) (*dto.Orde
 			return apperror.ErrCartEmpty
 		}
 
+		if err = u.productService.BulkDecreaseStock(ctx, checkoutID, decrements); err != nil {
+			return err
+		}
+
 		order := entity.Order{
 			UserID:      userID,
 			TotalAmount: grandTotal,
 			Status:      "PAID",
 		}
 
-		err := u.orderRepository.CreateOrderWithItems(ctx, &order, orderItems)
-		if err != nil {
+		if err = u.orderRepository.CreateOrderWithItems(ctx, &order, orderItems); err != nil {
+			restoreCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			if restoreErr := u.productService.BulkRestoreStock(restoreCtx, checkoutID); restoreErr != nil {
+				log.WithFields(logger.Fields{
+					"checkout_id":    checkoutID,
+					"restore_error":  restoreErr,
+					"original_error": err,
+				}).Error("CRITICAL: stock compensation failed after order creation failed — manual reconciliation required.")
+			}
 			return fmt.Errorf("failed to create order with items: %v", err)
 		}
 

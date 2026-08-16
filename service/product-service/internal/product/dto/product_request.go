@@ -29,3 +29,8 @@ type ProductSearchRequest struct {
 type ProductStockAdjustmentRequest struct {
 	Stock *int `json:"stock" validate:"required,gte=0"`
 }
+
+type ProductBulkDecreaseStockRequest struct {
+	ProductID uint `json:"product_id" validate:"required"`
+	Quantity  int  `json:"quantity" validate:"required,min=1"`
+}
