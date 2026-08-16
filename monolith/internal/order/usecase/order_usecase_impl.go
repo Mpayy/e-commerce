@@ -127,7 +127,7 @@ func (u *OrderUsecaseImpl) Checkout(ctx context.Context, userID uint) (*dto.Orde
 					"original_error": err,
 				}).Error("CRITICAL: stock compensation failed after order creation failed — manual reconciliation required.")
 			}
-			return fmt.Errorf("failed to create order with items: %v", err)
+			return fmt.Errorf("failed to create order with items: %w", err)
 		}
 
 		finalizedOrder = order
@@ -182,7 +182,7 @@ func (u *OrderUsecaseImpl) GetOrderHistory(ctx context.Context, userID uint) (*d
 
 	orders, items, err := u.orderRepository.FindByUserID(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get order history: %v", err)
+		return nil, fmt.Errorf("failed to get order history: %w", err)
 	}
 
 	orderMap := make(map[uint][]dto.OrderItemResponse)
@@ -235,7 +235,7 @@ func (u *OrderUsecaseImpl) GetOrderDetail(ctx context.Context, userID uint, orde
 		if errors.Is(err, apperror.ErrRecordNotFound) {
 			return nil, apperror.ErrOrderNotFound
 		}
-		return nil, fmt.Errorf("failed to get order detail: %v", err)
+		return nil, fmt.Errorf("failed to get order detail: %w", err)
 	}
 
 	if order.UserID != userID {
@@ -244,7 +244,7 @@ func (u *OrderUsecaseImpl) GetOrderDetail(ctx context.Context, userID uint, orde
 
 	items, err := u.orderRepository.FindItemsByOrderID(ctx, orderID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get order detail: %v", err)
+		return nil, fmt.Errorf("failed to get order detail: %w", err)
 	}
 
 	responseItems := []dto.OrderItemResponse{}

@@ -101,6 +101,126 @@ func (_c *MockProductRepository_AdjustStock_Call) RunAndReturn(run func(ctx cont
 	return _c
 }
 
+// BulkDecreaseStock provides a mock function for the type MockProductRepository
+func (_mock *MockProductRepository) BulkDecreaseStock(ctx context.Context, checkoutID string, items []entity.BulkDecreaseStock) error {
+	ret := _mock.Called(ctx, checkoutID, items)
+
+	if len(ret) == 0 {
+		panic("no return value specified for BulkDecreaseStock")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, []entity.BulkDecreaseStock) error); ok {
+		r0 = returnFunc(ctx, checkoutID, items)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockProductRepository_BulkDecreaseStock_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BulkDecreaseStock'
+type MockProductRepository_BulkDecreaseStock_Call struct {
+	*mock.Call
+}
+
+// BulkDecreaseStock is a helper method to define mock.On call
+//   - ctx context.Context
+//   - checkoutID string
+//   - items []entity.BulkDecreaseStock
+func (_e *MockProductRepository_Expecter) BulkDecreaseStock(ctx any, checkoutID any, items any) *MockProductRepository_BulkDecreaseStock_Call {
+	return &MockProductRepository_BulkDecreaseStock_Call{Call: _e.mock.On("BulkDecreaseStock", ctx, checkoutID, items)}
+}
+
+func (_c *MockProductRepository_BulkDecreaseStock_Call) Run(run func(ctx context.Context, checkoutID string, items []entity.BulkDecreaseStock)) *MockProductRepository_BulkDecreaseStock_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 []entity.BulkDecreaseStock
+		if args[2] != nil {
+			arg2 = args[2].([]entity.BulkDecreaseStock)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockProductRepository_BulkDecreaseStock_Call) Return(err error) *MockProductRepository_BulkDecreaseStock_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockProductRepository_BulkDecreaseStock_Call) RunAndReturn(run func(ctx context.Context, checkoutID string, items []entity.BulkDecreaseStock) error) *MockProductRepository_BulkDecreaseStock_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// BulkRestoreStock provides a mock function for the type MockProductRepository
+func (_mock *MockProductRepository) BulkRestoreStock(ctx context.Context, checkoutID string) error {
+	ret := _mock.Called(ctx, checkoutID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for BulkRestoreStock")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = returnFunc(ctx, checkoutID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockProductRepository_BulkRestoreStock_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BulkRestoreStock'
+type MockProductRepository_BulkRestoreStock_Call struct {
+	*mock.Call
+}
+
+// BulkRestoreStock is a helper method to define mock.On call
+//   - ctx context.Context
+//   - checkoutID string
+func (_e *MockProductRepository_Expecter) BulkRestoreStock(ctx any, checkoutID any) *MockProductRepository_BulkRestoreStock_Call {
+	return &MockProductRepository_BulkRestoreStock_Call{Call: _e.mock.On("BulkRestoreStock", ctx, checkoutID)}
+}
+
+func (_c *MockProductRepository_BulkRestoreStock_Call) Run(run func(ctx context.Context, checkoutID string)) *MockProductRepository_BulkRestoreStock_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockProductRepository_BulkRestoreStock_Call) Return(err error) *MockProductRepository_BulkRestoreStock_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockProductRepository_BulkRestoreStock_Call) RunAndReturn(run func(ctx context.Context, checkoutID string) error) *MockProductRepository_BulkRestoreStock_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Create provides a mock function for the type MockProductRepository
 func (_mock *MockProductRepository) Create(ctx context.Context, product *entity.Product) error {
 	ret := _mock.Called(ctx, product)
@@ -154,69 +274,6 @@ func (_c *MockProductRepository_Create_Call) Return(err error) *MockProductRepos
 }
 
 func (_c *MockProductRepository_Create_Call) RunAndReturn(run func(ctx context.Context, product *entity.Product) error) *MockProductRepository_Create_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// DecreaseStock provides a mock function for the type MockProductRepository
-func (_mock *MockProductRepository) DecreaseStock(ctx context.Context, productID uint, quantity int) error {
-	ret := _mock.Called(ctx, productID, quantity)
-
-	if len(ret) == 0 {
-		panic("no return value specified for DecreaseStock")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, uint, int) error); ok {
-		r0 = returnFunc(ctx, productID, quantity)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// MockProductRepository_DecreaseStock_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DecreaseStock'
-type MockProductRepository_DecreaseStock_Call struct {
-	*mock.Call
-}
-
-// DecreaseStock is a helper method to define mock.On call
-//   - ctx context.Context
-//   - productID uint
-//   - quantity int
-func (_e *MockProductRepository_Expecter) DecreaseStock(ctx any, productID any, quantity any) *MockProductRepository_DecreaseStock_Call {
-	return &MockProductRepository_DecreaseStock_Call{Call: _e.mock.On("DecreaseStock", ctx, productID, quantity)}
-}
-
-func (_c *MockProductRepository_DecreaseStock_Call) Run(run func(ctx context.Context, productID uint, quantity int)) *MockProductRepository_DecreaseStock_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 uint
-		if args[1] != nil {
-			arg1 = args[1].(uint)
-		}
-		var arg2 int
-		if args[2] != nil {
-			arg2 = args[2].(int)
-		}
-		run(
-			arg0,
-			arg1,
-			arg2,
-		)
-	})
-	return _c
-}
-
-func (_c *MockProductRepository_DecreaseStock_Call) Return(err error) *MockProductRepository_DecreaseStock_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *MockProductRepository_DecreaseStock_Call) RunAndReturn(run func(ctx context.Context, productID uint, quantity int) error) *MockProductRepository_DecreaseStock_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -1,13 +1,13 @@
-# .mockery.yml
 all: false
 pkgname: "mocks"
 
 packages:
-  # github.com/Mpayy/e-commerce/internal/user/repository:
+  github.com/Mpayy/e-commerce/monolith/internal/user/repository:
   github.com/Mpayy/e-commerce/service/product-service/internal/product/repository:
-  github.com/Mpayy/e-commerce/service/product-service/internal/product/usecase:
-  # github.com/Mpayy/e-commerce/internal/cart/usecase:
-  # github.com/Mpayy/e-commerce/internal/order/repository:
-  # github.com/Mpayy/e-commerce/dependency:
-  # github.com/Mpayy/e-commerce/pkg/jwt:
-  # github.com/Mpayy/e-commerce/pkg/transaction:
+  github.com/Mpayy/e-commerce/monolith/internal/cart/usecase:
+  github.com/Mpayy/e-commerce/monolith/internal/cart/repository:
+  github.com/Mpayy/e-commerce/monolith/internal/order/repository:
+  github.com/Mpayy/e-commerce/monolith/internal/product/usecase:
+  github.com/Mpayy/e-commerce/pkg/jwt:
+  github.com/Mpayy/e-commerce/pkg/transaction:
+  github.com/Mpayy/e-commerce/proto/product/v1:

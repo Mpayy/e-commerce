@@ -36,12 +36,12 @@ func (_m *MockJwtToken) EXPECT() *MockJwtToken_Expecter {
 	return &MockJwtToken_Expecter{mock: &_m.Mock}
 }
 
-// CreateToken provides a mock function for the type MockJwtToken
-func (_mock *MockJwtToken) CreateToken(auth *jwt.Auth) (string, error) {
+// Create provides a mock function for the type MockJwtToken
+func (_mock *MockJwtToken) Create(auth *jwt.Auth) (string, error) {
 	ret := _mock.Called(auth)
 
 	if len(ret) == 0 {
-		panic("no return value specified for CreateToken")
+		panic("no return value specified for Create")
 	}
 
 	var r0 string
@@ -62,18 +62,18 @@ func (_mock *MockJwtToken) CreateToken(auth *jwt.Auth) (string, error) {
 	return r0, r1
 }
 
-// MockJwtToken_CreateToken_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateToken'
-type MockJwtToken_CreateToken_Call struct {
+// MockJwtToken_Create_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Create'
+type MockJwtToken_Create_Call struct {
 	*mock.Call
 }
 
-// CreateToken is a helper method to define mock.On call
+// Create is a helper method to define mock.On call
 //   - auth *jwt.Auth
-func (_e *MockJwtToken_Expecter) CreateToken(auth any) *MockJwtToken_CreateToken_Call {
-	return &MockJwtToken_CreateToken_Call{Call: _e.mock.On("CreateToken", auth)}
+func (_e *MockJwtToken_Expecter) Create(auth any) *MockJwtToken_Create_Call {
+	return &MockJwtToken_Create_Call{Call: _e.mock.On("Create", auth)}
 }
 
-func (_c *MockJwtToken_CreateToken_Call) Run(run func(auth *jwt.Auth)) *MockJwtToken_CreateToken_Call {
+func (_c *MockJwtToken_Create_Call) Run(run func(auth *jwt.Auth)) *MockJwtToken_Create_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 *jwt.Auth
 		if args[0] != nil {
@@ -86,56 +86,56 @@ func (_c *MockJwtToken_CreateToken_Call) Run(run func(auth *jwt.Auth)) *MockJwtT
 	return _c
 }
 
-func (_c *MockJwtToken_CreateToken_Call) Return(s string, err error) *MockJwtToken_CreateToken_Call {
+func (_c *MockJwtToken_Create_Call) Return(s string, err error) *MockJwtToken_Create_Call {
 	_c.Call.Return(s, err)
 	return _c
 }
 
-func (_c *MockJwtToken_CreateToken_Call) RunAndReturn(run func(auth *jwt.Auth) (string, error)) *MockJwtToken_CreateToken_Call {
+func (_c *MockJwtToken_Create_Call) RunAndReturn(run func(auth *jwt.Auth) (string, error)) *MockJwtToken_Create_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// ParseToken provides a mock function for the type MockJwtToken
-func (_mock *MockJwtToken) ParseToken(token string) (*jwt.Auth, error) {
-	ret := _mock.Called(token)
+// Validate provides a mock function for the type MockJwtToken
+func (_mock *MockJwtToken) Validate(jwtToken string) (*jwt.Auth, error) {
+	ret := _mock.Called(jwtToken)
 
 	if len(ret) == 0 {
-		panic("no return value specified for ParseToken")
+		panic("no return value specified for Validate")
 	}
 
 	var r0 *jwt.Auth
 	var r1 error
 	if returnFunc, ok := ret.Get(0).(func(string) (*jwt.Auth, error)); ok {
-		return returnFunc(token)
+		return returnFunc(jwtToken)
 	}
 	if returnFunc, ok := ret.Get(0).(func(string) *jwt.Auth); ok {
-		r0 = returnFunc(token)
+		r0 = returnFunc(jwtToken)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*jwt.Auth)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(string) error); ok {
-		r1 = returnFunc(token)
+		r1 = returnFunc(jwtToken)
 	} else {
 		r1 = ret.Error(1)
 	}
 	return r0, r1
 }
 
-// MockJwtToken_ParseToken_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseToken'
-type MockJwtToken_ParseToken_Call struct {
+// MockJwtToken_Validate_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Validate'
+type MockJwtToken_Validate_Call struct {
 	*mock.Call
 }
 
-// ParseToken is a helper method to define mock.On call
-//   - token string
-func (_e *MockJwtToken_Expecter) ParseToken(token any) *MockJwtToken_ParseToken_Call {
-	return &MockJwtToken_ParseToken_Call{Call: _e.mock.On("ParseToken", token)}
+// Validate is a helper method to define mock.On call
+//   - jwtToken string
+func (_e *MockJwtToken_Expecter) Validate(jwtToken any) *MockJwtToken_Validate_Call {
+	return &MockJwtToken_Validate_Call{Call: _e.mock.On("Validate", jwtToken)}
 }
 
-func (_c *MockJwtToken_ParseToken_Call) Run(run func(token string)) *MockJwtToken_ParseToken_Call {
+func (_c *MockJwtToken_Validate_Call) Run(run func(jwtToken string)) *MockJwtToken_Validate_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 string
 		if args[0] != nil {
@@ -148,12 +148,12 @@ func (_c *MockJwtToken_ParseToken_Call) Run(run func(token string)) *MockJwtToke
 	return _c
 }
 
-func (_c *MockJwtToken_ParseToken_Call) Return(auth *jwt.Auth, err error) *MockJwtToken_ParseToken_Call {
+func (_c *MockJwtToken_Validate_Call) Return(auth *jwt.Auth, err error) *MockJwtToken_Validate_Call {
 	_c.Call.Return(auth, err)
 	return _c
 }
 
-func (_c *MockJwtToken_ParseToken_Call) RunAndReturn(run func(token string) (*jwt.Auth, error)) *MockJwtToken_ParseToken_Call {
+func (_c *MockJwtToken_Validate_Call) RunAndReturn(run func(jwtToken string) (*jwt.Auth, error)) *MockJwtToken_Validate_Call {
 	_c.Call.Return(run)
 	return _c
 }

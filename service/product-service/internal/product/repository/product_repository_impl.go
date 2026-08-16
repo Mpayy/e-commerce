@@ -336,7 +336,7 @@ func (r *ProductRepositoryImpl) BulkRestoreStock(ctx context.Context, checkoutID
 	_, err = session.WithTransaction(ctx, func(sessCtx context.Context) (any, error) {
 		restoreID := checkoutID + ":restore"
 		var existing model.StockLedgerModel
-		err := r.ledgerCollection.FindOne(ctx, bson.M{"_id": restoreID}).Decode(&existing)
+		err := r.ledgerCollection.FindOne(sessCtx, bson.M{"_id": restoreID}).Decode(&existing)
 		if err == nil {
 			return nil, nil
 		}
@@ -345,7 +345,7 @@ func (r *ProductRepositoryImpl) BulkRestoreStock(ctx context.Context, checkoutID
 		}
 
 		var decreaseLedger model.StockLedgerModel
-		err = r.ledgerCollection.FindOne(ctx, bson.M{"_id": checkoutID + ":decrase"}).Decode(&decreaseLedger)
+		err = r.ledgerCollection.FindOne(sessCtx, bson.M{"_id": checkoutID + ":decrease"}).Decode(&decreaseLedger)
 		if err != nil {
 			if errors.Is(err, mongo.ErrNoDocuments) {
 				return nil, nil
@@ -355,12 +355,20 @@ func (r *ProductRepositoryImpl) BulkRestoreStock(ctx context.Context, checkoutID
 
 		now := time.Now()
 		for _, item := range decreaseLedger.Items {
+			filter := bson.M{
+				"_id": int64(item.ProductID),
+			}
+
 			update := bson.M{
 				"$inc": bson.M{
 					"stock": item.Quantity,
 				},
+				"$set": bson.M{
+					"updated_at": now,
+				},
 			}
-			if _, err := r.collection.UpdateOne(sessCtx, bson.M{"_id": item.ProductID, "$set": bson.M{"updated_at": now}}, update); err != nil {
+
+			if _, err := r.collection.UpdateOne(sessCtx, filter, update); err != nil {
 				return nil, err
 			}
 		}
