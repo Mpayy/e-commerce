@@ -8,6 +8,7 @@ import (
 	carthttp "github.com/Mpayy/e-commerce/monolith/internal/cart/delivery/http"
 	cartrepository "github.com/Mpayy/e-commerce/monolith/internal/cart/repository"
 	cartusecase "github.com/Mpayy/e-commerce/monolith/internal/cart/usecase"
+	publisherrepository "github.com/Mpayy/e-commerce/monolith/internal/notification-publisher/repository"
 	orderhttp "github.com/Mpayy/e-commerce/monolith/internal/order/delivery/http"
 	orderrepository "github.com/Mpayy/e-commerce/monolith/internal/order/repository"
 	orderusecase "github.com/Mpayy/e-commerce/monolith/internal/order/usecase"
@@ -22,6 +23,7 @@ import (
 	"github.com/Mpayy/e-commerce/pkg/engine"
 	"github.com/Mpayy/e-commerce/pkg/jwt"
 	"github.com/Mpayy/e-commerce/pkg/logger"
+	"github.com/Mpayy/e-commerce/pkg/messaging"
 	"github.com/Mpayy/e-commerce/pkg/middleware"
 	"github.com/Mpayy/e-commerce/pkg/transaction"
 	"github.com/Mpayy/e-commerce/pkg/validator"
@@ -57,6 +59,10 @@ var orderSet = wire.NewSet(
 	orderhttp.NewOrderHandler,
 )
 
+var publisherSet = wire.NewSet(
+	publisherrepository.NewEventPublisher,
+)
+
 var InfrastructureSet = wire.NewSet(
 	config.Load,
 	logger.NewLogger,
@@ -64,7 +70,9 @@ var InfrastructureSet = wire.NewSet(
 	cache.NewRedisCli,
 	engine.NewGin,
 	database.NewPostgresDB,
+	messaging.NewRabbitMQConn,
 	dependency.NewGormDB,
+	dependency.NewRabbitMQChannel,
 )
 
 func InitializeApp() (*dependency.App, func(), error) {
@@ -74,6 +82,7 @@ func InitializeApp() (*dependency.App, func(), error) {
 		productSet,
 		cartSet,
 		orderSet,
+		publisherSet,
 		middleware.NewAuthMiddleware,
 		routes.NewRouter,
 		jwt.NewJwtToken,

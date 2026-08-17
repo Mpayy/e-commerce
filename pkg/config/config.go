@@ -38,6 +38,9 @@ type Config struct {
 
 	// GRPC
 	ProductServiceAddr string `mapstructure:"PRODUCT_SERVICE_ADDR"`
+
+	// RabbitMQ
+	RabbitMQUrl string `mapstructure:"RABBITMQ_URL"`
 }
 
 func Load() *Config {
@@ -70,6 +73,8 @@ func Load() *Config {
 	v.SetDefault("MONGODB_DATABASE", "ecommerce")
 
 	v.SetDefault("PRODUCT_SERVICE_ADDR", "localhost:50051")
+
+	v.SetDefault("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 
 	// Otomatis override jika ada Environment Variable di OS / Docker
 	v.AutomaticEnv()

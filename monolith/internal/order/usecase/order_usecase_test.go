@@ -8,6 +8,8 @@ import (
 	"io"
 
 	cartMock "github.com/Mpayy/e-commerce/monolith/internal/cart/mocks"
+	"github.com/Mpayy/e-commerce/monolith/internal/notification-publisher/event"
+	publisherMock "github.com/Mpayy/e-commerce/monolith/internal/notification-publisher/mocks"
 	"github.com/Mpayy/e-commerce/monolith/internal/order/entity"
 	repoMock "github.com/Mpayy/e-commerce/monolith/internal/order/mocks"
 	productentity "github.com/Mpayy/e-commerce/monolith/internal/product/entity"
@@ -26,15 +28,16 @@ func newTestLogger() *logger.Logger {
 	return log
 }
 
-func setupOrderUsecase(t *testing.T) (OrderUsecase, *productMock.MockProductService, *cartMock.MockCartService, *repoMock.MockOrderRepository, *repoMock.MockTransaction) {
+func setupOrderUsecase(t *testing.T) (OrderUsecase, *productMock.MockProductService, *cartMock.MockCartService, *repoMock.MockOrderRepository, *repoMock.MockTransaction, *publisherMock.MockEventPublisher) {
 	orderRepository := repoMock.NewMockOrderRepository(t)
 	cartService := cartMock.NewMockCartService(t)
 	productService := productMock.NewMockProductService(t)
 	transactionMock := repoMock.NewMockTransaction(t)
+	publisherMock := publisherMock.NewMockEventPublisher(t)
 	log := newTestLogger()
 
-	orderUsecase := NewOrderUsecase(orderRepository, transactionMock, log, cartService, productService)
-	return orderUsecase, productService, cartService, orderRepository, transactionMock
+	orderUsecase := NewOrderUsecase(orderRepository, transactionMock, log, cartService, productService, publisherMock)
+	return orderUsecase, productService, cartService, orderRepository, transactionMock, publisherMock
 }
 
 func TestOrderUsecase_Checkout(t *testing.T) {
@@ -44,7 +47,7 @@ func TestOrderUsecase_Checkout(t *testing.T) {
 
 	// 1. Success Checkout
 	t.Run("success_checkout", func(t *testing.T) {
-		usecase, productService, cartService, orderRepository, transactionMock := setupOrderUsecase(t)
+		usecase, productService, cartService, orderRepository, transactionMock, publisherMock := setupOrderUsecase(t)
 
 		rawCart := map[uint]int{
 			1: 10,
@@ -88,6 +91,12 @@ func TestOrderUsecase_Checkout(t *testing.T) {
 			ClearCart(mock.Anything, userID).
 			Return(nil)
 
+		publisherMock.EXPECT().
+			PublishOrderCreated(mock.Anything, mock.MatchedBy(func(e event.OrderCreatedEvent) bool {
+				return e.OrderID == 6 && e.UserID == userID && e.InvoiceNumber == "INV-20260710-000006" && e.TotalAmount == 200000
+			})).
+			Return(nil)
+
 		result, err := usecase.Checkout(ctx, userID)
 
 		assert.NoError(t, err)
@@ -101,7 +110,7 @@ func TestOrderUsecase_Checkout(t *testing.T) {
 
 	// 2. Failed: GetRawCart Error
 	t.Run("failed_get_raw_cart_error", func(t *testing.T) {
-		usecase, _, cartService, _, _ := setupOrderUsecase(t)
+		usecase, _, cartService, _, _, _ := setupOrderUsecase(t)
 
 		cartService.EXPECT().
 			GetRawCart(mock.Anything, userID).
@@ -115,7 +124,7 @@ func TestOrderUsecase_Checkout(t *testing.T) {
 
 	// 3. Failed: Cart Initially Empty
 	t.Run("failed_cart_empty_initial", func(t *testing.T) {
-		usecase, _, cartService, _, _ := setupOrderUsecase(t)
+		usecase, _, cartService, _, _, _ := setupOrderUsecase(t)
 
 		cartService.EXPECT().
 			GetRawCart(mock.Anything, userID).
@@ -129,7 +138,7 @@ func TestOrderUsecase_Checkout(t *testing.T) {
 
 	// 4. Failed: GetProductsByIDs Error
 	t.Run("failed_get_products_by_ids_error", func(t *testing.T) {
-		usecase, productService, cartService, _, _ := setupOrderUsecase(t)
+		usecase, productService, cartService, _, _, _ := setupOrderUsecase(t)
 
 		rawCart := map[uint]int{1: 2}
 
@@ -149,7 +158,7 @@ func TestOrderUsecase_Checkout(t *testing.T) {
 
 	// 5. Failed: Cart Items Qty <= 0 Resulting in Empty Order Items
 	t.Run("failed_cart_items_quantity_zero_or_negative", func(t *testing.T) {
-		usecase, productService, cartService, _, transactionMock := setupOrderUsecase(t)
+		usecase, productService, cartService, _, transactionMock, _ := setupOrderUsecase(t)
 
 		rawCart := map[uint]int{1: 0, 2: -1}
 		products := []productentity.Product{
@@ -179,7 +188,7 @@ func TestOrderUsecase_Checkout(t *testing.T) {
 
 	// 6. Failed: Product Not Found in Map
 	t.Run("failed_product_not_found_in_map", func(t *testing.T) {
-		usecase, productService, cartService, _, transactionMock := setupOrderUsecase(t)
+		usecase, productService, cartService, _, transactionMock, _ := setupOrderUsecase(t)
 
 		rawCart := map[uint]int{1: 2}
 
@@ -205,7 +214,7 @@ func TestOrderUsecase_Checkout(t *testing.T) {
 
 	// 7. Failed: BulkDecreaseStock Error
 	t.Run("failed_bulk_decrease_stock_error", func(t *testing.T) {
-		usecase, productService, cartService, _, transactionMock := setupOrderUsecase(t)
+		usecase, productService, cartService, _, transactionMock, _ := setupOrderUsecase(t)
 
 		rawCart := map[uint]int{1: 2}
 		products := []productentity.Product{{ID: 1, Name: "P1", Price: 10000}}
@@ -236,7 +245,7 @@ func TestOrderUsecase_Checkout(t *testing.T) {
 
 	// 8. Failed: CreateOrderWithItems Error & Compensation (BulkRestoreStock) Success
 	t.Run("failed_create_order_with_items_and_restore_stock_success", func(t *testing.T) {
-		usecase, productService, cartService, orderRepository, transactionMock := setupOrderUsecase(t)
+		usecase, productService, cartService, orderRepository, transactionMock, _ := setupOrderUsecase(t)
 
 		rawCart := map[uint]int{1: 2}
 		products := []productentity.Product{{ID: 1, Name: "P1", Price: 10000}}
@@ -276,7 +285,7 @@ func TestOrderUsecase_Checkout(t *testing.T) {
 
 	// 9. Failed: CreateOrderWithItems Error & Compensation (BulkRestoreStock) Fails
 	t.Run("failed_create_order_with_items_and_restore_stock_fails", func(t *testing.T) {
-		usecase, productService, cartService, orderRepository, transactionMock := setupOrderUsecase(t)
+		usecase, productService, cartService, orderRepository, transactionMock, _ := setupOrderUsecase(t)
 
 		rawCart := map[uint]int{1: 2}
 		products := []productentity.Product{{ID: 1, Name: "P1", Price: 10000}}
@@ -316,7 +325,7 @@ func TestOrderUsecase_Checkout(t *testing.T) {
 
 	// 10. Failed: Transaction Failure
 	t.Run("failed_transaction_execution", func(t *testing.T) {
-		usecase, productService, cartService, _, transactionMock := setupOrderUsecase(t)
+		usecase, productService, cartService, _, transactionMock, _ := setupOrderUsecase(t)
 
 		rawCart := map[uint]int{1: 2}
 		products := []productentity.Product{{ID: 1, Name: "P1", Price: 10000}}
@@ -341,7 +350,7 @@ func TestOrderUsecase_Checkout(t *testing.T) {
 
 	// 11. Failed: ClearCart Error
 	t.Run("failed_clear_cart_error", func(t *testing.T) {
-		usecase, productService, cartService, orderRepository, transactionMock := setupOrderUsecase(t)
+		usecase, productService, cartService, orderRepository, transactionMock, _ := setupOrderUsecase(t)
 
 		rawCart := map[uint]int{1: 2}
 		products := []productentity.Product{{ID: 1, Name: "P1", Price: 10000}}
@@ -381,6 +390,59 @@ func TestOrderUsecase_Checkout(t *testing.T) {
 		assert.Nil(t, result)
 		assert.ErrorIs(t, err, dbErr)
 	})
+
+	// 12. Success Checkout Even If Event Publishing Fails
+    t.Run("success_checkout_publish_event_failed_still_succeeds", func(t *testing.T) {
+        usecase, productService, cartService, orderRepository, transactionMock, publisherMock := setupOrderUsecase(t)
+
+        rawCart := map[uint]int{1: 2}
+        products := []productentity.Product{
+            {ID: 1, Name: "Produk 1", Price: 10000, Stock: 5},
+        }
+
+        cartService.EXPECT().
+            GetRawCart(mock.Anything, userID).
+            Return(rawCart, nil)
+
+        productService.EXPECT().
+            GetProductsByIDs(mock.Anything, mock.Anything).
+            Return(products, nil)
+
+        transactionMock.EXPECT().
+            WithTransaction(mock.Anything, mock.Anything).
+            RunAndReturn(func(ctx context.Context, fn func(context.Context) error) error {
+                return fn(ctx)
+            })
+
+        productService.EXPECT().
+            BulkDecreaseStock(mock.Anything, mock.Anything, mock.Anything).
+            Return(nil)
+
+        orderRepository.EXPECT().
+            CreateOrderWithItems(mock.Anything, mock.Anything, mock.Anything).
+            RunAndReturn(func(ctx context.Context, order *entity.Order, items []entity.OrderItem) error {
+                order.ID = 10
+                order.InvoiceNumber = "INV-0010"
+                return nil
+            })
+
+        cartService.EXPECT().
+            ClearCart(mock.Anything, userID).
+            Return(nil)
+
+        // Simulasi Event Publisher mengembalikan error
+        publisherMock.EXPECT().
+            PublishOrderCreated(mock.Anything, mock.Anything).
+            Return(errors.New("rabbitmq connection down"))
+
+        result, err := usecase.Checkout(ctx, userID)
+
+        // Checkout harus tetap berjalan sukses tanpa return error
+        assert.NoError(t, err)
+        assert.NotNil(t, result)
+        assert.Equal(t, uint(10), result.OrderID)
+        assert.Equal(t, "INV-0010", result.InvoiceNumber)
+    })
 }
 
 func TestOrderUsecase_GetOrderHistory(t *testing.T) {
@@ -389,7 +451,7 @@ func TestOrderUsecase_GetOrderHistory(t *testing.T) {
 	dbErr := errors.New("unexpected database error")
 
 	t.Run("success_get_history_with_items", func(t *testing.T) {
-		usecase, _, _, orderRepository, _ := setupOrderUsecase(t)
+		usecase, _, _, orderRepository, _, _ := setupOrderUsecase(t)
 
 		mockOrders := []entity.Order{
 			{ID: 101, UserID: userID, InvoiceNumber: "INV-001", TotalAmount: 50000, Status: "PAID"},
@@ -422,7 +484,7 @@ func TestOrderUsecase_GetOrderHistory(t *testing.T) {
 		assert.Len(t, result.Orders[1].Items, 0)
 	})
 	t.Run("success_get_history_empty", func(t *testing.T) {
-		usecase, _, _, orderRepository, _ := setupOrderUsecase(t)
+		usecase, _, _, orderRepository, _, _ := setupOrderUsecase(t)
 
 		orderRepository.EXPECT().
 			FindByUserID(mock.Anything, userID).
@@ -436,7 +498,7 @@ func TestOrderUsecase_GetOrderHistory(t *testing.T) {
 	})
 
 	t.Run("failed_unexpected_error_from_repository", func(t *testing.T) {
-		usecase, _, _, orderRepository, _ := setupOrderUsecase(t)
+		usecase, _, _, orderRepository, _, _ := setupOrderUsecase(t)
 
 		orderRepository.EXPECT().
 			FindByUserID(mock.Anything, userID).
@@ -460,7 +522,7 @@ func TestOrderUsecase_GetOrderDetail(t *testing.T) {
 	// 1. Success: Berhasil mengambil detail order beserta itemnya
 	// go test -v ./internal/order/usecase -run "TestOrderUsecase_GetOrderDetail/success_get_detail"
 	t.Run("success_get_detail", func(t *testing.T) {
-		usecase, _, _, orderRepository, _ := setupOrderUsecase(t)
+		usecase, _, _, orderRepository, _, _ := setupOrderUsecase(t)
 
 		mockOrder := &entity.Order{
 			ID:            orderID,
@@ -495,7 +557,7 @@ func TestOrderUsecase_GetOrderDetail(t *testing.T) {
 	// 2. Failed: Order tidak ditemukan di DB (apperror.ErrRecordNotFound)
 	// go test -v ./internal/order/usecase -run "TestOrderUsecase_GetOrderDetail/failed_order_not_found"
 	t.Run("failed_order_not_found", func(t *testing.T) {
-		usecase, _, _, orderRepository, _ := setupOrderUsecase(t)
+		usecase, _, _, orderRepository, _, _ := setupOrderUsecase(t)
 
 		orderRepository.EXPECT().
 			FindByID(mock.Anything, orderID).
@@ -510,7 +572,7 @@ func TestOrderUsecase_GetOrderDetail(t *testing.T) {
 	// 3. Failed: Unexpected error dari FindByID (Kunci Coverage 100%)
 	// go test -v ./internal/order/usecase -run "TestOrderUsecase_GetOrderDetail/failed_unexpected_db_error_on_find_by_id"
 	t.Run("failed_unexpected_db_error_on_find_by_id", func(t *testing.T) {
-		usecase, _, _, orderRepository, _ := setupOrderUsecase(t)
+		usecase, _, _, orderRepository, _, _ := setupOrderUsecase(t)
 
 		orderRepository.EXPECT().
 			FindByID(mock.Anything, orderID).
@@ -526,7 +588,7 @@ func TestOrderUsecase_GetOrderDetail(t *testing.T) {
 	// 4. Failed: Order milik user lain (Ownership validation fail)
 	// go test -v ./internal/order/usecase -run "TestOrderUsecase_GetOrderDetail/failed_wrong_ownership"
 	t.Run("failed_wrong_ownership", func(t *testing.T) {
-		usecase, _, _, orderRepository, _ := setupOrderUsecase(t)
+		usecase, _, _, orderRepository, _, _ := setupOrderUsecase(t)
 
 		mockOrderWithWrongOwner := &entity.Order{
 			ID:            orderID,
@@ -548,7 +610,7 @@ func TestOrderUsecase_GetOrderDetail(t *testing.T) {
 	// 5. Failed: Unexpected error saat mengambil items dari FindItemsByOrderID
 	// go test -v ./internal/order/usecase -run "TestOrderUsecase_GetOrderDetail/failed_unexpected_db_error_on_items"
 	t.Run("failed_unexpected_db_error_on_items", func(t *testing.T) {
-		usecase, _, _, orderRepository, _ := setupOrderUsecase(t)
+		usecase, _, _, orderRepository, _, _ := setupOrderUsecase(t)
 
 		mockOrder := &entity.Order{ID: orderID, UserID: userID}
 

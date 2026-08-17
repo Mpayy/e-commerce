@@ -11,6 +11,7 @@ import (
 	"github.com/Mpayy/e-commerce/monolith/internal/cart/delivery/http"
 	repository3 "github.com/Mpayy/e-commerce/monolith/internal/cart/repository"
 	usecase2 "github.com/Mpayy/e-commerce/monolith/internal/cart/usecase"
+	repository4 "github.com/Mpayy/e-commerce/monolith/internal/notification-publisher/repository"
 	"github.com/Mpayy/e-commerce/monolith/internal/order/delivery/http"
 	repository2 "github.com/Mpayy/e-commerce/monolith/internal/order/repository"
 	usecase3 "github.com/Mpayy/e-commerce/monolith/internal/order/usecase"
@@ -25,6 +26,7 @@ import (
 	"github.com/Mpayy/e-commerce/pkg/engine"
 	"github.com/Mpayy/e-commerce/pkg/jwt"
 	"github.com/Mpayy/e-commerce/pkg/logger"
+	"github.com/Mpayy/e-commerce/pkg/messaging"
 	"github.com/Mpayy/e-commerce/pkg/middleware"
 	"github.com/Mpayy/e-commerce/pkg/transaction"
 	"github.com/Mpayy/e-commerce/pkg/validator"
@@ -42,23 +44,23 @@ func InitializeApp() (*dependency.App, func(), error) {
 	client, cleanup := cache.NewRedisCli(configConfig, loggerLogger)
 	userRedisRepository := repository.NewUserRedisRepository(client)
 	authMiddleware := middleware.NewAuthMiddleware(jwtToken, userRedisRepository, loggerLogger)
-	db, cleanup2, err := database.NewPostgresDB(configConfig, loggerLogger)
+	pool, cleanup2, err := database.NewPostgresDB(configConfig, loggerLogger)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	gormDB, err := dependency.NewGormDB(db, configConfig, loggerLogger)
+	db, err := dependency.NewGormDB(pool, configConfig, loggerLogger)
 	if err != nil {
 		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
-	userRepository := repository.NewUserRepository(gormDB)
-	transactionTransaction := transaction.NewTransaction(gormDB)
+	userRepository := repository.NewUserRepository(db)
+	transactionTransaction := transaction.NewTransaction(db)
 	userUsecase := usecase.NewUserUsecase(userRepository, userRedisRepository, transactionTransaction, loggerLogger, jwtToken)
 	validate := validator.NewValidator()
 	userHandler := http.NewUserHandler(userUsecase, validate)
-	orderRepository := repository2.NewOrderRepository(gormDB)
+	orderRepository := repository2.NewOrderRepository(db)
 	cartRedisRepository := repository3.NewCartRedisRepository(client)
 	clientConn, cleanup3, err := dependency.NewProductServiceConn(configConfig, loggerLogger)
 	if err != nil {
@@ -68,12 +70,21 @@ func InitializeApp() (*dependency.App, func(), error) {
 	}
 	productService := productclient.NewProductGRPCClient(clientConn)
 	cartUsecaseImpl := usecase2.NewCartUsecase(cartRedisRepository, productService, loggerLogger)
-	orderUsecase := usecase3.NewOrderUsecase(orderRepository, transactionTransaction, loggerLogger, cartUsecaseImpl, productService)
+	channel, cleanup4, err := dependency.NewRabbitMQChannel(configConfig, loggerLogger)
+	if err != nil {
+		cleanup3()
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	eventPublisher := repository4.NewEventPublisher(channel)
+	orderUsecase := usecase3.NewOrderUsecase(orderRepository, transactionTransaction, loggerLogger, cartUsecaseImpl, productService, eventPublisher)
 	orderHandler := orderhttp.NewOrderHandler(orderUsecase, loggerLogger)
 	cartHandler := carthttp.NewCartHandler(cartUsecaseImpl, cartUsecaseImpl, validate)
 	router := routes.NewRouter(ginEngine, authMiddleware, userHandler, orderHandler, cartHandler, loggerLogger)
-	app := dependency.NewApp(router, gormDB, configConfig, loggerLogger)
+	app := dependency.NewApp(router, db, configConfig, loggerLogger, channel)
 	return app, func() {
+		cleanup4()
 		cleanup3()
 		cleanup2()
 		cleanup()
@@ -90,4 +101,6 @@ var cartSet = wire.NewSet(repository3.NewCartRedisRepository, usecase2.NewCartUs
 
 var orderSet = wire.NewSet(repository2.NewOrderRepository, usecase3.NewOrderUsecase, orderhttp.NewOrderHandler)
 
-var InfrastructureSet = wire.NewSet(config.Load, logger.NewLogger, validator.NewValidator, cache.NewRedisCli, engine.NewGin, database.NewPostgresDB, dependency.NewGormDB)
+var publisherSet = wire.NewSet(repository4.NewEventPublisher)
+
+var InfrastructureSet = wire.NewSet(config.Load, logger.NewLogger, validator.NewValidator, cache.NewRedisCli, engine.NewGin, database.NewPostgresDB, messaging.NewRabbitMQConn, dependency.NewGormDB, dependency.NewRabbitMQChannel)

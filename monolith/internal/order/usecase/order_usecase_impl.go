@@ -7,6 +7,8 @@ import (
 	"time"
 
 	cartUC "github.com/Mpayy/e-commerce/monolith/internal/cart/usecase"
+	"github.com/Mpayy/e-commerce/monolith/internal/notification-publisher/event"
+	notificationUC "github.com/Mpayy/e-commerce/monolith/internal/notification-publisher/usecase"
 	"github.com/Mpayy/e-commerce/monolith/internal/order/dto"
 	"github.com/Mpayy/e-commerce/monolith/internal/order/entity"
 	"github.com/Mpayy/e-commerce/monolith/internal/order/repository"
@@ -24,15 +26,17 @@ type OrderUsecaseImpl struct {
 	log             *logger.Logger
 	cartService     cartUC.CartService
 	productService  productUC.ProductService
+	eventPublisher  notificationUC.EventPublisher
 }
 
-func NewOrderUsecase(orderRepository repository.OrderRepository, transaction transaction.Transaction, log *logger.Logger, cartService cartUC.CartService, productService productUC.ProductService) OrderUsecase {
+func NewOrderUsecase(orderRepository repository.OrderRepository, transaction transaction.Transaction, log *logger.Logger, cartService cartUC.CartService, productService productUC.ProductService, eventPublisher notificationUC.EventPublisher) OrderUsecase {
 	return &OrderUsecaseImpl{
 		orderRepository: orderRepository,
 		transaction:     transaction,
 		log:             log,
 		cartService:     cartService,
 		productService:  productService,
+		eventPublisher:  eventPublisher,
 	}
 }
 
@@ -140,9 +144,19 @@ func (u *OrderUsecaseImpl) Checkout(ctx context.Context, userID uint) (*dto.Orde
 		return nil, err
 	}
 
-	err = u.cartService.ClearCart(ctx, userID)
-	if err != nil {
+	if err = u.cartService.ClearCart(ctx, userID); err != nil {
 		return nil, err
+	}
+
+	event := event.OrderCreatedEvent{
+		OrderID:       finalizedOrder.ID,
+		UserID:        finalizedOrder.UserID,
+		InvoiceNumber: finalizedOrder.InvoiceNumber,
+		TotalAmount:   finalizedOrder.TotalAmount,
+	}
+
+	if err = u.eventPublisher.PublishOrderCreated(ctx, event); err != nil {
+		log.WithError(err).Error("Failed to publish order.created event, but checkout remain successful")
 	}
 
 	var responseItems []dto.OrderItemResponse
