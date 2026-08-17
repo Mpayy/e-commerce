@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS activity_logs (
+    id BIGSERIAL PRIMARY KEY,
+    order_id BIGINT NOT NULL UNIQUE,
+    user_id BIGINT NOT NULL,
+    message TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);

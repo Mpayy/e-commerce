@@ -8,6 +8,7 @@ packages:
   github.com/Mpayy/e-commerce/monolith/internal/cart/repository:
   github.com/Mpayy/e-commerce/monolith/internal/order/repository:
   github.com/Mpayy/e-commerce/monolith/internal/product/usecase:
+  github.com/Mpayy/e-commerce/monolith/internal/notification-publisher/usecase:
   github.com/Mpayy/e-commerce/pkg/jwt:
   github.com/Mpayy/e-commerce/pkg/transaction:
   github.com/Mpayy/e-commerce/proto/product/v1:

@@ -1,17 +1,16 @@
 package database
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
 	"time"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
-
 	"github.com/Mpayy/e-commerce/pkg/config"
 	"github.com/Mpayy/e-commerce/pkg/logger"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func NewPostgresDB(cfg *config.Config, log *logger.Logger) (*sql.DB, func(), error) {
+func NewPostgresDB(cfg *config.Config, log *logger.Logger) (*pgxpool.Pool, func(), error) {
 	host := cfg.DatabaseHost
 	user := cfg.DatabaseUsername
 	password := cfg.DatabasePassword
@@ -23,26 +22,33 @@ func NewPostgresDB(cfg *config.Config, log *logger.Logger) (*sql.DB, func(), err
 		host, user, password, dbname, port, sslmode,
 	)
 
-	db, err := sql.Open("pgx", dsn)
+	poolConfig, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to open postgres connection: %w", err)
+		return nil, nil, fmt.Errorf("failed to parse pgxpool config: %w", err)
 	}
 
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(10)
-	db.SetConnMaxLifetime(5 * time.Minute)
-	db.SetConnMaxIdleTime(1 * time.Minute)
+	poolConfig.MaxConns = 25
+	poolConfig.MinConns = 5
+	poolConfig.MaxConnLifetime = 5 * time.Minute
+	poolConfig.MaxConnIdleTime = 1 * time.Minute
 
-	if err := db.Ping(); err != nil {
-		_ = db.Close()
-		return nil, nil, fmt.Errorf("failed to ping postgres: %w", err)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create pgxpool: %w", err)
+	}
+
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, nil, fmt.Errorf("failed to ping pgxpool: %w", err)
 	}
 
 	cleanup := func() {
-		if err := db.Close(); err != nil {
-			log.Errorf("failed to close postgres connection: %v", err)
-		}
+		pool.Close()
+		log.Info("pgxpool connection closed successfully")
 	}
 
-	return db, cleanup, nil
+	return pool, cleanup, nil
 }

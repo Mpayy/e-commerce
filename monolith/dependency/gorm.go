@@ -1,17 +1,20 @@
 package dependency
 
 import (
-	"database/sql"
 	"time"
 
 	"github.com/Mpayy/e-commerce/pkg/config"
 	"github.com/Mpayy/e-commerce/pkg/logger"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 )
 
-func NewGormDB(sqlDB *sql.DB, cfg *config.Config, log *logger.Logger) (*gorm.DB, error) {
+func NewGormDB(pool *pgxpool.Pool, cfg *config.Config, log *logger.Logger) (*gorm.DB, error) {
+	sqlDB := stdlib.OpenDBFromPool(pool)
+
 	gormLogLevel := gormlogger.Warn
 	if cfg.AppEnv != "production" {
 		gormLogLevel = gormlogger.Info
