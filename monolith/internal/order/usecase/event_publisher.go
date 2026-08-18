@@ -3,7 +3,7 @@ package usecase
 import (
 	"context"
 
-	"github.com/Mpayy/e-commerce/monolith/internal/notification-publisher/event"
+	"github.com/Mpayy/e-commerce/monolith/internal/order/event"
 )
 
 //go:generate mockery

@@ -7,7 +7,7 @@ package mocks
 import (
 	"context"
 
-	"github.com/Mpayy/e-commerce/monolith/internal/notification-publisher/event"
+	"github.com/Mpayy/e-commerce/monolith/internal/order/event"
 	mock "github.com/stretchr/testify/mock"
 )
 

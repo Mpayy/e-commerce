@@ -8,11 +8,11 @@ import (
 	carthttp "github.com/Mpayy/e-commerce/monolith/internal/cart/delivery/http"
 	cartrepository "github.com/Mpayy/e-commerce/monolith/internal/cart/repository"
 	cartusecase "github.com/Mpayy/e-commerce/monolith/internal/cart/usecase"
-	publisherrepository "github.com/Mpayy/e-commerce/monolith/internal/notification-publisher/repository"
 	orderhttp "github.com/Mpayy/e-commerce/monolith/internal/order/delivery/http"
 	orderrepository "github.com/Mpayy/e-commerce/monolith/internal/order/repository"
 	orderusecase "github.com/Mpayy/e-commerce/monolith/internal/order/usecase"
 	productrepository "github.com/Mpayy/e-commerce/monolith/internal/product/repository"
+	productusecase "github.com/Mpayy/e-commerce/monolith/internal/product/usecase"
 	"github.com/Mpayy/e-commerce/monolith/internal/routes"
 	userhttp "github.com/Mpayy/e-commerce/monolith/internal/user/delivery/http"
 	userrepository "github.com/Mpayy/e-commerce/monolith/internal/user/repository"
@@ -40,9 +40,8 @@ var userSet = wire.NewSet(
 )
 
 var productSet = wire.NewSet(
-	dependency.NewProductServiceConn,
-	productv1.NewProductServiceClient,
 	productrepository.NewProductGRPCClient,
+	wire.Bind(new(productusecase.ProductService), new(*productrepository.ProductGRPCClient)),
 )
 
 var cartSet = wire.NewSet(
@@ -55,12 +54,10 @@ var cartSet = wire.NewSet(
 
 var orderSet = wire.NewSet(
 	orderrepository.NewOrderRepository,
+	orderrepository.NewNotificationEventPublisher,
+	wire.Bind(new(orderusecase.EventPublisher), new(*orderrepository.NotificationEventPublisher)),
 	orderusecase.NewOrderUsecase,
 	orderhttp.NewOrderHandler,
-)
-
-var publisherSet = wire.NewSet(
-	publisherrepository.NewEventPublisher,
 )
 
 var InfrastructureSet = wire.NewSet(
@@ -73,6 +70,8 @@ var InfrastructureSet = wire.NewSet(
 	messaging.NewRabbitMQConn,
 	dependency.NewGormDB,
 	dependency.NewRabbitMQChannel,
+	dependency.NewProductServiceConn,
+	productv1.NewProductServiceClient,
 )
 
 func InitializeApp() (*dependency.App, func(), error) {
@@ -82,7 +81,6 @@ func InitializeApp() (*dependency.App, func(), error) {
 		productSet,
 		cartSet,
 		orderSet,
-		publisherSet,
 		middleware.NewAuthMiddleware,
 		routes.NewRouter,
 		jwt.NewJwtToken,

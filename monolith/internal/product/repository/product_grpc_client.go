@@ -5,18 +5,18 @@ import (
 	"fmt"
 
 	"github.com/Mpayy/e-commerce/monolith/internal/product/entity"
-	"github.com/Mpayy/e-commerce/monolith/internal/product/usecase"
 	"github.com/Mpayy/e-commerce/pkg/apperror"
 	productv1 "github.com/Mpayy/e-commerce/proto/product/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
 type ProductGRPCClient struct {
 	client productv1.ProductServiceClient
 }
 
-func NewProductGRPCClient(conn *grpc.ClientConn) usecase.ProductService {
+func NewProductGRPCClient(conn *grpc.ClientConn) *ProductGRPCClient {
 	return &ProductGRPCClient{client: productv1.NewProductServiceClient(conn)}
 }
 
