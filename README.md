@@ -2,20 +2,24 @@
 
 # 🛒 E-Commerce API
 
-### Go · Gin · GORM · MySQL · Redis · JWT · Docker
+### Go · Gin · GORM · PostgreSQL · MongoDB · Redis · gRPC · RabbitMQ · JWT · Docker
 
 [![Go Version](https://img.shields.io/badge/Go-1.26.4-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)
 [![Gin Framework](https://img.shields.io/badge/Gin-v1.12.0-00ACD7?style=for-the-badge&logo=go&logoColor=white)](https://github.com/gin-gonic/gin)
 [![GORM](https://img.shields.io/badge/GORM-v1.31.2-E10098?style=for-the-badge)](https://gorm.io/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-8-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
 [![Redis](https://img.shields.io/badge/Redis-v9-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
+[![gRPC](https://img.shields.io/badge/gRPC-v1.83.0-244C5A?style=for-the-badge&logo=grpc&logoColor=white)](https://grpc.io/)
+[![RabbitMQ](https://img.shields.io/badge/RabbitMQ-4-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)](https://www.rabbitmq.com/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docs.docker.com/compose/)
-[![Swagger](https://img.shields.io/badge/Swagger-OpenAPI-85EA2D?style=for-the-badge&logo=swagger&logoColor=black)](http://localhost:8080/swagger/index.html)
+[![Swagger](https://img.shields.io/badge/Swagger-OpenAPI-85EA2D?style=for-the-badge&logo=swagger&logoColor=black)](http://localhost:8081/swagger/index.html)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
-[![Status](https://img.shields.io/badge/Status-In%20Development-orange?style=for-the-badge)]()
+[![Status](https://img.shields.io/badge/Status-In%20Development-orange?style=for-the-badge)]()</p>
 
 <p align="center">
-  <em>A modular monolith e-commerce REST API written in Go, structured with Clean Architecture principles.<br>
-  Focused on clear module boundaries, testable business logic, and a straightforward path toward horizontal scalability.</em>
+  <em>A hybrid monorepo e-commerce backend: a Go monolith (User/Cart/Order) communicating with independently deployed microservices (Product Catalog, Notification Consumer) via gRPC and RabbitMQ.<br>
+  Structured on Clean Architecture, with explicit service boundaries enforced by protobuf contracts and a saga-based compensation pattern for distributed stock consistency.</em>
 </p>
 
 </div>
@@ -40,7 +44,7 @@
 
 ### 🟢 Implemented
 
-**Authentication & User**
+**Authentication & User** *(Monolith — PostgreSQL)*
 - [x] **User Registration** — Password hashing with bcrypt; domain-specific error on duplicate email
 - [x] **JWT Authentication (HS256)** — 30-day tokens; secret key loaded from environment config via Viper
 - [x] **Redis Session Management** — JWT stored in Redis (`auth:session:<token>`) on login; atomically deleted on logout for immediate invalidation
@@ -48,44 +52,55 @@
 - [x] **Role-Based Access Control (RBAC)** — Admin middleware reads role from JWT claims; returns `403` for unauthorized access
 - [x] **User Profile** — Returns authenticated user data resolved from `user_id` in the JWT
 
-**Product Catalog**
-- [x] **Category Management** — Admin: create categories with auto-generated slugs, conflict detection on duplicate names
-- [x] **Product — Create** — Admin: validates category, auto-generates SKU if not provided, detects duplicate slug/SKU
+**Product Catalog** *(Product Service — MongoDB, port 8081)*
+- [x] **Category Management** — Admin: create categories with auto-generated slugs, unique index on slug enforced at MongoDB level
+- [x] **Product — Create** — Admin: validates category, auto-generates SKU if not provided; unique indexes on slug and SKU
 - [x] **Product — Update** — Admin: full field update including `is_active` toggle; re-validates category only when changed
-- [x] **Product — Soft Delete** — Admin: sets `is_active = false` instead of hard deleting
-- [x] **Product — Listing & Search** — Public: paginated list with optional `search` (name), `category_id`, `page`, and `limit` query params
-- [x] **Product — Detail** — Public: returns a single product by ID; 404 for inactive or non-existent products
-- [x] **Stock Adjustment** — Admin: set absolute stock value via `PATCH` endpoint, wrapped in a DB transaction
+- [x] **Product — Soft Delete** — Admin: sets `is_active = false` via atomic `$set` — no row deletion
+- [x] **Product — Listing & Search** — Public: paginated list with optional `search` (regex, case-insensitive), `category_id`, `page`, and `limit`; sorted by name ASC
+- [x] **Product — Detail** — Public: returns a single product by ID; 404 for inactive or non-existent
+- [x] **Stock Adjustment** — Admin: set absolute stock value via `PATCH` endpoint
+- [x] **Auto-Increment IDs** — MongoDB does not natively provide auto-increment; implemented via a `counters` collection and `findOneAndUpdate` with `$inc` and upsert — generates sequential `int64` IDs compatible with the protobuf contract
+- [x] **MongoDB Indexes** — Ensured at startup via `EnsureIndexes`: `categories.slug` (unique), `products.slug` (unique), `products.sku` (unique), `products.category_id` (non-unique)
+- [x] **Dual Interface: gRPC + REST** — REST (port 8081) for admin/public HTTP access; gRPC (port 50051) for internal monolith-to-service calls
 
-**Cart**
-- [x] **Add Item** — Validates product existence through the `ProductService` interface; uses `HINCRBY` to increment if already in cart; refreshes 7-day TTL
+**Cart** *(Monolith — Redis)*
+- [x] **Add Item** — Validates product existence via gRPC to Product Service; uses `HINCRBY` to increment if already in cart; refreshes 7-day TTL
 - [x] **Update Item** — Updates quantity; automatically delegates to remove if quantity ≤ 0
 - [x] **Remove Item** — Removes a single product from the Redis hash (`HDEL`)
 - [x] **Clear Cart** — Deletes the entire cart key from Redis (`DEL`)
-- [x] **Get Cart** — Fetches raw quantities from Redis, then enriches with a single bulk DB call (`WHERE id IN (...)`); computes `subtotal` and `grand_total`; surfaces `unavailable_items` for products removed from catalog
+- [x] **Get Cart** — Fetches raw quantities from Redis, then enriches with a single bulk gRPC call (`GetByIDs`); computes `subtotal` and `grand_total`; surfaces `unavailable_items` for products removed from catalog
 
-**Order**
-- [x] **Checkout** — Fetches raw cart from Redis, then inside a single `WithTransaction` block: loops each item calling `DecreaseStock` (pessimistic `SELECT ... FOR UPDATE` row lock), inserts `orders` + `order_items` via `CreateOrderWithItems`; clears Redis cart only after the DB transaction commits; rolls back without touching the cart on any failure
-- [x] **Invoice Snapshot** — `OrderItem` stores `product_name` and `price` at time of purchase; invoice number auto-generated as `INV-YYYYMMDD-NNNNNN` post-insert; history is immutable to future catalog changes
-- [x] **Order History** — `GET /orders`: fetches all orders for the authenticated user with their items in two queries (`WHERE user_id = ?` + `WHERE order_id IN (?)`); avoids N+1
-- [x] **Order Detail** — `GET /orders/:order_id`: ownership check (`order.UserID != userID`) returns `404` rather than `403` to avoid leaking order existence
+**Order / Checkout** *(Monolith — PostgreSQL + cross-service gRPC + RabbitMQ)*
+- [x] **Batched Stock Decrease** — All stock decrements are sent in a single `BulkDecreaseStock` gRPC call with a list of `{product_id, quantity}` items — no N+1 cross-service calls per cart item
+- [x] **Atomic Stock Deduction (MongoDB Session Transaction)** — `BulkDecreaseStock` on Product Service runs inside a MongoDB multi-document session transaction via `session.WithTransaction`; filter `stock >= quantity` prevents oversell without explicit locking — if any item fails, the entire transaction rolls back
+- [x] **Saga Compensation (Ledger-Based Idempotent Rollback)** — A `checkoutID` (UUID) is generated before the transaction. If `BulkDecreaseStock` succeeds but `CreateOrderWithItems` fails, `BulkRestoreStock(checkoutID)` is called on Product Service. Restore reads items from the `stock_ledgers` collection and writes a `:restore` ledger entry — subsequent retries are no-ops because the ledger entry already exists
+- [x] **Invoice Snapshot** — `OrderItem` stores `product_name` and `price` at time of purchase (`INV-YYYYMMDD-NNNNNN`); immutable to future catalog changes
+- [x] **Order History** — `GET /orders`: two queries (orders + items `WHERE order_id IN (?)`); avoids N+1
+- [x] **Order Detail** — `GET /orders/:order_id`: ownership check returns `404` rather than `403` to avoid leaking order existence
+- [x] **Async Notification Event** — After a successful checkout, `PublishOrderCreated` sends an `order.created` event to RabbitMQ (`order.events` exchange, topic type, routing key `order.created`); publish failure is logged but does **not** roll back or fail the checkout response
+
+**Notification Consumer** *(Standalone service — PostgreSQL pgx, RabbitMQ AMQP)*
+- [x] **Event Consumption** — Subscribes to queue `notification.order.created`; QoS prefetch=1 (processes one message at a time)
+- [x] **Manual Ack/Nack** — Parse failures: `Nack(requeue=false)` (discard malformed messages); processing failures: `Nack(requeue=true)` (retry); success: `Ack`
+- [x] **Idempotent Activity Log** — Writes to `activity_logs` table with `ON CONFLICT (order_id) DO NOTHING` — redelivered messages cannot duplicate log entries
+- [x] **Simulated Notification** — Logs a human-readable "email sent" line per event; actual email/push delivery is a future integration point
 
 **Infrastructure & Quality**
-- [x] **Docker Compose** — Single-command local environment: App + MySQL 8.0 + Redis 7 in an isolated bridge network
-- [x] **Multi-stage Dockerfile** — Builder stage (Go 1.26 Alpine) produces a minimal Alpine runtime image (~10MB final)
-- [x] **Unit Tests — User Module** — 4 test functions covering `Login`, `Register`, `Logout`, `GetProfile` with mockery-generated mocks
-- [x] **Unit Tests — Product Module** — 9 test functions covering `CreateProduct`, `UpdateProduct`, `DeleteProduct`, `SearchProducts`, `GetProductDetail`, `AdjustStock`, `GetByProductID`, `GetProductsByIDs`, `DecreaseStock`
-- [x] **Unit Tests — Category Module** — 3 test functions covering `CreateCategory`, `GetAllCategories`, `ValidateCategoryExists`
-- [x] **Unit Tests — Order Module** — 3 test functions (`TestOrderUsecase_Checkout`, `TestOrderUsecase_GetOrderHistory`, `TestOrderUsecase_GetOrderDetail`) with 11 sub-cases covering: success checkout, empty cart, insufficient stock mid-loop, product not found mid-loop, history with items, history empty, history DB error, detail success, order not found, wrong ownership, items DB error
-- [x] **Mockery Configuration** — `.mockery.yml` registers all interfaces (repositories, usecases, Redis, JWT, Transaction) for consistent mock generation
-- [x] **Cross-Module Contracts** — `ProductService` and `CartService` interfaces defined in `contract.go` files enforce module boundary isolation
-- [x] **Swagger / OpenAPI Docs** — All 20 handler functions have `@Router` annotations; docs generated via `swaggo/swag`; served at `/swagger/*any` via `gin-swagger`
-- [x] **Structured Logging** — Logrus middleware logs `method`, `path`, `status`, `latency_ms`, `client_ip` per request
-- [x] **Standardized JSON Response** — `ResponseSuccess` / `ResponseError` helpers ensure a consistent response envelope
-- [x] **Versioned SQL Migrations** — `golang-migrate`-compatible, timestamp-prefixed `.up.sql`/`.down.sql` pairs
-- [x] **Graceful Shutdown** — Handles `SIGINT`/`SIGTERM` with a 5-second drain window
-- [x] **Dependency Injection via Wire** — Compile-time DI wiring; injection errors surface at `go generate` not at runtime
-- [x] **Database Seeder** — `--seed` CLI flag bootstraps admin user and sample categories
+- [x] **Docker Compose** — Single-command local environment: 7 services (monolith app, product-service, notification-consumer, PostgreSQL 16, MongoDB 8 replica set, Redis 7, RabbitMQ 4) in an isolated bridge network
+- [x] **MongoDB Replica Set** — Required for multi-document session transactions; `mongo-init-replica` one-shot container runs `rs.initiate()` idempotently at startup
+- [x] **Multi-stage Dockerfiles** — Each service has its own Dockerfile; builder stage (Go Alpine) produces minimal runtime images
+- [x] **Versioned SQL Migrations** — `golang-migrate`-compatible `.up.sql`/`.down.sql` pairs for PostgreSQL (users, orders, order_items, activity_logs tables)
+- [x] **Unit Tests — User Module** — 4 test functions covering `Login`, `Register`, `Logout`, `GetProfile`
+- [x] **Unit Tests — Product Service** — 10 test functions covering `CreateProduct`, `UpdateProduct`, `DeleteProduct`, `SearchProducts`, `GetProductDetail`, `AdjustStock`, `GetByProductID`, `GetProductsByIDs`, `BulkDecreaseStock`, `BulkRestoreStock`; 3 test functions covering `CreateCategory`, `GetAllCategories`, `ValidateCategoryExists`
+- [x] **Unit Tests — Order Module** — 3 test functions, 20 sub-cases covering: success checkout, cart error, empty cart, product lookup error, zero-qty items, product not in map, bulk decrease error, order creation failure + restore success, order creation failure + restore failure, transaction error, clear cart error, publish event failure still succeeds; history with items, history empty, history error; detail success, not found, DB error on FindByID, wrong ownership, items DB error
+- [x] **Integration Tests — Product Repository** — 3 test functions (build tag `integration`, uses `testcontainers-go` to spin up MongoDB replica set): partial failure rolls back all stock, idempotent restore (called twice only restores once), concurrent overlapping checkouts produce correct final stock without deadlock
+- [x] **Mockery Configuration** — `.mockery.yml` registers all interfaces for consistent mock generation
+- [x] **Dependency Injection via Wire** — Compile-time DI wiring for the monolith; injection errors surface at `go generate` not at runtime
+- [x] **Swagger / OpenAPI Docs** — Handler functions in Product Service have `@Router` annotations; served at `/swagger/*any` on port 8081
+- [x] **Structured Logging** — Logrus per-request middleware: `method`, `path`, `status`, `latency_ms`, `client_ip`
+- [x] **Standardized JSON Response** — `ResponseSuccess` / `ResponseError` envelope helpers
+- [x] **Graceful Shutdown** — Handles `SIGINT`/`SIGTERM` with 5-second drain window in all services
 
 ---
 
@@ -93,34 +108,44 @@
 
 | Technology | Version | Purpose |
 |---|---|---|
-| **Go** | 1.26.4 | Primary language — compiled, goroutine-based concurrency |
-| **Gin** | v1.12.0 | HTTP router; radix-tree path matching, request binding, middleware chain |
-| **GORM** | v1.31.2 | ORM with parameterized queries and connection pool management |
-| **MySQL** | 8.0 | Primary relational store; supports row-level locking (`SELECT FOR UPDATE`) |
-| **Redis** | go-redis v9 | JWT session store + cart storage (Redis Hash with TTL) |
-| **JWT (HS256)** | golang-jwt v5 | Stateless tokens with `user_id` and `role` claims |
-| **Viper** | v1.21.0 | Config management from `.env` files and environment variables |
+| **Go** | 1.26.4 | Primary language — all services |
+| **Gin** | v1.12.0 | HTTP router (monolith + product service) |
+| **GORM** | v1.31.2 | ORM for monolith (PostgreSQL) |
+| **PostgreSQL** | 16 (Alpine) | Relational store — users, orders, activity_logs |
+| **pgx** | v5.10.0 | Native PostgreSQL driver — used directly in notification-consumer (no ORM) |
+| **MongoDB** | 8 | Document store — products, categories, stock_ledgers |
+| **mongo-driver** | v2.8.0 | Official MongoDB Go driver (v2 API) |
+| **Redis** | 7 (Alpine) | JWT session store + cart hash storage |
+| **go-redis** | v9 | Redis client |
+| **gRPC** | v1.83.0 | Internal RPC between monolith and product-service |
+| **protobuf** | v1.36.12 | Contract definition for gRPC (`proto/product/v1/product.proto`) |
+| **RabbitMQ** | 4 (management) | Async event bus — `order.created` event |
+| **amqp091-go** | v1.13.0 | RabbitMQ AMQP client |
+| **JWT (HS256)** | golang-jwt v5.3.1 | Stateless tokens with `user_id` and `role` claims |
+| **Wire** | v0.7.0 | Compile-time dependency injection (monolith) |
+| **Viper** | v1.21.0 | Config management from `.env` + environment variables |
 | **Logrus** | v1.9.4 | Structured, leveled logging |
-| **Wire** | v0.7.0 | Compile-time dependency injection |
-| **golang-migrate** | latest | Versioned SQL schema migrations |
-| **Mockery** | latest | Auto-generated interface mocks for unit testing |
-| **Docker Compose** | — | Local development environment orchestration |
+| **golang-migrate** | — | Versioned PostgreSQL schema migrations |
+| **Mockery** | — | Auto-generated interface mocks |
+| **testcontainers-go** | v0.44.0 | Docker-based integration tests (MongoDB) |
+| **Docker Compose** | — | Local development orchestration |
 | **bcrypt** | x/crypto | Secure password hashing |
 
 ### Clean Architecture Layers
 
 ```
-HTTP Request → Handler → Usecase → Repository → Database / Redis
-     ↑                                                   |
-     └──────────────── DTO (Response) ───────────────────┘
+HTTP/gRPC Request → Handler → Usecase → Repository → Database / Redis / gRPC Client
+      ↑                                                           |
+      └──────────────── DTO (Response) ──────────────────────────┘
 ```
 
 | Layer | Responsibility |
 |---|---|
-| **Handler** | HTTP concerns: request binding, input validation, status code mapping |
-| **Usecase** | Business logic; communicates with other modules via interfaces only |
-| **Repository** | Data access abstraction; DB implementation is independently swappable |
+| **Handler** | HTTP/gRPC concerns: request binding, input validation, status code mapping |
+| **Usecase** | Business logic; communicates with other modules/services via interfaces only |
+| **Repository** | Data access abstraction — DB, Redis, or gRPC client behind the same interface |
 | **Entity** | Plain domain structs; no HTTP tags, no business logic, no cross-module fields |
+| **Model** | Database-specific structs (e.g., BSON tags for MongoDB) — never exposed outside repository |
 
 ---
 
@@ -134,7 +159,7 @@ sequenceDiagram
     participant C as Client
     participant H as Handler
     participant U as UserUsecase
-    participant DB as MySQL
+    participant DB as PostgreSQL
     participant J as pkg/jwt
     participant R as Redis
 
@@ -172,30 +197,30 @@ sequenceDiagram
     participant C as Client
     participant H as CartHandler
     participant U as CartUsecase
-    participant PS as ProductService
+    participant PS as ProductService (gRPC)
     participant R as Redis
 
     Note over C,R: ADD ITEM
     C->>H: POST /api/v1/cart · { product_id, quantity }
     H->>U: AddToCart(userID, productID, quantity)
-    U->>PS: GetByProductID(productID)
+    U->>PS: GetByID(productID) — gRPC call to product-service:50051
     PS-->>U: Product{ id, price, stock }
     U->>R: HINCRBY cart:{userID} {productID} {qty}
     U->>R: EXPIRE cart:{userID} 7d
     H-->>C: 200 · item added
 
-    Note over C,R: GET CART — single bulk query, no N+1
+    Note over C,R: GET CART — one Redis call + one batched gRPC call
     C->>H: GET /api/v1/cart
     H->>U: GetCartDetail(userID)
     U->>R: HGETALL cart:{userID}
     R-->>U: map[ product_id → quantity ]
-    U->>PS: GetProductsByIDs([ ids... ]) — one WHERE IN query
+    U->>PS: GetByIDs([ ids... ]) — one batched gRPC call
     PS-->>U: []Product
     U->>U: compute subtotal + grand_total · detect unavailable_items
     H-->>C: 200 · CartDetailResponse
 ```
 
-### Checkout Flow
+### Checkout Flow (Distributed)
 
 ```mermaid
 sequenceDiagram
@@ -203,31 +228,104 @@ sequenceDiagram
     participant C as Client
     participant H as OrderHandler
     participant U as OrderUsecase
-    participant CS as CartService
-    participant PS as ProductService
-    participant R as MySQL
+    participant CS as CartService (Redis)
+    participant PS as ProductService (gRPC)
+    participant Mongo as MongoDB (Product Service)
+    participant PG as PostgreSQL (Monolith)
+    participant MQ as RabbitMQ
 
-    Note over C,R: CHECKOUT
     C->>H: POST /api/v1/orders · Bearer TOKEN
     H->>U: Checkout(ctx, userID)
-    U->>CS: GetRawCart(userID)
-    CS-->>U: map[ product_id → quantity ] (from Redis HGETALL)
-    U->>PS: GetProductsByIDs([ ids... ]) — one WHERE IN query
+    U->>CS: GetRawCart(userID) — HGETALL from Redis
+    CS-->>U: map[ product_id → quantity ]
+    U->>PS: GetByIDs([ ids... ]) — one batched gRPC call
     PS-->>U: []Product{ id, name, price, stock }
-    Note over U,R: BEGIN TRANSACTION
-    loop for each product_id in cart
-        U->>PS: DecreaseStock(ctx, productID, qty)
-        PS->>R: SELECT ... FOR UPDATE (row lock)
-        R-->>PS: current stock
-        PS->>R: UPDATE products SET stock = stock - qty
+
+    Note over U: Generate checkoutID = uuid.NewString()
+
+    Note over U,PG: BEGIN PostgreSQL Transaction
+    U->>PS: BulkDecreaseStock(checkoutID, [{product_id, qty}...]) — one gRPC call
+    Note over PS,Mongo: MongoDB session.WithTransaction
+    PS->>Mongo: InsertOne stock_ledgers (checkoutID:decrease) — idempotent guard
+    loop for each item
+        PS->>Mongo: UpdateOne products WHERE _id=id AND stock>=qty · $inc stock -qty
+        Note right of Mongo: No explicit lock needed — atomic conditional update
     end
-    U->>R: INSERT INTO orders (user_id, total_amount, status)
-    R-->>U: order.ID
-    U->>R: UPDATE orders SET invoice_number = INV-YYYYMMDD-NNNNNN
-    U->>R: INSERT INTO order_items (order_id, product_name, price, quantity, subtotal)
-    Note over U,R: COMMIT
-    U->>CS: ClearCart(userID) — DEL cart:{userID} after commit
+    PS-->>U: OK (or ErrInsufficientStock / ErrProductNotFound)
+
+    U->>PG: CreateOrderWithItems(order, items)
+    PG-->>U: order.ID · invoice_number = INV-YYYYMMDD-NNNNNN
+    Note over U,PG: COMMIT PostgreSQL Transaction
+
+    U->>CS: ClearCart(userID) — DEL cart:{userID}
+    U->>MQ: PublishOrderCreated(event) — fire-and-forget
+    Note right of MQ: Publish failure is logged but does NOT fail the response.
     H-->>C: 201 · OrderResponse{ order_id, invoice_number, total_amount, items }
+```
+
+### Saga Compensation Flow (Stock Restore on Order Failure)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as OrderUsecase
+    participant PS as ProductService (gRPC)
+    participant Mongo as MongoDB (Product Service)
+    participant PG as PostgreSQL (Monolith)
+
+    Note over U: checkoutID already generated
+    U->>PS: BulkDecreaseStock(checkoutID, items) — SUCCESS
+    Note over PS,Mongo: stock_ledgers: checkoutID:decrease inserted
+
+    U->>PG: CreateOrderWithItems(...) — FAILS (DB error)
+    Note over U,PG: PostgreSQL transaction rolls back
+
+    Note over U: stock already deducted in MongoDB — compensation needed
+    U->>PS: BulkRestoreStock(checkoutID) — separate context (5s timeout)
+    Note over PS,Mongo: Check if checkoutID:restore already exists in ledger
+    PS->>Mongo: FindOne stock_ledgers WHERE _id = checkoutID:restore
+    Mongo-->>PS: ErrNoDocuments (not yet restored)
+    PS->>Mongo: FindOne stock_ledgers WHERE _id = checkoutID:decrease
+    Mongo-->>PS: ledger with original items
+    Note over PS,Mongo: MongoDB session.WithTransaction
+    loop for each item in decrease ledger
+        PS->>Mongo: UpdateOne products · $inc stock +qty
+    end
+    PS->>Mongo: InsertOne stock_ledgers (checkoutID:restore)
+    Note right of Mongo: Future calls with same checkoutID are no-ops (restore ledger exists)
+    PS-->>U: OK
+    U-->>U: return original error to caller
+```
+
+### Notification Event Flow (Async)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as OrderUsecase
+    participant MQ as RabbitMQ
+    participant NC as NotificationConsumer
+    participant PG as PostgreSQL (activity_logs)
+
+    Note over U,MQ: After successful checkout + cart clear
+    U->>MQ: Publish to exchange=order.events · key=order.created · JSON payload
+    Note right of U: Publish failure is logged, checkout still returns 201
+
+    Note over MQ,NC: Queue: notification.order.created (durable, topic binding)
+    MQ->>NC: Deliver message (QoS prefetch=1)
+    NC->>NC: json.Unmarshal(msg.Body) → OrderCreatedEvent
+    alt Parse failure
+        NC->>MQ: Nack(requeue=false) — discard malformed message
+    else Processing
+        NC->>NC: Log simulated email notification
+        NC->>PG: INSERT INTO activity_logs ... ON CONFLICT (order_id) DO NOTHING
+        alt DB insert success
+            NC->>MQ: Ack
+        else DB insert failure
+            NC->>MQ: Nack(requeue=true) — retry
+        end
+    end
+    Note right of PG: ON CONFLICT ensures idempotency — redelivery cannot duplicate the log
 ```
 
 ### Token Revocation Approaches
@@ -243,134 +341,175 @@ sequenceDiagram
 ## 📁 Directory Structure
 
 ```
-e-commerce/
+e-commerce/                          # Monorepo root
 │
-├── Dockerfile                   # Multi-stage build: Go builder → Alpine runtime
-├── docker-compose.yml           # App + MySQL 8.0 + Redis 7 in ecommerce-network
-├── .dockerignore
-├── .mockery.yml                 # Mockery config: registers all interfaces for mock generation
+├── docker-compose.yml               # 7 services: app, product-service, notification-consumer,
+│                                    #   postgres, mongo (+ init replica), redis, rabbitmq
+├── .env / .env.example              # Shared environment config
+├── .mockery.yml                     # Mockery config: all interfaces across all modules
+├── go.mod / go.sum                  # Single workspace go.mod (monorepo with replace directives)
 │
-├── cmd/
-│   └── api/
-│       ├── main.go              # Entry point: --seed flag, graceful shutdown
-│       ├── application.go       # App struct wiring
-│       ├── injector.go          # Wire provider declarations
-│       └── wire_gen.go          # Auto-generated DI (do not edit)
+├── proto/
+│   └── product/v1/
+│       └── product.proto            # gRPC contract: GetByID, GetByIDs, BulkDecreaseStock,
+│                                    #   BulkRestoreStock — shared by monolith and product-service
 │
-├── database/
-│   ├── migrations/              # Timestamp-prefixed .up.sql / .down.sql pairs
-│   │   ├── *_create_users_table.up.sql
-│   │   ├── *_create_categories_table.up.sql
-│   │   ├── *_create_products_table.up.sql
-│   │   ├── *_create_orders_table.up.sql
-│   │   └── *_create_order_items_table.up.sql
-│   └── seeder/
-│       └── seeder.go            # Seed admin user + sample categories
+├── pkg/                             # Shared libraries (used by all services in the monorepo)
+│   ├── apperror/                    # Typed sentinel errors (ErrProductNotFound, ErrInsufficientStock, …)
+│   ├── cache/                       # Redis client factory
+│   ├── config/                      # Config struct + Viper loader (.env → struct)
+│   ├── database/                    # PostgreSQL (pgx pool) + MongoDB client factories
+│   ├── engine/                      # Gin engine setup
+│   ├── jwt/                         # JwtToken interface + HS256 impl; Auth{ UserID, Role }
+│   ├── logger/                      # Logrus wrapper
+│   ├── messaging/
+│   │   ├── topology.go              # RabbitMQ constants + DeclareOrderEventsTopology()
+│   │   │                            #   Exchange: order.events (topic, durable)
+│   │   │                            #   Queue:    notification.order.created (durable)
+│   │   │                            #   Binding:  routing key = order.created
+│   │   └── rabbitmq.go              # AMQP connection factory
+│   ├── middleware/                  # AuthMiddleware, AdminMiddleware (shared across services)
+│   ├── response/                    # ResponseSuccess / ResponseError envelope helpers
+│   ├── skugen/                      # SKU auto-generation
+│   ├── transaction/                 # WithTransaction(ctx, fn) — isolates TX boilerplate
+│   └── validator/                   # go-playground/validator singleton
 │
-├── dependency/                  # Infrastructure adapters
-│   ├── gin.go                   # Gin engine setup
-│   ├── gorm.go                  # GORM DSN + connection pool (MaxOpen=25, MaxIdle=10)
-│   ├── redis.go                 # Redis client + interface (Check/Set/Delete)
-│   │                            #   AuthPrefix = "auth:session:"
-│   │                            #   CartPrefix = "cart:"  |  CartTTL = 7 days
-│   ├── logrus.go                # Structured logger setup
-│   ├── validator.go             # go-playground/validator singleton
-│   └── viper.go                 # .env → Viper config
+├── monolith/                        # Monolith service (User · Cart · Order)
+│   ├── Dockerfile
+│   ├── cmd/api/
+│   │   ├── main.go                  # Entry point: --seed flag, graceful shutdown
+│   │   ├── wire.go                  # Wire provider declarations (build tag wireinject)
+│   │   └── wire_gen.go              # Auto-generated DI (do not edit)
+│   ├── database/
+│   │   ├── migration/               # Timestamp-prefixed .up.sql / .down.sql (PostgreSQL)
+│   │   │   ├── *_create_users_table.up.sql
+│   │   │   ├── *_create_orders_table.up.sql
+│   │   │   ├── *_create_order_items_table.up.sql
+│   │   │   └── *_create_activity_logs_table.up.sql
+│   │   └── seeder/                  # Seeds admin user + sample data (--seed flag)
+│   ├── dependency/                  # Infrastructure adapters (monolith-specific)
+│   │   ├── app.go                   # App struct wiring
+│   │   ├── gorm.go                  # GORM on top of pgx pool (Postgres)
+│   │   ├── grpc.go                  # gRPC client conn to product-service:50051
+│   │   └── rabbitmq.go              # AMQP channel factory + topology declaration
+│   └── internal/
+│       ├── user/                    # MODULE: Auth & User Identity
+│       │   ├── entity/user.go       # User{ ID, Name, Email, Password, Role }
+│       │   ├── dto/                 # Request/Response structs with validator tags
+│       │   ├── repository/          # FindByEmail, FindByID, Create (GORM + Redis)
+│       │   ├── mocks/
+│       │   └── usecase/
+│       │       ├── user_usecase.go
+│       │       ├── user_usecase_impl.go   # bcrypt, JWT, Redis session lifecycle
+│       │       └── user_usecase_test.go   # 4 test functions
+│       │
+│       ├── product/                 # MODULE: ProductService interface (gRPC client stub)
+│       │   ├── entity/product.go    # Product{ … } + BulkDecreaseStock{ ProductID, Quantity }
+│       │   ├── mocks/               # MockProductService
+│       │   ├── repository/
+│       │   │   └── product_grpc_client.go  # ProductGRPCClient: implements ProductService
+│       │   │                               #   interface by translating to proto calls
+│       │   └── usecase/
+│       │       └── contract.go      # ProductService interface: GetByProductID, GetProductsByIDs,
+│       │                            #   BulkDecreaseStock, BulkRestoreStock
+│       │
+│       ├── cart/                    # MODULE: Shopping Cart (Redis-backed)
+│       │   ├── dto/                 # CartItemCreateRequest; CartDetailResponse{ Items, UnavailableItems, GrandTotal }
+│       │   ├── repository/          # HINCRBY / HSET / HDEL / HGETALL / DEL
+│       │   └── usecase/
+│       │       ├── cart_usecase.go
+│       │       ├── cart_usecase_impl.go    # Bulk enrichment via gRPC, unavailable_items detection
+│       │       └── contract.go             # CartService{ GetRawCart, ClearCart }
+│       │
+│       ├── order/                   # MODULE: Checkout & Order History
+│       │   ├── entity/
+│       │   │   ├── order.go         # Order{ ID, UserID, InvoiceNumber, TotalAmount, Status }
+│       │   │   └── order_item.go    # OrderItem{ … ProductName, Price — snapshot at checkout }
+│       │   ├── dto/
+│       │   ├── event/
+│       │   │   └── order_created_event.go  # OrderCreatedEvent{ OrderID, UserID, InvoiceNumber, TotalAmount }
+│       │   ├── repository/
+│       │   │   ├── order_repository.go
+│       │   │   ├── order_repository_impl.go   # CreateOrderWithItems: insert → INV-YYYYMMDD-NNNNNN → insert items
+│       │   │   └── notification_event_publisher.go  # NotificationEventPublisher: publishes to RabbitMQ
+│       │   ├── mocks/
+│       │   ├── delivery/http/
+│       │   └── usecase/
+│       │       ├── order_usecase.go
+│       │       ├── order_usecase_impl.go   # Checkout saga: GetRawCart → GetByIDs → BulkDecreaseStock
+│       │       │                           #   → CreateOrderWithItems (with compensation) → ClearCart → Publish
+│       │       ├── event_publisher.go      # EventPublisher interface
+│       │       └── order_usecase_test.go   # 3 test functions, 20 sub-cases
+│       │
+│       ├── mocks/                   # Shared mocks: MockRedis, MockTransaction
+│       └── routes/router.go         # Route groups: public · protected (no admin — product routes moved to product-service)
 │
-├── internal/
-│   │
-│   ├── user/                    # MODULE: Auth & User Identity
-│   │   ├── entity/user.go       # User{ ID, Name, Email, Password, Role }
-│   │   ├── dto/                 # Request/Response structs with validator tags
-│   │   ├── repository/          # FindByEmail, FindByID, Create
-│   │   ├── mocks/               # MockUserRepository, MockJwtToken
-│   │   └── usecase/
-│   │       ├── user_usecase.go       # Interface: Register, Login, GetProfile, Logout
-│   │       ├── user_usecase_impl.go  # bcrypt, JWT creation, Redis session lifecycle
-│   │       └── user_usecase_test.go  # 4 test functions (Login, Register, Logout, GetProfile)
-│   │
-│   ├── product/                 # MODULE: Catalog
-│   │   ├── entity/
-│   │   │   ├── category.go      # Category{ ID, Name, Slug }
-│   │   │   └── product.go       # Product{ ID, CategoryID, Name, Slug, Price, Stock, SKU, IsActive }
-│   │   │                        #   ProductFilter for paginated queries
-│   │   ├── dto/                 # Create/Update/Search/StockAdjust requests; paginated response
-│   │   ├── repository/          # CRUD + FindByIDs, FindAll(filter), DecreaseStock, AdjustStock
-│   │   ├── mocks/               # MockProductRepository, MockCategoryRepository,
-│   │   │                        # MockCategoryUsecase, MockProductService
-│   │   └── usecase/
-│   │       ├── category_usecase.go        # Interface: CreateCategory, GetAllCategories, ValidateCategoryExists
-│   │       ├── category_usecase_impl.go   # Slug generation, duplicate check
-│   │       ├── category_usecase_test.go   # 3 test functions
-│   │       ├── product_usecase.go         # Interface: Create, Update, Delete, Search, GetDetail, AdjustStock
-│   │       ├── product_usecase_impl.go    # Full lifecycle; re-validates category only on change
-│   │       ├── product_usecase_test.go    # 9 test functions (full CRUD + service contract methods)
-│   │       └── contract.go                # ProductService{ GetByProductID, GetProductsByIDs, DecreaseStock }
-│   │
-│   ├── cart/                    # MODULE: Shopping Cart (Redis-backed)
-│   │   ├── dto/
-│   │   │   ├── cart_request.go   # CartItemCreateRequest, CartItemUpdateRequest
-│   │   │   └── cart_response.go  # CartDetailResponse{ Items, UnavailableItems, GrandTotal }
-│   │   ├── repository/           # Interface + Redis impl: HINCRBY/HSET/HDEL/HGETALL/DEL
-│   │   └── usecase/
-│   │       ├── cart_usecase.go        # Interface: AddToCart, UpdateCartItem, RemoveFromCart, GetCartDetail
-│   │       ├── cart_usecase_impl.go   # Bulk enrichment, unavailable_items detection, grand_total
-│   │       └── contract.go            # CartService{ GetRawCart, ClearCart }
-│   │
-│   ├── order/                   # MODULE: Checkout & Order History
-│   │   ├── entity/
-│   │   │   ├── order.go         # Order{ ID, UserID, InvoiceNumber, TotalAmount, Status }
-│   │   │   └── order_item.go    # OrderItem{ ID, OrderID, ProductID, ProductName, Price, Quantity, Subtotal }
-│   │   │                        #   ProductName/Price are snapshot fields — immutable after insert
-│   │   ├── dto/
-│   │   │   └── order_response.go # OrderResponse, OrderItemResponse, OrderHistoryResponse
-│   │   ├── repository/
-│   │   │   ├── order_repository.go      # Interface: CreateOrderWithItems, FindByUserID, FindByID, FindItemsByOrderID
-│   │   │   └── order_repository_impl.go # CreateOrderWithItems: insert order → generate INV-YYYYMMDD-NNNNNN → insert items
-│   │   │                                #   FindByUserID: two queries (orders + items WHERE order_id IN ?)
-│   │   ├── mocks/               # MockOrderRepository
-│   │   ├── delivery/http/
-│   │   │   ├── order_handler.go       # Interface: Checkout, GetHistory, GetDetail
-│   │   │   └── order_handler_impl.go  # Full swaggo annotations; ownership check on GetDetail
-│   │   └── usecase/
-│   │       ├── order_usecase.go       # Interface: Checkout, GetOrderHistory, GetOrderDetail
-│   │       ├── order_usecase_impl.go  # Checkout: GetRawCart → GetProductsByIDs → WithTransaction(
-│   │       │                          #   loop DecreaseStock → CreateOrderWithItems) → ClearCart
-│   │       └── order_usecase_test.go  # 3 test functions, 11 sub-cases
-│   │
-│   ├── middleware/
-│   │   ├── auth_middleware.go    # Token extraction → JWT validation → Redis session check
-│   │   ├── admin_middleware.go   # Role check from JWT context; 403 if not admin
-│   │   └── logger_middleware.go  # Per-request: method, path, status, latency_ms, client_ip
-│   │
-│   └── mocks/                   # Shared mocks: MockRedis, MockTransaction
-│
-├── pkg/
-│   ├── response/response.go     # ResponseSuccess / ResponseError envelope helpers
-│   ├── jwt/jwt.go               # JwtToken interface + HS256 impl; Auth{ UserID, Role }
-│   ├── apperror/apperror.go     # Typed sentinel errors (ErrProductNotFound, ErrInsufficientStock, etc.)
-│   ├── skugen/                  # SKU auto-generation
-│   └── transaction/             # WithTransaction(ctx, fn) — isolates TX boilerplate from usecases
-│
-└── routes/router.go             # Route groups: public · protected · admin
+└── service/
+    ├── product-service/             # Microservice: Product Catalog
+    │   ├── Dockerfile
+    │   ├── cmd/main.go              # Entry: MongoDB + Redis + gRPC server (50051) + HTTP server (8081)
+    │   └── internal/product/
+    │       ├── entity/              # Product{ … } + Category{ … } (pure domain)
+    │       ├── model/               # BSON-tagged structs: ProductModel, CategoryModel, StockLedgerModel
+    │       ├── repository/
+    │       │   ├── mongo_shared.go            # getNextSequence (counters collection) + EnsureIndexes
+    │       │   ├── product_repository_impl.go # CRUD + BulkDecreaseStock + BulkRestoreStock
+    │       │   │                              #   (both use session.WithTransaction for atomicity)
+    │       │   ├── category_repository_impl.go
+    │       │   ├── session_repository.go      # Redis session (auth middleware reuse)
+    │       │   └── product_repository_integration_test.go  # build tag: integration
+    │       ├── usecase/             # 10 + 3 test functions
+    │       ├── dto/
+    │       ├── mocks/
+    │       └── delivery/
+    │           ├── http/            # Gin handlers for REST API (port 8081)
+    │           └── grpc/
+    │               └── product_grpc_server.go  # gRPC server: GetByID, GetByIDs,
+    │                                           #   BulkDecreaseStock, BulkRestoreStock
+    │
+    └── notification-consumer/       # Microservice: Async Notification Consumer
+        ├── Dockerfile
+        ├── cmd/                     # Entry: PostgreSQL (pgx pool) + RabbitMQ channel + consumer loop
+        ├── dependency/              # Infrastructure adapters for this service
+        └── internal/notification/
+            ├── entity/              # ActivityLog{ ID, OrderID, UserID, Message, CreatedAt }
+            ├── dto/                 # OrderCreatedEvent (matches publisher payload)
+            ├── repository/
+            │   └── activity_log_repository_impl.go  # pgx native (no ORM)
+            │                                         #   INSERT ... ON CONFLICT (order_id) DO NOTHING
+            ├── usecase/
+            │   └── notification_usecase_impl.go  # HandleOrderCreated: log + write activity_log
+            └── delivery/consumer/
+                └── order_created_consumer_impl.go  # Start(): Qos(1) → Consume → manual Ack/Nack loop
 ```
 
-### Module Boundary Rules
+### Service Boundary Rules
 
+**Within the monolith** — modules communicate via `contract.go` interfaces only:
 ```
-✅ ALLOWED:   internal/cart   → internal/product/usecase  (via contract.go interface)
-✅ ALLOWED:   internal/order  → internal/cart/usecase     (via contract.go interface)
-❌ FORBIDDEN: internal/cart   → internal/product/entity   (direct struct dependency)
-❌ FORBIDDEN: internal/cart   → internal/product/repository (direct data access)
+✅ ALLOWED:   internal/cart  → internal/product/usecase  (via ProductService interface)
+✅ ALLOWED:   internal/order → internal/cart/usecase     (via CartService interface)
+✅ ALLOWED:   internal/order → internal/product/usecase  (via ProductService interface)
+❌ FORBIDDEN: any module     → another module's repository (direct data access)
+❌ FORBIDDEN: any module     → another module's entity     (direct struct import)
 ```
 
-Each module exposes its capabilities to other modules **only** through a `contract.go` file containing Go interfaces — a clear and auditable boundary similar to an API contract between services.
+**Across service boundaries** — the protobuf contract is the only allowed communication surface:
+```
+✅ ALLOWED:   monolith/product/repository → Product Service    (via gRPC, productv1.ProductServiceClient)
+✅ ALLOWED:   monolith/order/repository   → RabbitMQ           (via messaging.NotificationEventPublisher)
+✅ ALLOWED:   notification-consumer       → RabbitMQ           (via AMQP consumer)
+❌ FORBIDDEN: monolith → Product Service's MongoDB directly
+❌ FORBIDDEN: monolith → Product Service's internal packages
+```
+
+The `ProductService` interface in `monolith/internal/product/usecase/contract.go` is the same interface that was previously satisfied by a local GORM/MySQL implementation. The migration to gRPC required only swapping the implementation registered in `wire.go` — usecase and handler code were untouched.
 
 ---
 
 ## 📡 API Endpoints
 
-### Authentication & User
+### Authentication & User *(Monolith — port 8080)*
 
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
@@ -379,20 +518,7 @@ Each module exposes its capabilities to other modules **only** through a `contra
 | `GET` | `/api/v1/profile` | Get authenticated user profile | ✅ JWT |
 | `DELETE` | `/api/v1/logout` | Revoke current JWT session | ✅ JWT |
 
-### Product Catalog
-
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| `GET` | `/api/v1/categories` | List all categories | — |
-| `POST` | `/api/v1/admin/categories` | Create category (auto slug) | ✅ Admin |
-| `GET` | `/api/v1/products` | List & search products with pagination | — |
-| `GET` | `/api/v1/products/:product_id` | Get product detail | — |
-| `POST` | `/api/v1/admin/products` | Create product | ✅ Admin |
-| `PUT` | `/api/v1/admin/products/:product_id` | Update product | ✅ Admin |
-| `DELETE` | `/api/v1/admin/products/:product_id` | Soft-delete product | ✅ Admin |
-| `PATCH` | `/api/v1/admin/products/:product_id/adjust-stock` | Set stock value | ✅ Admin |
-
-### Cart
+### Cart *(Monolith — port 8080)*
 
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
@@ -402,7 +528,7 @@ Each module exposes its capabilities to other modules **only** through a `contra
 | `DELETE` | `/api/v1/cart/:product_id` | Remove single item | ✅ JWT |
 | `DELETE` | `/api/v1/cart` | Clear entire cart | ✅ JWT |
 
-### Orders
+### Orders *(Monolith — port 8080)*
 
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
@@ -410,23 +536,46 @@ Each module exposes its capabilities to other modules **only** through a `contra
 | `GET` | `/api/v1/orders` | List authenticated user's order history | ✅ JWT |
 | `GET` | `/api/v1/orders/:order_id` | Get single order detail | ✅ JWT |
 
+### Product Catalog *(Product Service — port 8081)*
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| `GET` | `/api/v1/categories` | List all categories | — |
+| `POST` | `/api/v1/admin/categories` | Create category (auto slug) | ✅ Admin |
+| `GET` | `/api/v1/products` | List & search products with pagination | — |
+| `GET` | `/api/v1/products/:product_id` | Get product detail | — |
+| `POST` | `/api/v1/admin/products` | Create product | ✅ Admin |
+| `PATCH` | `/api/v1/admin/products/:product_id` | Update product | ✅ Admin |
+| `DELETE` | `/api/v1/admin/products/:product_id` | Soft-delete product | ✅ Admin |
+| `PATCH` | `/api/v1/admin/products/:product_id/adjust-stock` | Set absolute stock value | ✅ Admin |
+
+### Internal gRPC *(Product Service — port 50051)*
+
+| RPC | Description |
+|---|---|
+| `GetByID(GetByIDRequest)` | Fetch single product by ID |
+| `GetByIDs(GetByIDsRequest)` | Batch fetch products by IDs |
+| `BulkDecreaseStock(BulkDecreaseStockRequest)` | Atomically decrease stock for multiple products (idempotent via ledger) |
+| `BulkRestoreStock(BulkRestoreStockRequest)` | Compensate a previously failed decrease (idempotent via ledger) |
+
 ---
 
 ## 📖 API Documentation
 
-All endpoints are documented interactively via Swagger UI, generated from swaggo annotations (`@Summary`, `@Description`, `@Router`, `@Security`, etc.) in each handler file.
+Product Service handler functions have Swagger annotations generated via `swaggo/swag`.
 
 **Access the UI:**
-1. Start the application: `docker compose up -d`
-2. Open [http://localhost:8080/swagger/index.html](http://localhost:8080/swagger/index.html)
+1. Start all services: `docker compose up -d`
+2. Open [http://localhost:8081/swagger/index.html](http://localhost:8081/swagger/index.html) — Product Catalog API
+3. Monolith (User/Cart/Order) API is accessible at `http://localhost:8080`
 
-**Testing authenticated endpoints:** Click the **Authorize** button in the top-right of the Swagger UI and enter the Bearer token returned by `POST /login`. All subsequent requests in that session will include the `Authorization` header.
+**Testing authenticated endpoints:** Click the **Authorize** button in Swagger UI and enter the Bearer token returned by `POST /api/v1/login` on the monolith (port 8080). The same JWT is valid on both services (shared secret key).
 
 ---
 
 ## 📦 Request & Response Samples
 
-### `POST /api/v1/register`
+### `POST /api/v1/register` (port 8080)
 
 ```json
 // Request
@@ -439,7 +588,7 @@ All endpoints are documented interactively via Swagger UI, generated from swaggo
 { "success": false, "message": "Email Already Exists" }
 ```
 
-### `POST /api/v1/login`
+### `POST /api/v1/login` (port 8080)
 
 ```json
 // Request
@@ -452,7 +601,7 @@ All endpoints are documented interactively via Swagger UI, generated from swaggo
 { "success": false, "message": "Wrong Email or Password" }
 ```
 
-### `GET /api/v1/products?search=keyboard&category_id=1&page=1&limit=10`
+### `GET /api/v1/products?search=keyboard&category_id=1&page=1&limit=10` (port 8081)
 
 ```json
 // 200 OK
@@ -472,26 +621,7 @@ All endpoints are documented interactively via Swagger UI, generated from swaggo
 }
 ```
 
-### `POST /api/v1/admin/products`
-
-```json
-// Request — Authorization: Bearer <admin_token>
-{
-  "category_id": 1, "name": "Mechanical Keyboard 60%",
-  "description": "Hot-swappable switches, RGB backlight", "price": 750000, "stock": 50
-}
-
-// 201 Created
-{
-  "success": true, "message": "Product created successfully",
-  "data": { "id": 12, "slug": "mechanical-keyboard-60", "sku": "PRD-XXXXXXXX", "is_active": true, ... }
-}
-
-// 404 — category not found
-{ "success": false, "message": "Category Not Found" }
-```
-
-### `POST /api/v1/cart` & `GET /api/v1/cart`
+### `POST /api/v1/cart` & `GET /api/v1/cart` (port 8080)
 
 ```json
 // POST Request — Authorization: Bearer <token>
@@ -510,9 +640,9 @@ All endpoints are documented interactively via Swagger UI, generated from swaggo
 }
 ```
 
-> **`unavailable_items`**: Products that exist in Redis but have since been deactivated or deleted from the catalog. They are surfaced for user review rather than silently removed.
+> **`unavailable_items`**: Products that exist in Redis but have since been deactivated or deleted from the catalog. Surfaced for user review rather than silently removed.
 
-### `POST /api/v1/orders` (Checkout)
+### `POST /api/v1/orders` (Checkout — port 8080)
 
 ```json
 // Request — Authorization: Bearer <token>
@@ -544,48 +674,13 @@ All endpoints are documented interactively via Swagger UI, generated from swaggo
 { "success": false, "message": "Insufficient Stock" }
 ```
 
-### `GET /api/v1/orders`
-
-```json
-// 200 OK
-{
-  "success": true,
-  "message": "Order history retrieved successfully",
-  "data": {
-    "orders": [
-      {
-        "order_id": 6,
-        "invoice_number": "INV-20260710-000006",
-        "total_amount": 200000,
-        "status": "PAID",
-        "items": [
-          { "product_id": 1, "product_name": "Produk A", "price": 10000, "quantity": 10, "subtotal": 100000 }
-        ]
-      }
-    ]
-  }
-}
-```
-
-### `DELETE /api/v1/logout`
-
-```json
-// 200 OK
-{ "success": true, "message": "user logged out successfully" }
-// Token is immediately invalid — Redis key deleted.
-```
-
 ---
 
 ## 🚀 Getting Started
 
-You can run this project using **Docker Compose** (recommended) or manually.
-
----
-
 ### Option A: Docker Compose (Recommended)
 
-This starts the API, MySQL, and Redis together in an isolated network. No local database setup required.
+This starts **7 services** in an isolated bridge network: monolith app, product-service, notification-consumer, PostgreSQL 16, MongoDB 8, Redis 7, RabbitMQ 4. No local database setup required.
 
 **1. Clone the repository**
 ```bash
@@ -596,7 +691,7 @@ cd e-commerce
 **2. Configure environment variables**
 ```bash
 cp .env.example .env
-# Edit .env with your preferred values
+# Edit .env with your preferred values (JWT secret, etc.)
 ```
 
 **3. Start all services**
@@ -604,22 +699,29 @@ cp .env.example .env
 docker compose up --build -d
 ```
 
-**4. Run database migrations** (inside the running container)
+> MongoDB replica set initialization is handled automatically by the `mongo-init-replica` one-shot container — no manual `rs.initiate()` required.
+
+**4. Run database migrations** (PostgreSQL — users, orders, order_items, activity_logs)
 ```bash
 docker exec -it ecommerce-app sh -c \
-  "migrate -database 'mysql://root:root@tcp(mysql:3306)/ecommerce' -path database/migrations up"
+  "migrate -database 'postgres://postgres:postgres@postgres:5432/ecommerce?sslmode=disable' -path database/migration up"
 ```
-
-> The `DATABASE_NAME` for Docker Compose is `ecommerce` (set in `docker-compose.yml`).
 
 **5. (Optional) Seed initial data**
 ```bash
 docker exec -it ecommerce-app ./main --seed
 ```
 
-**6. Verify the server is running**
+**6. Verify services are running**
 ```bash
-curl -s http://localhost:8080/api/v1/products | jq .
+# Monolith (User/Cart/Order)
+curl -s http://localhost:8080/api/v1/products | jq .  # will proxy via gRPC to product-service
+
+# Product Service (direct)
+curl -s http://localhost:8081/health
+
+# RabbitMQ Management UI
+open http://localhost:15672  # guest / guest
 ```
 
 **Stop all services:**
@@ -636,12 +738,14 @@ docker compose down
 | Tool | Minimum Version |
 |---|---|
 | Go | 1.22+ |
-| MySQL | 8.0+ |
+| PostgreSQL | 16+ |
+| MongoDB | 8+ (with replica set for transactions) |
 | Redis | 7.0+ |
+| RabbitMQ | 4+ |
 | `golang-migrate` CLI | latest |
 
 ```bash
-go install -tags 'mysql' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 ```
 
 **1. Clone & install dependencies**
@@ -658,61 +762,66 @@ cp .env.example .env
 
 `.env` reference:
 ```env
+# PostgreSQL (monolith + notification-consumer)
 DATABASE_HOST=127.0.0.1
-DATABASE_PORT=3306
-DATABASE_NAME=ecommerce_db
-DATABASE_USERNAME=root
-DATABASE_PASSWORD=your_password
+DATABASE_PORT=5432
+DATABASE_NAME=ecommerce
+DATABASE_USERNAME=postgres
+DATABASE_PASSWORD=postgres
 
+# MongoDB (product-service)
+MONGODB_URI=mongodb://127.0.0.1:27017/ecommerce?replicaSet=rs0
+MONGODB_DATABASE=ecommerce
+
+# Redis (monolith + product-service)
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 REDIS_DB=0
 
+# RabbitMQ (monolith publisher + notification-consumer)
+RABBITMQ_URL=amqp://guest:guest@127.0.0.1:5672/
+
+# gRPC — monolith to product-service
+PRODUCT_SERVICE_ADDR=127.0.0.1:50051
+
 APP_HOST=0.0.0.0
 APP_PORT=8080
-
 LOG_LEVEL=debug
 
 # Use a long, random string in production
 JWT_SECRET_KEY=change-me-to-a-strong-random-secret-key
 ```
 
-**3. Create database**
+**3. Initialize MongoDB replica set** (required for transactions)
 ```bash
-mysql -u root -p -e "CREATE DATABASE ecommerce_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+mongosh --eval 'rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "127.0.0.1:27017" }] })'
 ```
 
-**4. Run migrations**
+**4. Run PostgreSQL migrations**
 ```bash
-migrate -database "mysql://root:your_password@tcp(127.0.0.1:3306)/ecommerce_db" \
-        -path database/migrations up
+migrate -database "postgres://postgres:postgres@127.0.0.1:5432/ecommerce?sslmode=disable" \
+        -path monolith/database/migration up
 ```
 
-To rollback:
+**5. Start services** (3 separate terminals)
 ```bash
-migrate -database "mysql://root:your_password@tcp(127.0.0.1:3306)/ecommerce_db" \
-        -path database/migrations down 1
-```
+# Terminal 1 — Product Service (gRPC :50051 + HTTP :8081)
+go run ./service/product-service/cmd/...
 
-**5. (Optional) Seed initial data**
-```bash
-go run ./cmd/api/... --seed
-```
+# Terminal 2 — Notification Consumer
+go run ./service/notification-consumer/cmd/...
 
-**6. Run the application**
-```bash
-go run ./cmd/api/...
+# Terminal 3 — Monolith (HTTP :8080)
+go run ./monolith/cmd/api/...
 ```
-
-Server starts at `http://0.0.0.0:8080`.
 
 ---
 
 ### Developer Commands
 
-**Regenerate Wire DI** (after modifying `injector.go`):
+**Regenerate Wire DI** (after modifying `wire.go` in the monolith):
 ```bash
-cd cmd/api && go generate ./...
+cd monolith/cmd/api && go generate ./...
 ```
 
 **Regenerate mocks** (after modifying any interface):
@@ -720,79 +829,75 @@ cd cmd/api && go generate ./...
 go generate ./...
 ```
 
-**Regenerate Swagger docs** (after modifying any handler annotation):
+**Regenerate Swagger docs** (after modifying handler annotations in product-service):
 ```bash
-swag init -g cmd/api/main.go --output docs
+swag init -g service/product-service/cmd/main.go --output service/product-service/internal/product/docs
 ```
 
-**Run unit tests:**
+**Run unit tests** (no live dependencies required — all mocked):
 ```bash
-go test ./internal/... -v -race
+go test ./monolith/... ./service/product-service/internal/product/usecase/... -v -race
 ```
 
-The `-race` flag enables Go's built-in data race detector. All business logic tests run without a live database or Redis — dependencies are mocked via `mockery`.
+**Run integration tests** (requires Docker — spins up a real MongoDB replica set via testcontainers):
+```bash
+go test -tags=integration ./service/product-service/internal/product/repository/... -v
+```
 
 **Run tests for a specific module:**
 ```bash
 # User module
-go test -v ./internal/user/usecase -run "TestUserUsecaseImpl"
+go test -v ./monolith/internal/user/usecase/... -run "TestUserUsecaseImpl"
 
-# Product module
-go test -v ./internal/product/usecase -run "TestProductUsecaseImpl"
+# Product service usecases
+go test -v ./service/product-service/internal/product/usecase/... -run "TestProductUsecaseImpl"
 
-# Category module
-go test -v ./internal/product/usecase -run "TestCategoryUsecaseImpl"
+# Category usecases
+go test -v ./service/product-service/internal/product/usecase/... -run "TestCategoryUsecaseImpl"
 
 # Order module
-go test -v ./internal/order/usecase -run "TestOrderUsecase"
+go test -v ./monolith/internal/order/usecase/... -run "TestOrderUsecase"
 ```
 
 ---
 
 ## 📝 Architecture Notes
 
-### No Foreign Key Constraints Between Modules
+### Why Product Catalog Was Extracted First
 
-Each module (`user`, `product`, `cart`, `order`) is treated as an independent **Bounded Context**. Cross-module database-level FK constraints would create infrastructure-layer coupling that conflicts with the modular design goal.
+Product is the leaf node in the dependency graph: User, Cart, and Order all depend on it, but Product depends on nothing else. This made it the highest-leverage extraction candidate — removing it from the monolith severs the most cross-cutting dependencies in one step. Extracting User or Order first would have left Product as shared state accessed by both the remaining monolith and the new service, creating a worse coupling problem than the one being solved.
 
-Instead:
-- `products.category_id` is a plain `uint` field — GORM will not auto-create an FK constraint without an explicit struct association field
-- `order_items` stores a snapshot of `product_name` and `price` at checkout time, making order history immutable regardless of future catalog changes
+### Why MongoDB for Products, PostgreSQL for Everything Else
 
-If the need arises to split modules into independent services, the only change required would be replacing Go interface calls with gRPC or HTTP calls. The database schema needs no restructuring.
+Products have inherently flexible, schema-variable attributes (different categories need different fields). Forcing that into a relational schema produces sparse columns or EAV anti-patterns. MongoDB's document model fits naturally. In contrast, users, orders, and activity logs have strict, predictable schemas where ACID guarantees and strong consistency are requirements — PostgreSQL is the correct tool there. Running two databases is a tradeoff accepted deliberately, not an oversight.
+
+### Preventing Oversell: Row Lock vs. Atomic Conditional Update
+
+In the old relational world, preventing oversell required `SELECT ... FOR UPDATE` to hold a row-level lock until the transaction commits. MongoDB's approach is different: `updateOne` with a filter of `{ stock: { $gte: quantity } }` and `$inc: { stock: -quantity }` is atomic at the document level. If the filter doesn't match (stock too low), `MatchedCount == 0` and the operation is rejected — no explicit lock, no waiting goroutines, no deadlock possible from the locking side.
+
+### Why MongoDB Multi-Document Transactions Don't Deadlock the Same Way
+
+Relational deadlocks arise from circular lock waits: transaction A holds row X and waits for row Y, while transaction B holds row Y and waits for row X. MongoDB's transaction model uses optimistic concurrency with `WriteConflict` errors: if two transactions touch the same document simultaneously, one receives a `WriteConflict` and is automatically retried by `session.WithTransaction`. There is no "waiting" — the conflict is detected immediately and the retry happens from scratch. This eliminates the circular-wait condition that causes relational deadlocks, at the cost of making conflicting transactions slower under high contention (retries vs. waiting).
+
+### Saga Pattern for Stock Consistency
+
+The checkout flow uses a minimal saga: `BulkDecreaseStock` (MongoDB, cross-service) happens before `CreateOrderWithItems` (PostgreSQL, local). If the PostgreSQL step fails, the MongoDB decrement has already committed. The compensation (`BulkRestoreStock`) is called immediately with the same `checkoutID`. Idempotency is enforced by the `stock_ledgers` collection: the decrease operation inserts a `checkoutID:decrease` document (duplicate key → no-op), and the restore operation inserts `checkoutID:restore` (already exists → no-op). Network retries of either operation are safe because the ledger prevents double-application.
+
+### Why `order.created` Is RabbitMQ, Not Another gRPC Call
+
+gRPC is synchronous: the caller waits for a response before returning to the user. A notification side-effect that fails should not cause the checkout to fail, and it should not add latency to the critical path. RabbitMQ decouples the two: the monolith publishes and moves on. If the notification consumer is down, messages queue up and are processed when it recovers. A gRPC call to a notification service would couple availability: if the notification service is unreachable, checkout fails — an unacceptable dependency for a non-critical side effect.
 
 ### Cart Enrichment Without N+1
 
-The `GET /cart` flow uses a two-step approach:
+The `GET /cart` flow keeps database/service round trips O(1) regardless of cart size:
 
 1. **One Redis call**: `HGETALL cart:{userID}` returns the full `map[product_id → quantity]`
-2. **One DB query**: `FindByIDs` executes a single `WHERE id IN (...)` with all product IDs from step 1
-3. Everything else (subtotal, grand_total, unavailable_items) is computed in memory
-
-This keeps database round trips constant regardless of cart size.
-
-### Concurrent Stock Deduction (Checkout, Planned)
-
-`ProductRepository.DecreaseStock` already implements pessimistic row-level locking:
-
-```go
-tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&product, productID)
-```
-
-When two concurrent checkout requests compete for the same low-stock product, only one goroutine acquires the lock. The other waits, then fails the stock check and rolls back cleanly. The Redis cart is preserved on rollback so the user can retry without re-adding items.
+2. **One gRPC call**: `GetByIDs([ids...])` fetches all products in a single request to Product Service
+3. Everything else (subtotal, grand_total, unavailable_items detection) is computed in memory
 
 ### Transaction Abstraction
 
-`pkg/transaction.WithTransaction(ctx, fn)` wraps transaction boilerplate, keeping it out of usecase logic. This also allows the transaction itself to be mocked in unit tests — usecases remain testable without a live database connection.
-
-### Connection Pool Configuration
-
-```
-MaxOpenConns:    25    — max simultaneous connections
-MaxIdleConns:    10    — connections kept ready in the pool
-ConnMaxLifetime: 5min  — recycles connections to prevent stale handles
-ConnMaxIdleTime: 1min  — evicts idle connections sooner
-```
+`pkg/transaction.WithTransaction(ctx, fn)` wraps PostgreSQL transaction boilerplate, keeping it out of usecase logic. The transaction is stored in the context and extracted in repository methods via `GetTxFromContext`. This also allows the transaction itself to be mocked in unit tests — usecases remain testable without a live database connection.
 
 ---
 
