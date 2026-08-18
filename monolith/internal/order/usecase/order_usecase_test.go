@@ -8,9 +8,8 @@ import (
 	"io"
 
 	cartMock "github.com/Mpayy/e-commerce/monolith/internal/cart/mocks"
-	"github.com/Mpayy/e-commerce/monolith/internal/notification-publisher/event"
-	publisherMock "github.com/Mpayy/e-commerce/monolith/internal/notification-publisher/mocks"
 	"github.com/Mpayy/e-commerce/monolith/internal/order/entity"
+	"github.com/Mpayy/e-commerce/monolith/internal/order/event"
 	repoMock "github.com/Mpayy/e-commerce/monolith/internal/order/mocks"
 	productentity "github.com/Mpayy/e-commerce/monolith/internal/product/entity"
 	productMock "github.com/Mpayy/e-commerce/monolith/internal/product/mocks"
@@ -28,12 +27,12 @@ func newTestLogger() *logger.Logger {
 	return log
 }
 
-func setupOrderUsecase(t *testing.T) (OrderUsecase, *productMock.MockProductService, *cartMock.MockCartService, *repoMock.MockOrderRepository, *repoMock.MockTransaction, *publisherMock.MockEventPublisher) {
+func setupOrderUsecase(t *testing.T) (OrderUsecase, *productMock.MockProductService, *cartMock.MockCartService, *repoMock.MockOrderRepository, *repoMock.MockTransaction, *repoMock.MockEventPublisher) {
 	orderRepository := repoMock.NewMockOrderRepository(t)
 	cartService := cartMock.NewMockCartService(t)
 	productService := productMock.NewMockProductService(t)
 	transactionMock := repoMock.NewMockTransaction(t)
-	publisherMock := publisherMock.NewMockEventPublisher(t)
+	publisherMock := repoMock.NewMockEventPublisher(t)
 	log := newTestLogger()
 
 	orderUsecase := NewOrderUsecase(orderRepository, transactionMock, log, cartService, productService, publisherMock)
@@ -392,57 +391,57 @@ func TestOrderUsecase_Checkout(t *testing.T) {
 	})
 
 	// 12. Success Checkout Even If Event Publishing Fails
-    t.Run("success_checkout_publish_event_failed_still_succeeds", func(t *testing.T) {
-        usecase, productService, cartService, orderRepository, transactionMock, publisherMock := setupOrderUsecase(t)
+	t.Run("success_checkout_publish_event_failed_still_succeeds", func(t *testing.T) {
+		usecase, productService, cartService, orderRepository, transactionMock, publisherMock := setupOrderUsecase(t)
 
-        rawCart := map[uint]int{1: 2}
-        products := []productentity.Product{
-            {ID: 1, Name: "Produk 1", Price: 10000, Stock: 5},
-        }
+		rawCart := map[uint]int{1: 2}
+		products := []productentity.Product{
+			{ID: 1, Name: "Produk 1", Price: 10000, Stock: 5},
+		}
 
-        cartService.EXPECT().
-            GetRawCart(mock.Anything, userID).
-            Return(rawCart, nil)
+		cartService.EXPECT().
+			GetRawCart(mock.Anything, userID).
+			Return(rawCart, nil)
 
-        productService.EXPECT().
-            GetProductsByIDs(mock.Anything, mock.Anything).
-            Return(products, nil)
+		productService.EXPECT().
+			GetProductsByIDs(mock.Anything, mock.Anything).
+			Return(products, nil)
 
-        transactionMock.EXPECT().
-            WithTransaction(mock.Anything, mock.Anything).
-            RunAndReturn(func(ctx context.Context, fn func(context.Context) error) error {
-                return fn(ctx)
-            })
+		transactionMock.EXPECT().
+			WithTransaction(mock.Anything, mock.Anything).
+			RunAndReturn(func(ctx context.Context, fn func(context.Context) error) error {
+				return fn(ctx)
+			})
 
-        productService.EXPECT().
-            BulkDecreaseStock(mock.Anything, mock.Anything, mock.Anything).
-            Return(nil)
+		productService.EXPECT().
+			BulkDecreaseStock(mock.Anything, mock.Anything, mock.Anything).
+			Return(nil)
 
-        orderRepository.EXPECT().
-            CreateOrderWithItems(mock.Anything, mock.Anything, mock.Anything).
-            RunAndReturn(func(ctx context.Context, order *entity.Order, items []entity.OrderItem) error {
-                order.ID = 10
-                order.InvoiceNumber = "INV-0010"
-                return nil
-            })
+		orderRepository.EXPECT().
+			CreateOrderWithItems(mock.Anything, mock.Anything, mock.Anything).
+			RunAndReturn(func(ctx context.Context, order *entity.Order, items []entity.OrderItem) error {
+				order.ID = 10
+				order.InvoiceNumber = "INV-0010"
+				return nil
+			})
 
-        cartService.EXPECT().
-            ClearCart(mock.Anything, userID).
-            Return(nil)
+		cartService.EXPECT().
+			ClearCart(mock.Anything, userID).
+			Return(nil)
 
-        // Simulasi Event Publisher mengembalikan error
-        publisherMock.EXPECT().
-            PublishOrderCreated(mock.Anything, mock.Anything).
-            Return(errors.New("rabbitmq connection down"))
+		// Simulasi Event Publisher mengembalikan error
+		publisherMock.EXPECT().
+			PublishOrderCreated(mock.Anything, mock.Anything).
+			Return(errors.New("rabbitmq connection down"))
 
-        result, err := usecase.Checkout(ctx, userID)
+		result, err := usecase.Checkout(ctx, userID)
 
-        // Checkout harus tetap berjalan sukses tanpa return error
-        assert.NoError(t, err)
-        assert.NotNil(t, result)
-        assert.Equal(t, uint(10), result.OrderID)
-        assert.Equal(t, "INV-0010", result.InvoiceNumber)
-    })
+		// Checkout harus tetap berjalan sukses tanpa return error
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, uint(10), result.OrderID)
+		assert.Equal(t, "INV-0010", result.InvoiceNumber)
+	})
 }
 
 func TestOrderUsecase_GetOrderHistory(t *testing.T) {

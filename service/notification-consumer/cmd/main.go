@@ -37,13 +37,9 @@ func main() {
 	notifUsecase := usecase.NewNotificationUsecase(repo, log)
 	orderConsumer := consumer.NewOrderCreatedConsumer(channel, notifUsecase, log)
 
-	go func() {
-		if err := orderConsumer.Start(ctx); err != nil {
-			log.Errorf("consumer stopped with error: %v", err)
-			stop()
-		}
-	}()
+	if err := orderConsumer.Start(ctx); err != nil {
+		log.Errorf("consumer stopped with error: %v", err)
+	}
 
-	<-ctx.Done()
 	log.Info("notification-consumer shutting down")
 }

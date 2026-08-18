@@ -7,10 +7,9 @@ import (
 	"time"
 
 	cartUC "github.com/Mpayy/e-commerce/monolith/internal/cart/usecase"
-	"github.com/Mpayy/e-commerce/monolith/internal/notification-publisher/event"
-	notificationUC "github.com/Mpayy/e-commerce/monolith/internal/notification-publisher/usecase"
 	"github.com/Mpayy/e-commerce/monolith/internal/order/dto"
 	"github.com/Mpayy/e-commerce/monolith/internal/order/entity"
+	"github.com/Mpayy/e-commerce/monolith/internal/order/event"
 	"github.com/Mpayy/e-commerce/monolith/internal/order/repository"
 	productentity "github.com/Mpayy/e-commerce/monolith/internal/product/entity"
 	productUC "github.com/Mpayy/e-commerce/monolith/internal/product/usecase"
@@ -26,10 +25,10 @@ type OrderUsecaseImpl struct {
 	log             *logger.Logger
 	cartService     cartUC.CartService
 	productService  productUC.ProductService
-	eventPublisher  notificationUC.EventPublisher
+	eventPublisher  EventPublisher
 }
 
-func NewOrderUsecase(orderRepository repository.OrderRepository, transaction transaction.Transaction, log *logger.Logger, cartService cartUC.CartService, productService productUC.ProductService, eventPublisher notificationUC.EventPublisher) OrderUsecase {
+func NewOrderUsecase(orderRepository repository.OrderRepository, transaction transaction.Transaction, log *logger.Logger, cartService cartUC.CartService, productService productUC.ProductService, eventPublisher EventPublisher) OrderUsecase {
 	return &OrderUsecaseImpl{
 		orderRepository: orderRepository,
 		transaction:     transaction,
@@ -145,7 +144,7 @@ func (u *OrderUsecaseImpl) Checkout(ctx context.Context, userID uint) (*dto.Orde
 	}
 
 	if err = u.cartService.ClearCart(ctx, userID); err != nil {
-		return nil, err
+		log.WithError(err).Error("failed to clear cart after successful checkout")
 	}
 
 	event := event.OrderCreatedEvent{

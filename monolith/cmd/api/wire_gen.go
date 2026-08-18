@@ -11,11 +11,11 @@ import (
 	"github.com/Mpayy/e-commerce/monolith/internal/cart/delivery/http"
 	repository3 "github.com/Mpayy/e-commerce/monolith/internal/cart/repository"
 	usecase2 "github.com/Mpayy/e-commerce/monolith/internal/cart/usecase"
-	repository4 "github.com/Mpayy/e-commerce/monolith/internal/notification-publisher/repository"
 	"github.com/Mpayy/e-commerce/monolith/internal/order/delivery/http"
 	repository2 "github.com/Mpayy/e-commerce/monolith/internal/order/repository"
 	usecase3 "github.com/Mpayy/e-commerce/monolith/internal/order/usecase"
 	"github.com/Mpayy/e-commerce/monolith/internal/product/repository"
+	usecase4 "github.com/Mpayy/e-commerce/monolith/internal/product/usecase"
 	"github.com/Mpayy/e-commerce/monolith/internal/routes"
 	"github.com/Mpayy/e-commerce/monolith/internal/user/delivery/http"
 	"github.com/Mpayy/e-commerce/monolith/internal/user/repository"
@@ -68,8 +68,8 @@ func InitializeApp() (*dependency.App, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
-	productService := productclient.NewProductGRPCClient(clientConn)
-	cartUsecaseImpl := usecase2.NewCartUsecase(cartRedisRepository, productService, loggerLogger)
+	productGRPCClient := productclient.NewProductGRPCClient(clientConn)
+	cartUsecaseImpl := usecase2.NewCartUsecase(cartRedisRepository, productGRPCClient, loggerLogger)
 	channel, cleanup4, err := dependency.NewRabbitMQChannel(configConfig, loggerLogger)
 	if err != nil {
 		cleanup3()
@@ -77,8 +77,8 @@ func InitializeApp() (*dependency.App, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
-	eventPublisher := repository4.NewEventPublisher(channel)
-	orderUsecase := usecase3.NewOrderUsecase(orderRepository, transactionTransaction, loggerLogger, cartUsecaseImpl, productService, eventPublisher)
+	notificationEventPublisher := repository2.NewNotificationEventPublisher(channel)
+	orderUsecase := usecase3.NewOrderUsecase(orderRepository, transactionTransaction, loggerLogger, cartUsecaseImpl, productGRPCClient, notificationEventPublisher)
 	orderHandler := orderhttp.NewOrderHandler(orderUsecase, loggerLogger)
 	cartHandler := carthttp.NewCartHandler(cartUsecaseImpl, cartUsecaseImpl, validate)
 	router := routes.NewRouter(ginEngine, authMiddleware, userHandler, orderHandler, cartHandler, loggerLogger)
@@ -95,12 +95,10 @@ func InitializeApp() (*dependency.App, func(), error) {
 
 var userSet = wire.NewSet(repository.NewUserRedisRepository, wire.Bind(new(middleware.SessionChecker), new(repository.UserRedisRepository)), repository.NewUserRepository, usecase.NewUserUsecase, http.NewUserHandler)
 
-var productSet = wire.NewSet(dependency.NewProductServiceConn, productv1.NewProductServiceClient, productclient.NewProductGRPCClient)
+var productSet = wire.NewSet(productclient.NewProductGRPCClient, wire.Bind(new(usecase4.ProductService), new(*productclient.ProductGRPCClient)))
 
 var cartSet = wire.NewSet(repository3.NewCartRedisRepository, usecase2.NewCartUsecase, wire.Bind(new(usecase2.CartService), new(*usecase2.CartUsecaseImpl)), wire.Bind(new(usecase2.CartUsecase), new(*usecase2.CartUsecaseImpl)), carthttp.NewCartHandler)
 
-var orderSet = wire.NewSet(repository2.NewOrderRepository, usecase3.NewOrderUsecase, orderhttp.NewOrderHandler)
+var orderSet = wire.NewSet(repository2.NewOrderRepository, repository2.NewNotificationEventPublisher, wire.Bind(new(usecase3.EventPublisher), new(*repository2.NotificationEventPublisher)), usecase3.NewOrderUsecase, orderhttp.NewOrderHandler)
 
-var publisherSet = wire.NewSet(repository4.NewEventPublisher)
-
-var InfrastructureSet = wire.NewSet(config.Load, logger.NewLogger, validator.NewValidator, cache.NewRedisCli, engine.NewGin, database.NewPostgresDB, messaging.NewRabbitMQConn, dependency.NewGormDB, dependency.NewRabbitMQChannel)
+var InfrastructureSet = wire.NewSet(config.Load, logger.NewLogger, validator.NewValidator, cache.NewRedisCli, engine.NewGin, database.NewPostgresDB, messaging.NewRabbitMQConn, dependency.NewGormDB, dependency.NewRabbitMQChannel, dependency.NewProductServiceConn, productv1.NewProductServiceClient)
