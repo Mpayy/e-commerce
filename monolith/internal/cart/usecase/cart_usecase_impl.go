@@ -136,12 +136,13 @@ func (u *CartUsecaseImpl) GetCartDetail(ctx context.Context, userID uint) (*dto.
 	var itemsResponse []dto.CartItemResponse
 	var grandTotal float64
 	for _, product := range products {
+		foundProductsInDB[product.ID] = true
+
 		qty := cartMap[product.ID]
 		if qty <= 0 {
 			continue
 		}
 
-		foundProductsInDB[product.ID] = true
 		subtotal := product.Price * float64(qty)
 		grandTotal += subtotal
 

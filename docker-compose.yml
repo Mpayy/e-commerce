@@ -28,7 +28,7 @@ services:
   product-service:
     build:
       context: .
-      dockerfile: ./service/product-service/Dockerfile
+      dockerfile: ./services/product-service/Dockerfile
     container_name: ecommerce-product-service
     restart: unless-stopped
     ports:
@@ -57,7 +57,7 @@ services:
   notification-consumer:
     build:
       context: .
-      dockerfile: ./service/notification-consumer/Dockerfile
+      dockerfile: ./services/notification-consumer/Dockerfile
     container_name: ecommerce-notification-consumer
     restart: unless-stopped
     env_file: [.env]

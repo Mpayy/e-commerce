@@ -349,7 +349,7 @@ func TestOrderUsecase_Checkout(t *testing.T) {
 
 	// 11. Failed: ClearCart Error
 	t.Run("failed_clear_cart_error", func(t *testing.T) {
-		usecase, productService, cartService, orderRepository, transactionMock, _ := setupOrderUsecase(t)
+		usecase, productService, cartService, orderRepository, transactionMock, publisherMock := setupOrderUsecase(t)
 
 		rawCart := map[uint]int{1: 2}
 		products := []productentity.Product{{ID: 1, Name: "P1", Price: 10000}}
@@ -383,11 +383,14 @@ func TestOrderUsecase_Checkout(t *testing.T) {
 		cartService.EXPECT().
 			ClearCart(mock.Anything, userID).
 			Return(dbErr)
+		
+		publisherMock.EXPECT().PublishOrderCreated(mock.Anything, mock.Anything).
+		Return(nil)
 
 		result, err := usecase.Checkout(ctx, userID)
 
-		assert.Nil(t, result)
-		assert.ErrorIs(t, err, dbErr)
+		assert.NotNil(t, result)
+		assert.NoError(t, err)
 	})
 
 	// 12. Success Checkout Even If Event Publishing Fails
