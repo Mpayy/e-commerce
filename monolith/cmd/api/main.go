@@ -19,12 +19,10 @@ import (
 // @description     Modular monolith e-commerce backend built with Go, Gin, GORM, and Redis.
 // @host            localhost:8080
 // @BasePath        /api/v1
-
-// @securityDefinitions.apikey BearerAuth
+// @securitydefinitions.apikey BearerAuth
 // @in header
 // @name Authorization
 // @description Type "Bearer" followed by a space and JWT token.
-
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

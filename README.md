@@ -444,7 +444,7 @@ e-commerce/                          # Monorepo root
 │       ├── mocks/                   # Shared mocks: MockRedis, MockTransaction
 │       └── routes/router.go         # Route groups: public · protected (no admin — product routes moved to product-service)
 │
-└── service/
+└── services/
     ├── product-service/             # Microservice: Product Catalog
     │   ├── Dockerfile
     │   ├── cmd/main.go              # Entry: MongoDB + Redis + gRPC server (50051) + HTTP server (8081)
@@ -562,14 +562,17 @@ The `ProductService` interface in `monolith/internal/product/usecase/contract.go
 
 ## 📖 API Documentation
 
-Product Service handler functions have Swagger annotations generated via `swaggo/swag`.
+Each HTTP-facing service documents its own API independently via `swaggo/swag`.
+`notification-consumer` is excluded — it has no HTTP API, it only consumes from RabbitMQ.
 
 **Access the UI:**
-1. Start all services: `docker compose up -d`
-2. Open [http://localhost:8081/swagger/index.html](http://localhost:8081/swagger/index.html) — Product Catalog API
-3. Monolith (User/Cart/Order) API is accessible at `http://localhost:8080`
 
-**Testing authenticated endpoints:** Click the **Authorize** button in Swagger UI and enter the Bearer token returned by `POST /api/v1/login` on the monolith (port 8080). The same JWT is valid on both services (shared secret key).
+| Service | Swagger UI |
+|---|---|
+| Monolith (User / Cart / Order) | http://localhost:8080/swagger/index.html |
+| Product Catalog Service | http://localhost:8081/swagger/index.html |
+
+**Testing authenticated endpoints:** Get a Bearer token from `POST /api/v1/login` on the monolith (port 8080), then click **Authorize** in either Swagger UI and paste it in. The token works on both — Product Service validates it against the same `JWT_SECRET_KEY` and the same Redis session store, without calling back to the monolith.
 
 ---
 
@@ -806,10 +809,10 @@ migrate -database "postgres://postgres:postgres@127.0.0.1:5432/ecommerce?sslmode
 **5. Start services** (3 separate terminals)
 ```bash
 # Terminal 1 — Product Service (gRPC :50051 + HTTP :8081)
-go run ./service/product-service/cmd/...
+go run ./services/product-service/cmd/...
 
 # Terminal 2 — Notification Consumer
-go run ./service/notification-consumer/cmd/...
+go run ./services/notification-consumer/cmd/...
 
 # Terminal 3 — Monolith (HTTP :8080)
 go run ./monolith/cmd/api/...
@@ -831,17 +834,17 @@ go generate ./...
 
 **Regenerate Swagger docs** (after modifying handler annotations in product-service):
 ```bash
-swag init -g service/product-service/cmd/main.go --output service/product-service/internal/product/docs
+swag init -g services/product-service/cmd/main.go --output services/product-service/internal/product/docs
 ```
 
 **Run unit tests** (no live dependencies required — all mocked):
 ```bash
-go test ./monolith/... ./service/product-service/internal/product/usecase/... -v -race
+go test ./monolith/... ./services/product-service/internal/product/usecase/... -v -race
 ```
 
 **Run integration tests** (requires Docker — spins up a real MongoDB replica set via testcontainers):
 ```bash
-go test -tags=integration ./service/product-service/internal/product/repository/... -v
+go test -tags=integration ./services/product-service/internal/product/repository/... -v
 ```
 
 **Run tests for a specific module:**
@@ -850,10 +853,10 @@ go test -tags=integration ./service/product-service/internal/product/repository/
 go test -v ./monolith/internal/user/usecase/... -run "TestUserUsecaseImpl"
 
 # Product service usecases
-go test -v ./service/product-service/internal/product/usecase/... -run "TestProductUsecaseImpl"
+go test -v ./services/product-service/internal/product/usecase/... -run "TestProductUsecaseImpl"
 
 # Category usecases
-go test -v ./service/product-service/internal/product/usecase/... -run "TestCategoryUsecaseImpl"
+go test -v ./services/product-service/internal/product/usecase/... -run "TestCategoryUsecaseImpl"
 
 # Order module
 go test -v ./monolith/internal/order/usecase/... -run "TestOrderUsecase"

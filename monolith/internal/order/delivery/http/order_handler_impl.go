@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/Mpayy/e-commerce/monolith/internal/order/usecase"
+	_ "github.com/Mpayy/e-commerce/monolith/internal/order/dto"
 	"github.com/Mpayy/e-commerce/pkg/apperror"
 	"github.com/Mpayy/e-commerce/pkg/logger"
 	"github.com/Mpayy/e-commerce/pkg/middleware"
@@ -28,11 +29,11 @@ func NewOrderHandler(orderUsecase usecase.OrderUsecase, log *logger.Logger) Orde
 // @Produce      json
 // @Security     BearerAuth
 // @Success      201 {object} response.SuccessResponse{data=dto.OrderResponse}
-// @Failure      400 {object} response.ErrorResponse "Cart is empty"
-// @Failure      401 {object} response.ErrorResponse "Unauthorized"
-// @Failure      404 {object} response.ErrorResponse "Product not found"
-// @Failure      422 {object} response.ErrorResponse "Insufficient stock"
-// @Failure      500 {object} response.ErrorResponse "Internal server error"
+// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "Cart is empty"
+// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "Unauthorized"
+// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "Product not found"
+// @Failure      422 {object} response.ErrorResponse{error=apperror.AppError} "Insufficient stock"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "Internal server error"
 // @Router       /orders [post]
 func (h *OrderHandlerImpl) Checkout(ctx *gin.Context) {
 	auth := middleware.GetAuthUser(ctx)
@@ -57,8 +58,8 @@ func (h *OrderHandlerImpl) Checkout(ctx *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Success      200 {object} response.SuccessResponse{data=dto.OrderHistoryResponse}
-// @Failure      401 {object} response.ErrorResponse "Unauthorized"
-// @Failure      500 {object} response.ErrorResponse "Internal server error"
+// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "Unauthorized"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "Internal server error"
 // @Router       /orders [get]
 func (h *OrderHandlerImpl) GetHistory(ctx *gin.Context) {
 	auth := middleware.GetAuthUser(ctx)
@@ -84,10 +85,10 @@ func (h *OrderHandlerImpl) GetHistory(ctx *gin.Context) {
 // @Security     BearerAuth
 // @Param        order_id path int true "Order ID"
 // @Success      200 {object} response.SuccessResponse{data=dto.OrderResponse}
-// @Failure      400 {object} response.ErrorResponse "Invalid order ID"
-// @Failure      401 {object} response.ErrorResponse "Unauthorized"
-// @Failure      404 {object} response.ErrorResponse "Order not found"
-// @Failure      500 {object} response.ErrorResponse "Internal server error"
+// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "Invalid order ID"
+// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "Unauthorized"
+// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "Order not found"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "Internal server error"
 // @Router       /orders/{order_id} [get]
 func (h *OrderHandlerImpl) GetDetail(ctx *gin.Context) {
 	auth := middleware.GetAuthUser(ctx)
