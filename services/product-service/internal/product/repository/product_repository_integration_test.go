@@ -5,6 +5,8 @@ package repository
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
 	"testing"
 
 	"github.com/Mpayy/e-commerce/pkg/apperror"
@@ -19,23 +21,19 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func setupMongoContainer(t *testing.T) *mongo.Database {
+var testDB *mongo.Database
+
+func TestMain(m *testing.M) {
 	ctx := context.Background()
 
 	container, err := mongodb.Run(ctx, "mongo:8", mongodb.WithReplicaSet("rs0"))
 	if err != nil {
-		t.Fatalf("failed to start mongodb container: %v", err)
+		log.Fatalf("failed to start mongodb container: %v", err)
 	}
-
-	t.Cleanup(func() {
-		if err := testcontainers.TerminateContainer(container); err != nil {
-			t.Logf("failed to terminate container: %v", err)
-		}
-	})
 
 	connStr, err := container.ConnectionString(ctx)
 	if err != nil {
-		t.Fatalf("failed to get connection string: %v", err)
+		log.Fatalf("failed to get connection string: %v", err)
 	}
 
 	clientOpts := options.Client().
@@ -44,35 +42,44 @@ func setupMongoContainer(t *testing.T) *mongo.Database {
 
 	client, err := mongo.Connect(clientOpts)
 	if err != nil {
-		t.Fatalf("failed to connect: %v", err)
+		log.Fatalf("failed to connect: %v", err)
 	}
 
-	t.Cleanup(func() {
-		client.Disconnect(context.Background())
-	})
-
-	db := client.Database("test_db")
-	if err := EnsureIndexes(ctx, db); err != nil {
-		t.Fatalf("failed to ensure indexes: %v", err)
+	testDB = client.Database("test_db")
+	if err := EnsureIndexes(ctx, testDB); err != nil {
+		log.Fatalf("failed to ensure indexes: %v", err)
 	}
 
-	return db
+	code := m.Run()
+
+	client.Disconnect(context.Background())
+	testcontainers.TerminateContainer(container)
+
+	os.Exit(code)
 }
 
-func seedProduct(t *testing.T, db *mongo.Database, productID int64, stock int) {
+func seedProduct(t *testing.T, db *mongo.Database, stock int) uint {
 	ctx := context.Background()
+	id, err := getNextSequence(ctx, db, "product_id")
+	if err != nil {
+		t.Fatalf("failed to get next sequence: %v", err)
+	}
+
+	productID := uint(id)
 
 	product := model.ProductModel{
-		ID:    productID,
+		ID:    id,
 		Slug:  fmt.Sprintf("product-%d", productID),
 		Stock: stock,
 		SKU:   fmt.Sprintf("SKU-%d", productID),
 	}
 
-	_, err := db.Collection(product.CollectionName()).InsertOne(ctx, product)
+	_, err = db.Collection(product.CollectionName()).InsertOne(ctx, product)
 	if err != nil {
 		t.Fatalf("failed to seed product: %v", err)
 	}
+
+	return productID
 }
 
 func fetchProduct(t *testing.T, db *mongo.Database, productID int64) model.ProductModel {
@@ -88,33 +95,53 @@ func fetchProduct(t *testing.T, db *mongo.Database, productID int64) model.Produ
 
 func TestDecreaseStockBulk_PartialFailureRollsBackAll(t *testing.T) {
 	ctx := context.Background()
-	db := setupMongoContainer(t)
-	repo := NewProductRepository(db)
+	repo := NewProductRepository(testDB)
 
-	seedProduct(t, db, 1, 10)
-	seedProduct(t, db, 2, 2)
+	id1 := seedProduct(t, testDB, 10)
+	id2 := seedProduct(t, testDB, 2)
+
+	t.Cleanup(func() {
+		filter := bson.M{
+			"_id": bson.M{
+				"$in": []int64{int64(id1), int64(id2)},
+			},
+		}
+		_, err := testDB.Collection("products").DeleteMany(ctx, filter)
+		if err != nil {
+			t.Logf("cleanup failed: failed to delete test products: %v", err)
+		}
+	})
 
 	items := []entity.BulkDecreaseStock{
-		{ProductID: 1, Quantity: 5},
-		{ProductID: 2, Quantity: 5},
+		{ProductID: id1, Quantity: 5},
+		{ProductID: id2, Quantity: 5},
 	}
 
 	err := repo.BulkDecreaseStock(ctx, "checkout-test-1", items)
 	assert.ErrorIs(t, err, apperror.ErrInsufficientStock)
 
-	product1 := fetchProduct(t, db, 1)
+	product1 := fetchProduct(t, testDB, int64(id1))
 	assert.Equal(t, 10, product1.Stock, "product 1 stock must remain intact, not included in the deduction")
 }
 
 func TestRestoreStockBulk_CalledTwice_OnlyRestoresOnce(t *testing.T) {
-	db := setupMongoContainer(t)
-	repo := NewProductRepository(db)
+	repo := NewProductRepository(testDB)
 	ctx := context.Background()
 
-	seedProduct(t, db, 1, 10)
+	id := seedProduct(t, testDB, 10)
 	checkoutID := "checkout-test-2"
 
-	err := repo.BulkDecreaseStock(ctx, checkoutID, []entity.BulkDecreaseStock{{ProductID: 1, Quantity: 3}})
+	t.Cleanup(func() {
+		filter := bson.M{
+			"_id": int64(id),
+		}
+		_, err := testDB.Collection("products").DeleteOne(ctx, filter)
+		if err != nil {
+			t.Logf("cleanup failed: failed to delete test products: %v", err)
+		}
+	})
+
+	err := repo.BulkDecreaseStock(ctx, checkoutID, []entity.BulkDecreaseStock{{ProductID: id, Quantity: 3}})
 	assert.NoError(t, err)
 
 	err1 := repo.BulkRestoreStock(ctx, checkoutID)
@@ -123,17 +150,28 @@ func TestRestoreStockBulk_CalledTwice_OnlyRestoresOnce(t *testing.T) {
 	assert.NoError(t, err1)
 	assert.NoError(t, err2)
 
-	product := fetchProduct(t, db, 1)
+	product := fetchProduct(t, testDB, int64(id))
 	assert.Equal(t, 10, product.Stock, "product 1 stock must back to 10")
 }
 
 func TestDecreaseStockBulk_ConcurrentOverlappingCheckouts(t *testing.T) {
 	ctx := context.Background()
-	db := setupMongoContainer(t)
-	repo := NewProductRepository(db)
+	repo := NewProductRepository(testDB)
 
-	seedProduct(t, db, 1, 10)
-	seedProduct(t, db, 2, 10)
+	id1 := seedProduct(t, testDB, 10)
+	id2 := seedProduct(t, testDB, 10)
+
+	t.Cleanup(func() {
+		filter := bson.M{
+			"_id": bson.M{
+				"$in": []int64{int64(id1), int64(id2)},
+			},
+		}
+		_, err := testDB.Collection("products").DeleteMany(ctx, filter)
+		if err != nil {
+			t.Logf("cleanup failed: failed to delete test products: %v", err)
+		}
+	})
 
 	startSignal := make(chan struct{})
 
@@ -142,8 +180,8 @@ func TestDecreaseStockBulk_ConcurrentOverlappingCheckouts(t *testing.T) {
 	g.Go(func() error {
 		<-startSignal
 		items := []entity.BulkDecreaseStock{
-			{ProductID: 1, Quantity: 3},
-			{ProductID: 2, Quantity: 4},
+			{ProductID: id1, Quantity: 3},
+			{ProductID: id2, Quantity: 4},
 		}
 		err := repo.BulkDecreaseStock(ctx, "checkout-A", items)
 		return err
@@ -152,8 +190,8 @@ func TestDecreaseStockBulk_ConcurrentOverlappingCheckouts(t *testing.T) {
 	g.Go(func() error {
 		<-startSignal
 		items := []entity.BulkDecreaseStock{
-			{ProductID: 2, Quantity: 2},
-			{ProductID: 1, Quantity: 1},
+			{ProductID: id2, Quantity: 2},
+			{ProductID: id1, Quantity: 1},
 		}
 		err := repo.BulkDecreaseStock(ctx, "checkout-B", items)
 		return err
@@ -164,8 +202,8 @@ func TestDecreaseStockBulk_ConcurrentOverlappingCheckouts(t *testing.T) {
 	err := g.Wait()
 	assert.NoError(t, err)
 
-	p1 := fetchProduct(t, db, 1)
-	p2 := fetchProduct(t, db, 2)
+	p1 := fetchProduct(t, testDB, int64(id1))
+	p2 := fetchProduct(t, testDB, int64(id2))
 
 	assert.Equal(t, 6, p1.Stock, "produk 1 stok harus berkurang total 4 (10 - 3 - 1)")
 	assert.Equal(t, 4, p2.Stock, "produk 2 stok harus berkurang total 6 (10 - 4 - 2)")
