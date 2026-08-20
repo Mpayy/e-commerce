@@ -55,7 +55,10 @@ func (r *CategoryRepositoryImpl) FindAll(ctx context.Context) ([]entity.Category
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close(ctx)
+
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
 
 	var models []model.CategoryModel
 	if err := cursor.All(ctx, &models); err != nil {

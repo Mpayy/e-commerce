@@ -55,17 +55,23 @@ func (c *OrderCreatedConsumerImpl) Start(ctx context.Context) error {
 			var event dto.OrderCreatedEvent
 			if err := json.Unmarshal(msg.Body, &event); err != nil {
 				c.log.WithError(err).Error("failed to parse event, message discarded")
-				msg.Nack(false, false)
+				if err := msg.Nack(false, false); err != nil {
+					c.log.WithError(err).Error("failed to nack message on parse event")
+				}
 				continue
 			}
 
 			if err := c.usecase.HandleOrderCreated(ctx, event); err != nil {
 				c.log.WithError(err).Error("event processing failed, it will be requeued")
-				msg.Nack(false, true)
+				if err := msg.Nack(false, true); err != nil {
+					c.log.WithError(err).Error("failed to nack message on event processing")
+				}
 				continue
 			}
 
-			msg.Ack(false)
+			if err := msg.Ack(false); err != nil {
+				c.log.WithError(err).Error("failed to ack message")
+			}
 		}
 	}
 }

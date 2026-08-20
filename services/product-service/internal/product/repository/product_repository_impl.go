@@ -113,7 +113,9 @@ func (r *ProductRepositoryImpl) FindByIDs(ctx context.Context, ids []uint) ([]en
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close(ctx)
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
 
 	if err := cursor.All(ctx, &models); err != nil {
 		return nil, err
@@ -179,7 +181,9 @@ func (r *ProductRepositoryImpl) FindAll(ctx context.Context, filter *entity.Prod
 	if err != nil {
 		return nil, 0, err
 	}
-	defer cursor.Close(ctx)
+	defer func() {
+		_ = cursor.Close(ctx)
+	}()
 
 	if err := cursor.All(ctx, &models); err != nil {
 		return nil, 0, err
