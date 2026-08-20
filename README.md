@@ -4,6 +4,12 @@
 
 ### Go · Gin · GORM · PostgreSQL · MongoDB · Redis · gRPC · RabbitMQ · JWT · Docker
 
+[![CI Pipeline](https://img.shields.io/github/actions/workflow/status/Mpayy/e-commerce/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=CI%20Pipeline)](https://github.com/Mpayy/e-commerce/actions/workflows/ci.yml)
+[![Status](https://img.shields.io/badge/Status-In%20Development-orange?style=for-the-badge)]()
+[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
+
+<br />
+
 [![Go Version](https://img.shields.io/badge/Go-1.26.4-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)
 [![Gin Framework](https://img.shields.io/badge/Gin-v1.12.0-00ACD7?style=for-the-badge&logo=go&logoColor=white)](https://github.com/gin-gonic/gin)
 [![GORM](https://img.shields.io/badge/GORM-v1.31.2-E10098?style=for-the-badge)](https://gorm.io/)
@@ -14,8 +20,6 @@
 [![RabbitMQ](https://img.shields.io/badge/RabbitMQ-4-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)](https://www.rabbitmq.com/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docs.docker.com/compose/)
 [![Swagger](https://img.shields.io/badge/Swagger-OpenAPI-85EA2D?style=for-the-badge&logo=swagger&logoColor=black)](http://localhost:8081/swagger/index.html)
-[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
-[![Status](https://img.shields.io/badge/Status-In%20Development-orange?style=for-the-badge)]()</p>
 
 <p align="center">
   <em>A hybrid monorepo e-commerce backend: a Go monolith (User/Cart/Order) communicating with independently deployed microservices (Product Catalog, Notification Consumer) via gRPC and RabbitMQ.<br>
