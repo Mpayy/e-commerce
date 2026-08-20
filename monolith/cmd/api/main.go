@@ -14,9 +14,9 @@ import (
 	"github.com/Mpayy/e-commerce/monolith/database/seeder"
 )
 
-// @title           E-Commerce API
+// @title           E-Commerce Monolith API
 // @version         1.0
-// @description     Modular monolith e-commerce backend built with Go, Gin, GORM, and Redis.
+// @description     User authentication, shopping cart, and checkout service — part of a microservices e-commerce system. Backed by PostgreSQL and Redis. Product and category data is resolved via gRPC calls to a separate Product Service (see :8081/swagger/index.html); successful checkouts publish an order.created event to RabbitMQ for async notification handling.
 // @host            localhost:8080
 // @BasePath        /api/v1
 // @securitydefinitions.apikey BearerAuth
