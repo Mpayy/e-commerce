@@ -14,12 +14,8 @@ import (
 	productrepository "github.com/Mpayy/e-commerce/monolith/internal/product/repository"
 	productusecase "github.com/Mpayy/e-commerce/monolith/internal/product/usecase"
 	"github.com/Mpayy/e-commerce/monolith/internal/routes"
-	userhttp "github.com/Mpayy/e-commerce/monolith/internal/user/delivery/http"
-	userrepository "github.com/Mpayy/e-commerce/monolith/internal/user/repository"
-	userusecase "github.com/Mpayy/e-commerce/monolith/internal/user/usecase"
 	"github.com/Mpayy/e-commerce/pkg/cache"
 	"github.com/Mpayy/e-commerce/pkg/config"
-	"github.com/Mpayy/e-commerce/pkg/database"
 	"github.com/Mpayy/e-commerce/pkg/engine"
 	"github.com/Mpayy/e-commerce/pkg/jwt"
 	"github.com/Mpayy/e-commerce/pkg/logger"
@@ -29,14 +25,6 @@ import (
 	"github.com/Mpayy/e-commerce/pkg/validator"
 	productv1 "github.com/Mpayy/e-commerce/proto/product/v1"
 	"github.com/google/wire"
-)
-
-var userSet = wire.NewSet(
-	userrepository.NewUserRedisRepository,
-	wire.Bind(new(middleware.SessionChecker), new(userrepository.UserRedisRepository)),
-	userrepository.NewUserRepository,
-	userusecase.NewUserUsecase,
-	userhttp.NewUserHandler,
 )
 
 var productSet = wire.NewSet(
@@ -60,16 +48,22 @@ var orderSet = wire.NewSet(
 	orderhttp.NewOrderHandler,
 )
 
+var middlewareSet = wire.NewSet(
+	middleware.NewRedisSessionChecker,
+	wire.Bind(new(middleware.SessionChecker), new(*middleware.RedisSessionChecker)),
+	middleware.NewAuthMiddleware,
+)
+
 var InfrastructureSet = wire.NewSet(
 	config.Load,
 	logger.NewLogger,
 	validator.NewValidator,
 	cache.NewRedisCli,
 	engine.NewGin,
-	database.NewPostgresDB,
 	messaging.NewRabbitMQConn,
 	dependency.NewGormDB,
 	dependency.NewRabbitMQChannel,
+	dependency.NewPostgresPool,
 	dependency.NewProductServiceConn,
 	productv1.NewProductServiceClient,
 )
@@ -77,11 +71,10 @@ var InfrastructureSet = wire.NewSet(
 func InitializeApp() (*dependency.App, func(), error) {
 	wire.Build(
 		InfrastructureSet,
-		userSet,
 		productSet,
 		cartSet,
 		orderSet,
-		middleware.NewAuthMiddleware,
+		middlewareSet,
 		routes.NewRouter,
 		jwt.NewJwtToken,
 		transaction.NewTransaction,

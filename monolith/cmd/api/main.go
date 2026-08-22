@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,8 +9,6 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-
-	"github.com/Mpayy/e-commerce/monolith/database/seeder"
 )
 
 // @title           E-Commerce Monolith API
@@ -27,9 +24,6 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	shouldSeed := flag.Bool("seed", false, "Run database seeder if value is true")
-	flag.Parse()
-
 	app, cleanup, err := InitializeApp()
 	if err != nil {
 		log.Fatalf("Failed to initialize API: %v", err)
@@ -38,12 +32,6 @@ func main() {
 
 	cfg := app.Cfg
 	logger := app.Log
-
-	if *shouldSeed {
-		seeder.RunSeeder(logger, app.DB)
-		logger.Info("Server is shutting down after seeding completed.")
-		return
-	}
 
 	engine := app.Router.SetupRouter()
 

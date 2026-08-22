@@ -9,20 +9,16 @@ package main
 import (
 	"github.com/Mpayy/e-commerce/monolith/dependency"
 	"github.com/Mpayy/e-commerce/monolith/internal/cart/delivery/http"
-	repository3 "github.com/Mpayy/e-commerce/monolith/internal/cart/repository"
-	usecase2 "github.com/Mpayy/e-commerce/monolith/internal/cart/usecase"
+	repository2 "github.com/Mpayy/e-commerce/monolith/internal/cart/repository"
+	"github.com/Mpayy/e-commerce/monolith/internal/cart/usecase"
 	"github.com/Mpayy/e-commerce/monolith/internal/order/delivery/http"
-	repository2 "github.com/Mpayy/e-commerce/monolith/internal/order/repository"
-	usecase3 "github.com/Mpayy/e-commerce/monolith/internal/order/usecase"
+	"github.com/Mpayy/e-commerce/monolith/internal/order/repository"
+	usecase2 "github.com/Mpayy/e-commerce/monolith/internal/order/usecase"
 	"github.com/Mpayy/e-commerce/monolith/internal/product/repository"
-	usecase4 "github.com/Mpayy/e-commerce/monolith/internal/product/usecase"
+	usecase3 "github.com/Mpayy/e-commerce/monolith/internal/product/usecase"
 	"github.com/Mpayy/e-commerce/monolith/internal/routes"
-	"github.com/Mpayy/e-commerce/monolith/internal/user/delivery/http"
-	"github.com/Mpayy/e-commerce/monolith/internal/user/repository"
-	"github.com/Mpayy/e-commerce/monolith/internal/user/usecase"
 	"github.com/Mpayy/e-commerce/pkg/cache"
 	"github.com/Mpayy/e-commerce/pkg/config"
-	"github.com/Mpayy/e-commerce/pkg/database"
 	"github.com/Mpayy/e-commerce/pkg/engine"
 	"github.com/Mpayy/e-commerce/pkg/jwt"
 	"github.com/Mpayy/e-commerce/pkg/logger"
@@ -42,9 +38,9 @@ func InitializeApp() (*dependency.App, func(), error) {
 	ginEngine := engine.NewGin(configConfig, loggerLogger)
 	jwtToken := jwt.NewJwtToken(configConfig)
 	client, cleanup := cache.NewRedisCli(configConfig, loggerLogger)
-	userRedisRepository := repository.NewUserRedisRepository(client)
-	authMiddleware := middleware.NewAuthMiddleware(jwtToken, userRedisRepository, loggerLogger)
-	pool, cleanup2, err := database.NewPostgresDB(configConfig, loggerLogger)
+	redisSessionChecker := middleware.NewRedisSessionChecker(client)
+	authMiddleware := middleware.NewAuthMiddleware(jwtToken, redisSessionChecker, loggerLogger)
+	pool, cleanup2, err := dependency.NewPostgresPool(configConfig, loggerLogger)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
@@ -55,13 +51,9 @@ func InitializeApp() (*dependency.App, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
-	userRepository := repository.NewUserRepository(db)
+	orderRepository := repository.NewOrderRepository(db)
 	transactionTransaction := transaction.NewTransaction(db)
-	userUsecase := usecase.NewUserUsecase(userRepository, userRedisRepository, transactionTransaction, loggerLogger, jwtToken)
-	validate := validator.NewValidator()
-	userHandler := http.NewUserHandler(userUsecase, validate)
-	orderRepository := repository2.NewOrderRepository(db)
-	cartRedisRepository := repository3.NewCartRedisRepository(client)
+	cartRedisRepository := repository2.NewCartRedisRepository(client)
 	clientConn, cleanup3, err := dependency.NewProductServiceConn(configConfig, loggerLogger)
 	if err != nil {
 		cleanup2()
@@ -69,7 +61,7 @@ func InitializeApp() (*dependency.App, func(), error) {
 		return nil, nil, err
 	}
 	productGRPCClient := productclient.NewProductGRPCClient(clientConn)
-	cartUsecaseImpl := usecase2.NewCartUsecase(cartRedisRepository, productGRPCClient, loggerLogger)
+	cartUsecaseImpl := usecase.NewCartUsecase(cartRedisRepository, productGRPCClient, loggerLogger)
 	channel, cleanup4, err := dependency.NewRabbitMQChannel(configConfig, loggerLogger)
 	if err != nil {
 		cleanup3()
@@ -77,11 +69,12 @@ func InitializeApp() (*dependency.App, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
-	notificationEventPublisher := repository2.NewNotificationEventPublisher(channel)
-	orderUsecase := usecase3.NewOrderUsecase(orderRepository, transactionTransaction, loggerLogger, cartUsecaseImpl, productGRPCClient, notificationEventPublisher)
+	notificationEventPublisher := repository.NewNotificationEventPublisher(channel)
+	orderUsecase := usecase2.NewOrderUsecase(orderRepository, transactionTransaction, loggerLogger, cartUsecaseImpl, productGRPCClient, notificationEventPublisher)
 	orderHandler := orderhttp.NewOrderHandler(orderUsecase, loggerLogger)
+	validate := validator.NewValidator()
 	cartHandler := carthttp.NewCartHandler(cartUsecaseImpl, cartUsecaseImpl, validate)
-	router := routes.NewRouter(ginEngine, authMiddleware, userHandler, orderHandler, cartHandler, loggerLogger)
+	router := routes.NewRouter(ginEngine, authMiddleware, orderHandler, cartHandler, loggerLogger)
 	app := dependency.NewApp(router, db, configConfig, loggerLogger, channel)
 	return app, func() {
 		cleanup4()
@@ -93,12 +86,12 @@ func InitializeApp() (*dependency.App, func(), error) {
 
 // wire.go:
 
-var userSet = wire.NewSet(repository.NewUserRedisRepository, wire.Bind(new(middleware.SessionChecker), new(repository.UserRedisRepository)), repository.NewUserRepository, usecase.NewUserUsecase, http.NewUserHandler)
+var productSet = wire.NewSet(productclient.NewProductGRPCClient, wire.Bind(new(usecase3.ProductService), new(*productclient.ProductGRPCClient)))
 
-var productSet = wire.NewSet(productclient.NewProductGRPCClient, wire.Bind(new(usecase4.ProductService), new(*productclient.ProductGRPCClient)))
+var cartSet = wire.NewSet(repository2.NewCartRedisRepository, usecase.NewCartUsecase, wire.Bind(new(usecase.CartService), new(*usecase.CartUsecaseImpl)), wire.Bind(new(usecase.CartUsecase), new(*usecase.CartUsecaseImpl)), carthttp.NewCartHandler)
 
-var cartSet = wire.NewSet(repository3.NewCartRedisRepository, usecase2.NewCartUsecase, wire.Bind(new(usecase2.CartService), new(*usecase2.CartUsecaseImpl)), wire.Bind(new(usecase2.CartUsecase), new(*usecase2.CartUsecaseImpl)), carthttp.NewCartHandler)
+var orderSet = wire.NewSet(repository.NewOrderRepository, repository.NewNotificationEventPublisher, wire.Bind(new(usecase2.EventPublisher), new(*repository.NotificationEventPublisher)), usecase2.NewOrderUsecase, orderhttp.NewOrderHandler)
 
-var orderSet = wire.NewSet(repository2.NewOrderRepository, repository2.NewNotificationEventPublisher, wire.Bind(new(usecase3.EventPublisher), new(*repository2.NotificationEventPublisher)), usecase3.NewOrderUsecase, orderhttp.NewOrderHandler)
+var middlewareSet = wire.NewSet(middleware.NewRedisSessionChecker, wire.Bind(new(middleware.SessionChecker), new(*middleware.RedisSessionChecker)), middleware.NewAuthMiddleware)
 
-var InfrastructureSet = wire.NewSet(config.Load, logger.NewLogger, validator.NewValidator, cache.NewRedisCli, engine.NewGin, database.NewPostgresDB, messaging.NewRabbitMQConn, dependency.NewGormDB, dependency.NewRabbitMQChannel, dependency.NewProductServiceConn, productv1.NewProductServiceClient)
+var InfrastructureSet = wire.NewSet(config.Load, logger.NewLogger, validator.NewValidator, cache.NewRedisCli, engine.NewGin, messaging.NewRabbitMQConn, dependency.NewGormDB, dependency.NewRabbitMQChannel, dependency.NewPostgresPool, dependency.NewProductServiceConn, productv1.NewProductServiceClient)

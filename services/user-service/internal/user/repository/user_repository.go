@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"github.com/Mpayy/e-commerce/monolith/internal/user/entity"
+	"github.com/Mpayy/e-commerce/services/user-service/internal/user/entity"
 )
 
 //go:generate mockery

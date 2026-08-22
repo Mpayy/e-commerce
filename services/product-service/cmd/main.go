@@ -17,6 +17,7 @@ import (
 	"github.com/Mpayy/e-commerce/pkg/jwt"
 	"github.com/Mpayy/e-commerce/pkg/logger"
 	"github.com/Mpayy/e-commerce/pkg/middleware"
+	"github.com/Mpayy/e-commerce/pkg/validator"
 	productv1 "github.com/Mpayy/e-commerce/proto/product/v1"
 	_ "github.com/Mpayy/e-commerce/services/product-service/docs"
 	productgrpc "github.com/Mpayy/e-commerce/services/product-service/internal/product/delivery/grpc"
@@ -24,7 +25,6 @@ import (
 	"github.com/Mpayy/e-commerce/services/product-service/internal/product/repository"
 	"github.com/Mpayy/e-commerce/services/product-service/internal/product/usecase"
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"google.golang.org/grpc"
@@ -71,6 +71,7 @@ func main() {
 	cfg := config.Load()
 	log := logger.NewLogger(cfg)
 	jwtToken := jwt.NewJwtToken(cfg)
+	validator := validator.NewValidator()
 	engine := engine.NewGin(cfg, log)
 	rdb, rdbCleanup := cache.NewRedisCli(cfg, log)
 	defer rdbCleanup()
@@ -87,10 +88,8 @@ func main() {
 
 	categoryRepo := repository.NewCategoryRepository(db)
 	productRepo := repository.NewProductRepository(db)
-	sessionRepo := repository.NewSessionRepository(rdb)
 	categoryUsecase := usecase.NewCategoryUsecase(categoryRepo, log)
 	productUsecase := usecase.NewProductUsecase(productRepo, categoryUsecase, log)
-	validator := validator.New()
 	categoryHandler := producthttp.NewCategoryHandler(categoryUsecase, validator)
 	productHandler := producthttp.NewProductHandler(productUsecase, validator)
 
@@ -110,7 +109,8 @@ func main() {
 		}
 	}()
 
-	authMiddleware := middleware.NewAuthMiddleware(jwtToken, sessionRepo, log)
+	sessionChecker := middleware.NewRedisSessionChecker(rdb)
+	authMiddleware := middleware.NewAuthMiddleware(jwtToken, sessionChecker, log)
 	router := setupRouter(engine, categoryHandler, productHandler, authMiddleware)
 	srv := &http.Server{
 		Addr:    ":8081",

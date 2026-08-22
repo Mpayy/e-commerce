@@ -7,7 +7,7 @@ package mocks
 import (
 	"context"
 
-	"github.com/Mpayy/e-commerce/monolith/internal/user/entity"
+	"github.com/Mpayy/e-commerce/services/user-service/internal/user/entity"
 	mock "github.com/stretchr/testify/mock"
 )
 

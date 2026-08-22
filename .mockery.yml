@@ -2,7 +2,7 @@ all: false
 pkgname: "mocks"
 
 packages:
-  github.com/Mpayy/e-commerce/monolith/internal/user/repository:
+  github.com/Mpayy/e-commerce/services/user-service/internal/user/repository:
   github.com/Mpayy/e-commerce/services/product-service/internal/product/repository:
   github.com/Mpayy/e-commerce/services/product-service/internal/product/usecase:
   github.com/Mpayy/e-commerce/monolith/internal/cart/usecase:

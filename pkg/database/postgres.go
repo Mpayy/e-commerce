@@ -10,11 +10,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func NewPostgresDB(cfg *config.Config, log *logger.Logger) (*pgxpool.Pool, func(), error) {
+func NewPostgresDB(name string, cfg *config.Config, log *logger.Logger) (*pgxpool.Pool, func(), error) {
 	host := cfg.DatabaseHost
 	user := cfg.DatabaseUsername
 	password := cfg.DatabasePassword
-	dbname := cfg.DatabaseName
+	dbname := name
 	port := cfg.DatabasePort
 	sslmode := cfg.DatabaseSSLMode
 

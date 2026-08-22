@@ -14,13 +14,13 @@ type Config struct {
 	AppEnv   string `mapstructure:"APP_ENV"`
 	LogLevel string `mapstructure:"LOG_LEVEL"`
 
-	// Relational Database Configuration (Postgres / MySQL)
 	DatabaseHost     string `mapstructure:"DATABASE_HOST"`
 	DatabasePort     string `mapstructure:"DATABASE_PORT"`
-	DatabaseName     string `mapstructure:"DATABASE_NAME"`
+	DatabaseName string `mapstructure:"DATABASE_NAME"`
 	DatabaseUsername string `mapstructure:"DATABASE_USERNAME"`
 	DatabasePassword string `mapstructure:"DATABASE_PASSWORD"`
-	DatabaseSSLMode  string `mapstructure:"DATABASE_SSL_MODE"`
+	DatabaseSSLMode  string `mapstructure:"DATABASE_SSLMODE"`
+
 
 	// Redis Configuration
 	RedisHost       string `mapstructure:"REDIS_HOST"`
@@ -61,7 +61,8 @@ func Load() *Config {
 	v.SetDefault("DATABASE_NAME", "ecommerce")
 	v.SetDefault("DATABASE_USERNAME", "postgres")
 	v.SetDefault("DATABASE_PASSWORD", "postgres")
-	v.SetDefault("DATABASE_SSL_MODE", "disable")
+	v.SetDefault("DATABASE_SSLMODE", "disable")
+	
 
 	v.SetDefault("REDIS_HOST", "localhost")
 	v.SetDefault("REDIS_PORT", "6379")

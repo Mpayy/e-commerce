@@ -9,7 +9,8 @@ services:
       - "8080:8080"
     env_file: [.env]
     environment:
-      DATABASE_HOST: postgres 
+      DATABASE_HOST: postgres
+      DATABASE_NAME: ecommerce_db
       REDIS_HOST: redis
       PRODUCT_SERVICE_ADDR: ecommerce-product-service:50051
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
@@ -21,6 +22,8 @@ services:
       product-service:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      user-service:
         condition: service_healthy
     networks:
       - ecommerce-network
@@ -47,10 +50,37 @@ services:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8081/health || exit 1"]
-      interval: 5s
+      interval: 30s
       timeout: 3s
       retries: 5
-      start_period: 30s
+      start_period: 15s
+    networks:
+      - ecommerce-network
+
+  user-service:
+    build:
+      context: .
+      dockerfile: ./services/user-service/Dockerfile
+    container_name: ecommerce-user-service
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    env_file: [.env]
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_NAME: user_db
+      REDIS_HOST: redis
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8082/health || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
     networks:
       - ecommerce-network
 
@@ -62,7 +92,8 @@ services:
     restart: unless-stopped
     env_file: [.env]
     environment:
-      DATABASE_HOST: postgres 
+      DATABASE_HOST: postgres
+      DATABASE_NAME: notification_db
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/ 
     depends_on:
       rabbitmq:
@@ -80,13 +111,13 @@ services:
     environment:
       POSTGRES_USER: postgres 
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: ecommerce     
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-multiple-postgres-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d ecommerce"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
