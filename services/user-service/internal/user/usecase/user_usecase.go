@@ -3,7 +3,7 @@ package usecase
 import (
 	"context"
 
-	"github.com/Mpayy/e-commerce/monolith/internal/user/dto"
+	"github.com/Mpayy/e-commerce/services/user-service/internal/user/dto"
 )
 
 type UserUsecase interface {

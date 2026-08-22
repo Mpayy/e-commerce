@@ -1,8 +1,23 @@
-migrate-up:
-	migrate -path monolith/database/migration -database "postgres://postgres:postgres@127.0.0.1:5432/ecommerce?sslmode=disable&x-multi-statement=true" up
+migrate-up-monolith:
+	migrate -path monolith/database/migration -database "postgres://postgres:postgres@127.0.0.1:5432/ecommerce_db?sslmode=disable&x-multi-statement=true" up
 
-migrate-down:
-	migrate -path monolith/database/migration -database "postgres://postgres:postgres@127.0.0.1:5432/ecommerce?sslmode=disable&x-multi-statement=true" down
+migrate-down-monolith:
+	migrate -path monolith/database/migration -database "postgres://postgres:postgres@127.0.0.1:5432/ecommerce_db?sslmode=disable&x-multi-statement=true" down
+
+migrate-up-notification:
+	migrate -path services/notification-consumer/database/migration -database "postgres://postgres:postgres@127.0.0.1:5432/notification_db?sslmode=disable&x-multi-statement=true" up
+
+migrate-down-notification:
+	migrate -path services/notification-consumer/database/migration -database "postgres://postgres:postgres@127.0.0.1:5432/notification_db?sslmode=disable&x-multi-statement=true" down
+
+migrate-up-user:
+	migrate -path services/user-service/database/migration -database "postgres://postgres:postgres@127.0.0.1:5432/user_db?sslmode=disable&x-multi-statement=true" up
+
+migrate-down-user:
+	migrate -path services/user-service/database/migration -database "postgres://postgres:postgres@127.0.0.1:5432/user_db?sslmode=disable&x-multi-statement=true" down
+
+seeder:
+	docker compose exec user-service ./main --seed
 
 mock:
 	go generate ./...
@@ -14,6 +29,14 @@ product-proto:
 	   
 swag-product:
 	cd services/product-service && swag init \
+		-g cmd/main.go \
+		-d ./,../../pkg \
+		--output docs \
+		--parseDependency \
+		--parseInternal
+
+swag-user:
+	cd services/user-service && swag init \
 		-g cmd/main.go \
 		-d ./,../../pkg \
 		--output docs \
@@ -35,3 +58,12 @@ test-integration:
 	go test -v -race -tags=integration ./services/product-service/internal/product/repository/... 
 
 test-all: test-unit test-integration
+
+postgres-docker:
+	docker exec -it ecommerce-postgres psql -U postgres
+
+mongo-docker:
+	docker exec -it ecommerce-mongo mongosh
+
+redis-docker:
+	docker exec -it ecommerce-redis redis-cli

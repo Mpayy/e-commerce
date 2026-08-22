@@ -6,31 +6,28 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Mpayy/e-commerce/monolith/internal/user/dto"
-	"github.com/Mpayy/e-commerce/monolith/internal/user/entity"
-	"github.com/Mpayy/e-commerce/monolith/internal/user/repository"
 	"github.com/Mpayy/e-commerce/pkg/apperror"
 	"github.com/Mpayy/e-commerce/pkg/jwt"
 	"github.com/Mpayy/e-commerce/pkg/logger"
-	"github.com/Mpayy/e-commerce/pkg/transaction"
+	"github.com/Mpayy/e-commerce/services/user-service/internal/user/dto"
+	"github.com/Mpayy/e-commerce/services/user-service/internal/user/entity"
+	"github.com/Mpayy/e-commerce/services/user-service/internal/user/repository"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserUsecaseImpl struct {
 	userRepository      repository.UserRepository
 	userRedisRepository repository.UserRedisRepository
-	transaction         transaction.Transaction
 	log                 *logger.Logger
-	jwtToken            jwt.JwtToken
+	jwt                 jwt.JwtToken
 }
 
-func NewUserUsecase(userRepo repository.UserRepository, userRedisRepo repository.UserRedisRepository, tx transaction.Transaction, log *logger.Logger, jwt jwt.JwtToken) UserUsecase {
+func NewUserUsecase(userRepo repository.UserRepository, userRedisRepo repository.UserRedisRepository, log *logger.Logger, jwt jwt.JwtToken) UserUsecase {
 	return &UserUsecaseImpl{
 		userRepository:      userRepo,
 		userRedisRepository: userRedisRepo,
-		transaction:         tx,
 		log:                 log,
-		jwtToken:            jwt,
+		jwt:                 jwt,
 	}
 }
 
@@ -89,7 +86,7 @@ func (u *UserUsecaseImpl) Login(ctx context.Context, request *dto.UserLoginReque
 		Role: user.Role,
 	}
 
-	token, err := u.jwtToken.Create(auth)
+	token, err := u.jwt.Create(auth)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create token: %w", err)
 	}
@@ -140,8 +137,7 @@ func (u *UserUsecaseImpl) Logout(ctx context.Context, token string) error {
 
 	err := u.userRedisRepository.DeleteSession(ctx, token)
 	if err != nil {
-		log.WithError(err).Error("Failed to delete token from redis")
-		return apperror.ErrInternalServer
+		return fmt.Errorf("failed to delete session: %w", err)
 	}
 
 	log.Info("User logged out successfully")

@@ -3,11 +3,11 @@ package http
 import (
 	"net/http"
 
-	"github.com/Mpayy/e-commerce/monolith/internal/user/dto"
-	"github.com/Mpayy/e-commerce/monolith/internal/user/usecase"
 	"github.com/Mpayy/e-commerce/pkg/apperror"
 	"github.com/Mpayy/e-commerce/pkg/middleware"
 	"github.com/Mpayy/e-commerce/pkg/response"
+	"github.com/Mpayy/e-commerce/services/user-service/internal/user/dto"
+	"github.com/Mpayy/e-commerce/services/user-service/internal/user/usecase"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 )

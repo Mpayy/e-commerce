@@ -11,5 +11,4 @@ import (
 type UserRedisRepository interface {
 	SaveSession(ctx context.Context, token string, authData []byte, ttl time.Duration) error
 	DeleteSession(ctx context.Context, token string) error
-	SessionExists(ctx context.Context, token string) (bool, error)
 }
