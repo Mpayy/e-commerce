@@ -27,7 +27,12 @@ func (r *OrderRepositoryImpl) CreateOrderWithItems(ctx context.Context, order *e
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+	}()
 
 	qtx := r.queries.WithTx(tx)
 
