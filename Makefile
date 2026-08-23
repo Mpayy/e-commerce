@@ -16,6 +16,12 @@ migrate-up-user:
 migrate-down-user:
 	migrate -path services/user-service/database/migration -database "postgres://postgres:postgres@127.0.0.1:5432/user_db?sslmode=disable&x-multi-statement=true" down
 
+migrate-up-order:
+	migrate -path services/order-service/database/migration -database "postgres://postgres:postgres@127.0.0.1:5432/order_db?sslmode=disable&x-multi-statement=true" up
+
+migrate-down-order:
+	migrate -path services/order-service/database/migration -database "postgres://postgres:postgres@127.0.0.1:5432/order_db?sslmode=disable&x-multi-statement=true" down
+
 seeder:
 	docker compose exec user-service ./main --seed
 

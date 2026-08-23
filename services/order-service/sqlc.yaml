@@ -1,0 +1,15 @@
+version: "2"
+overrides:
+  go:
+    overrides:
+      - db_type: "pg_catalog.numeric"
+        go_type: "float64"
+sql:
+  - engine: "postgresql"
+    queries: "database/query"
+    schema: "database/migration"
+    gen:
+      go:
+        package: "sqlc"
+        out: "internal/order/repository/sqlc"
+        sql_package: "pgx/v5"
