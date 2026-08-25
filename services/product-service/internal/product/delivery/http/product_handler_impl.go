@@ -30,12 +30,12 @@ func NewProductHandler(productUsecase usecase.ProductUsecase, validator *validat
 // @Security     BearerAuth
 // @Param        request body dto.ProductCreateRequest true "Product payload"
 // @Success      201 {object} response.SuccessResponse{data=dto.ProductResponse}
-// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "Validation error"
-// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "Unauthorized"
-// @Failure      403 {object} response.ErrorResponse{error=apperror.AppError} "Forbidden — admin role required"
-// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "Category not found"
-// @Failure      409 {object} response.ErrorResponse{error=apperror.AppError} "Conflict (duplicate slug or SKU)"
-// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "Internal server error"
+// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "BAD_REQUEST / VALIDATION_FAILED"
+// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "UNAUTHORIZED"
+// @Failure      403 {object} response.ErrorResponse{error=apperror.AppError} "FORBIDDEN"
+// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "CATEGORY_NOT_FOUND"
+// @Failure      409 {object} response.ErrorResponse{error=apperror.AppError} "DUPLICATED_PRODUCT / DUPLICATED_PRODUCT_SKU"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
 // @Router       /admin/products [post]
 func (h *ProductHandlerImpl) Create(ctx *gin.Context) {
 	var request dto.ProductCreateRequest
@@ -69,12 +69,12 @@ func (h *ProductHandlerImpl) Create(ctx *gin.Context) {
 // @Param        product_id path int true "Product ID"
 // @Param        request body dto.ProductUpdateRequest true "Product payload"
 // @Success      200 {object} response.SuccessResponse{data=dto.ProductResponse}
-// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "Validation error"
-// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "Unauthorized"
-// @Failure      403 {object} response.ErrorResponse{error=apperror.AppError} "Forbidden — admin role required"
-// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "Not Found (Product or Category not found)"
-// @Failure      409 {object} response.ErrorResponse{error=apperror.AppError} "Conflict (duplicate slug or SKU)"
-// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "Internal server error"
+// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "BAD_REQUEST / VALIDATION_FAILED"
+// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "UNAUTHORIZED"
+// @Failure      403 {object} response.ErrorResponse{error=apperror.AppError} "FORBIDDEN"
+// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "PRODUCT_NOT_FOUND / CATEGORY_NOT_FOUND"
+// @Failure      409 {object} response.ErrorResponse{error=apperror.AppError} "DUPLICATED_PRODUCT / DUPLICATED_PRODUCT_SKU"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
 // @Router       /admin/products/{product_id} [put]
 func (h *ProductHandlerImpl) Update(ctx *gin.Context) {
 	var request dto.ProductUpdateRequest
@@ -119,11 +119,11 @@ func (h *ProductHandlerImpl) Update(ctx *gin.Context) {
 // @Produce      json
 // @Param        product_id path int true "Product ID"
 // @Success      200 {object} response.SuccessResponse "Product deleted successfully"
-// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "Invalid product ID"
-// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "Unauthorized"
-// @Failure      403 {object} response.ErrorResponse{error=apperror.AppError} "Forbidden — admin role required"
-// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "Product not found"
-// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "Internal server error"
+// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "BAD_REQUEST"
+// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "UNAUTHORIZED"
+// @Failure      403 {object} response.ErrorResponse{error=apperror.AppError} "FORBIDDEN"
+// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "PRODUCT_NOT_FOUND"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
 // @Router       /admin/products/{product_id} [delete]
 func (h *ProductHandlerImpl) Delete(ctx *gin.Context) {
 	productIDParam := ctx.Param("product_id")
@@ -157,11 +157,11 @@ func (h *ProductHandlerImpl) Delete(ctx *gin.Context) {
 // @Param        product_id path int true "Product ID"
 // @Param        request body dto.ProductStockAdjustmentRequest true "Stock adjustment payload"
 // @Success      200 {object} response.SuccessResponse "Product stock adjusted successfully"
-// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "Validation error"
-// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "Unauthorized"
-// @Failure      403 {object} response.ErrorResponse{error=apperror.AppError} "Forbidden — admin role required"
-// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "Product not found"
-// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "Internal server error"
+// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "BAD_REQUEST / VALIDATION_FAILED"
+// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "UNAUTHORIZED"
+// @Failure      403 {object} response.ErrorResponse{error=apperror.AppError} "FORBIDDEN"
+// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "PRODUCT_NOT_FOUND"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
 // @Router       /admin/products/{product_id}/adjust-stock [patch]
 func (h *ProductHandlerImpl) AdjustStock(ctx *gin.Context) {
 	var request dto.ProductStockAdjustmentRequest
@@ -204,9 +204,9 @@ func (h *ProductHandlerImpl) AdjustStock(ctx *gin.Context) {
 // @Produce      json
 // @Param        product_id path int true "Product ID"
 // @Success      200 {object} response.SuccessResponse{data=dto.ProductResponse}
-// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "Invalid product ID"
-// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "Product not found"
-// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "Internal server error"
+// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "BAD_REQUEST"
+// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "PRODUCT_NOT_FOUND"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
 // @Router       /products/{product_id} [get]
 func (h *ProductHandlerImpl) GetByID(ctx *gin.Context) {
 	productIDParam := ctx.Param("product_id")
@@ -240,8 +240,8 @@ func (h *ProductHandlerImpl) GetByID(ctx *gin.Context) {
 // @Param        page        query int    false "Page number" default(1)
 // @Param        limit       query int    false "Items per page" default(10)
 // @Success      200 {object} response.SuccessResponse{data=dto.ProductSearchResponse}
-// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "Validation error"
-// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "Internal server error"
+// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "BAD_REQUEST / VALIDATION_FAILED"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
 // @Router       /products [get]
 func (h *ProductHandlerImpl) Search(ctx *gin.Context) {
 	var request dto.ProductSearchRequest

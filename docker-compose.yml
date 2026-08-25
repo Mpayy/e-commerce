@@ -1,4 +1,33 @@
 services:
+  api-gateway:
+    build:
+      context: .
+      dockerfile: ./services/api-gateway/Dockerfile
+    container_name: ecommerce-api-gateway
+    restart: unless-stopped
+    ports:
+    - "8080:8080"
+    env_file: [.env]
+    environment:
+      USER_SERVICE_ADDR: http://user-service:8082
+      PRODUCT_SERVICE_HTTP_ADDR: http://product-service:8081
+      ORDER_SERVICE_ADDR: http://order-service:8083
+    depends_on:
+      user-service:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks:
+      - ecommerce-network
+
   product-service:
     build:
       context: .
