@@ -48,7 +48,7 @@ func (g *Gateway) Handler() http.Handler {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"success":false,"error":"route not found"}`))
+		_, _ = w.Write([]byte(`{"success":false,"error":"route not found"}`))
 	})
 
 	return handler

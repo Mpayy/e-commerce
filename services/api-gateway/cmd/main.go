@@ -14,7 +14,7 @@ import (
 	"github.com/Mpayy/e-commerce/services/api-gateway/internal/gateway/proxy"
 )
 
-func main()  {
+func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -26,7 +26,7 @@ func main()  {
 		ProductServiceAddr: cfg.ProductServiceHTTPAddr,
 		OrderServiceAddr:   cfg.OrderServiceAddr,
 	}
-	
+
 	gateway, err := proxy.NewGateway(gwConfig.BuildRoutes(targets))
 	if err != nil {
 		log.Fatalf("failed to initialize gateway: %v", err)
@@ -35,7 +35,7 @@ func main()  {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"UP"}`))
+		_, _ = w.Write([]byte(`{"status":"UP"}`))
 	})
 	mux.Handle("/", gateway.Handler())
 
@@ -50,7 +50,12 @@ func main()  {
 
 	<-ctx.Done()
 	log.Info("API Gateway shutting down")
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	srv.Shutdown(shutdownCtx)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Errorf("Server forced to shutdown: %v", err)
+	}
+
+	log.Info("Server exited properly")
 }
