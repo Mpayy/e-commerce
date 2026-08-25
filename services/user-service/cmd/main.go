@@ -19,10 +19,13 @@ import (
 	"github.com/Mpayy/e-commerce/pkg/validator"
 	seeder "github.com/Mpayy/e-commerce/services/user-service/database/seeder"
 	"github.com/Mpayy/e-commerce/services/user-service/dependency"
+	_ "github.com/Mpayy/e-commerce/services/user-service/docs"
 	userhttp "github.com/Mpayy/e-commerce/services/user-service/internal/user/delivery/http"
 	"github.com/Mpayy/e-commerce/services/user-service/internal/user/repository"
 	"github.com/Mpayy/e-commerce/services/user-service/internal/user/usecase"
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 func setupRouter(r *gin.Engine, userHttp userhttp.UserHandler, authMiddleware *middleware.AuthMiddleware) *gin.Engine {
@@ -32,6 +35,7 @@ func setupRouter(r *gin.Engine, userHttp userhttp.UserHandler, authMiddleware *m
 		})
 	})
 
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	api := r.Group("/api/v1")
 	{
 		api.POST("/register", userHttp.Register)
@@ -44,6 +48,16 @@ func setupRouter(r *gin.Engine, userHttp userhttp.UserHandler, authMiddleware *m
 	return r
 }
 
+// @title           User Service API
+// @version         1.0
+// @description     User registration, authentication, and session management. Backed by PostgreSQL (via sqlx) and Redis for JWT session tracking with instant revocation on logout.
+// @host            localhost:8082
+// @BasePath        /api/v1
+
+// @securitydefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()

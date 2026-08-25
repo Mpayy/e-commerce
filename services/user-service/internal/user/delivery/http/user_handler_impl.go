@@ -32,9 +32,9 @@ func NewUserHandler(userUsecase usecase.UserUsecase, validator *validator.Valida
 // @Produce      json
 // @Param        request body dto.UserRegisterRequest true "User payload"
 // @Success      201 {object} response.SuccessResponse{data=dto.UserResponse}
-// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "Validation error"
-// @Failure      409 {object} response.ErrorResponse{error=apperror.AppError} "Email already exists"
-// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "Internal server error"
+// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "BAD_REQUEST / VALIDATION_FAILED"
+// @Failure      409 {object} response.ErrorResponse{error=apperror.AppError} "DUPLICATED_EMAIL"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
 // @Router       /register [post]
 func (h *UserHandlerImpl) Register(ctx *gin.Context) {
 	var request dto.UserRegisterRequest
@@ -65,9 +65,9 @@ func (h *UserHandlerImpl) Register(ctx *gin.Context) {
 // @Produce      json
 // @Param        request body dto.UserLoginRequest true "User payload"
 // @Success      200 {object} response.SuccessResponse{data=dto.TokenResponse}
-// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "Validation error"
-// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "Wrong email or password"
-// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "Internal server error"
+// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "BAD_REQUEST / VALIDATION_FAILED"
+// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "WRONG_EMAIL_OR_PASSWORD"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
 // @Router       /login [post]
 func (h *UserHandlerImpl) Login(ctx *gin.Context) {
 	var request dto.UserLoginRequest
@@ -97,9 +97,9 @@ func (h *UserHandlerImpl) Login(ctx *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Success      200 {object} response.SuccessResponse{data=dto.UserResponse}
-// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "Unauthorized"
-// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "User not found"
-// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "Internal server error"
+// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "UNAUTHORIZED"
+// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "USER_NOT_FOUND"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
 // @Router       /profile [get]
 func (h *UserHandlerImpl) GetProfile(ctx *gin.Context) {
 	auth := middleware.GetAuthUser(ctx)
@@ -123,8 +123,8 @@ func (h *UserHandlerImpl) GetProfile(ctx *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Success      200 {object} response.SuccessResponse "User logged out successfully"
-// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "Unauthorized"
-// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "Internal server error"
+// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "UNAUTHORIZED"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
 // @Router       /logout [post]
 func (h *UserHandlerImpl) Logout(ctx *gin.Context) {
 	token := ctx.GetString("token")

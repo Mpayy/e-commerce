@@ -29,11 +29,11 @@ func NewCategoryHandler(categoryUsecase usecase.CategoryUsecase, validator *vali
 // @Security     BearerAuth
 // @Param        request body dto.CategoryRequest true "Category payload"
 // @Success      201 {object} response.SuccessResponse{data=dto.CategoryResponse}
-// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "Validation error"
-// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "Unauthorized"
-// @Failure      403 {object} response.ErrorResponse{error=apperror.AppError} "Forbidden — admin role required"
-// @Failure      409 {object} response.ErrorResponse{error=apperror.AppError} "Category name already exists"
-// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "Internal server error"
+// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "BAD_REQUEST / VALIDATION_FAILED"
+// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "UNAUTHORIZED"
+// @Failure      403 {object} response.ErrorResponse{error=apperror.AppError} "FORBIDDEN"
+// @Failure      409 {object} response.ErrorResponse{error=apperror.AppError} "DUPLICATED_CATEGORY"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
 // @Router       /admin/categories [post]
 func (h *CategoryHandlerImpl) Create(ctx *gin.Context) {
 	var request dto.CategoryRequest
@@ -63,7 +63,7 @@ func (h *CategoryHandlerImpl) Create(ctx *gin.Context) {
 // @Tags         categories
 // @Produce      json
 // @Success      200 {object} response.SuccessResponse{data=[]dto.CategoryResponse}
-// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "Internal server error"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
 // @Router       /categories [get]
 func (h *CategoryHandlerImpl) GetAll(ctx *gin.Context) {
 	categories, err := h.categoryUsecase.GetAllCategories(ctx.Request.Context())

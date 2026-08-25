@@ -16,11 +16,10 @@ type Config struct {
 
 	DatabaseHost     string `mapstructure:"DATABASE_HOST"`
 	DatabasePort     string `mapstructure:"DATABASE_PORT"`
-	DatabaseName string `mapstructure:"DATABASE_NAME"`
+	DatabaseName     string `mapstructure:"DATABASE_NAME"`
 	DatabaseUsername string `mapstructure:"DATABASE_USERNAME"`
 	DatabasePassword string `mapstructure:"DATABASE_PASSWORD"`
 	DatabaseSSLMode  string `mapstructure:"DATABASE_SSLMODE"`
-
 
 	// Redis Configuration
 	RedisHost       string `mapstructure:"REDIS_HOST"`
@@ -41,6 +40,11 @@ type Config struct {
 
 	// RabbitMQ
 	RabbitMQUrl string `mapstructure:"RABBITMQ_URL"`
+
+	// Gateway
+	UserServiceAddr        string `mapstructure:"USER_SERVICE_ADDR"`
+	ProductServiceHTTPAddr string `mapstructure:"PRODUCT_SERVICE_HTTP_ADDR"`
+	OrderServiceAddr       string `mapstructure:"ORDER_SERVICE_ADDR"`
 }
 
 func Load() *Config {
@@ -50,7 +54,6 @@ func Load() *Config {
 	v.SetConfigType("env")
 	v.AddConfigPath(".")
 
-	// Set Default Values (fallback jika di .env tidak diisi)
 	v.SetDefault("APP_ENV", "development")
 	v.SetDefault("APP_HOST", "localhost")
 	v.SetDefault("APP_PORT", "8080")
@@ -62,7 +65,6 @@ func Load() *Config {
 	v.SetDefault("DATABASE_USERNAME", "postgres")
 	v.SetDefault("DATABASE_PASSWORD", "postgres")
 	v.SetDefault("DATABASE_SSLMODE", "disable")
-	
 
 	v.SetDefault("REDIS_HOST", "localhost")
 	v.SetDefault("REDIS_PORT", "6379")
@@ -77,7 +79,10 @@ func Load() *Config {
 
 	v.SetDefault("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 
-	// Otomatis override jika ada Environment Variable di OS / Docker
+	v.SetDefault("USER_SERVICE_ADDR", "http://user-service:8082/")
+	v.SetDefault("PRODUCT_SERVICE_HTTP_ADDR", "http://product-service:8081")
+	v.SetDefault("ORDER_SERVICE_ADDR", "http://order-service:8083")
+
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 

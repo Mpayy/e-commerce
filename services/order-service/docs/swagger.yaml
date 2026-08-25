@@ -1,0 +1,588 @@
+basePath: /api/v1
+definitions:
+  apperror.AppError:
+    properties:
+      code:
+        type: string
+      fields:
+        additionalProperties:
+          type: string
+        type: object
+      message:
+        type: string
+    type: object
+  github_com_Mpayy_e-commerce_services_order-service_internal_cart_dto.CartDetailResponse:
+    properties:
+      grand_total:
+        type: number
+      items:
+        items:
+          $ref: '#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_cart_dto.CartItemResponse'
+        type: array
+      unavailable_items:
+        items:
+          $ref: '#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_cart_dto.CartUnavailableItemResp'
+        type: array
+    type: object
+  github_com_Mpayy_e-commerce_services_order-service_internal_cart_dto.CartItemCreateRequest:
+    properties:
+      product_id:
+        type: integer
+      quantity:
+        minimum: 1
+        type: integer
+    required:
+    - product_id
+    - quantity
+    type: object
+  github_com_Mpayy_e-commerce_services_order-service_internal_cart_dto.CartItemResponse:
+    properties:
+      name:
+        type: string
+      price:
+        type: number
+      product_id:
+        type: integer
+      quantity:
+        type: integer
+      stock_available:
+        type: integer
+      subtotal:
+        type: number
+    type: object
+  github_com_Mpayy_e-commerce_services_order-service_internal_cart_dto.CartItemUpdateRequest:
+    properties:
+      quantity:
+        minimum: 0
+        type: integer
+    required:
+    - quantity
+    type: object
+  github_com_Mpayy_e-commerce_services_order-service_internal_cart_dto.CartUnavailableItemResp:
+    properties:
+      message:
+        type: string
+      product_id:
+        type: integer
+    type: object
+  github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.MetaPagination:
+    properties:
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.OrderHistoryResponse:
+    properties:
+      meta:
+        $ref: '#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.MetaPagination'
+      orders:
+        items:
+          $ref: '#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.OrderResponse'
+        type: array
+    type: object
+  github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.OrderItemResponse:
+    properties:
+      price:
+        type: number
+      product_id:
+        type: integer
+      product_name:
+        type: string
+      quantity:
+        type: integer
+      subtotal:
+        type: number
+    type: object
+  github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.OrderResponse:
+    properties:
+      invoice_number:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.OrderItemResponse'
+        type: array
+      order_id:
+        type: integer
+      status:
+        type: string
+      total_amount:
+        type: number
+    type: object
+  response.ErrorResponse:
+    properties:
+      error: {}
+      success:
+        example: false
+        type: boolean
+    type: object
+  response.SuccessResponse:
+    properties:
+      data: {}
+      success:
+        example: true
+        type: boolean
+    type: object
+host: localhost:8083
+info:
+  contact: {}
+  description: Shopping cart (Redis Hash) and checkout/order history (PostgreSQL via
+    sqlc). Resolves product data via gRPC to the Product Service; publishes an order.created
+    event to RabbitMQ after successful checkout.
+  title: Order & Cart Service API
+  version: "1.0"
+paths:
+  /cart:
+    delete:
+      description: Removes all items from the authenticated user's cart in a single
+        operation.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "401":
+          description: UNAUTHORIZED
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "500":
+          description: INTERNAL_SERVER_ERROR
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Empty the cart
+      tags:
+      - carts
+    get:
+      description: Returns cart items enriched with live product name, price, and
+        stock via a single bulk lookup, along with the computed grand total. Products
+        removed from the catalog since being added are silently excluded.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_cart_dto.CartDetailResponse'
+              type: object
+        "401":
+          description: UNAUTHORIZED
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "500":
+          description: INTERNAL_SERVER_ERROR
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get the authenticated user's cart
+      tags:
+      - carts
+    post:
+      consumes:
+      - application/json
+      description: Adds a product and quantity to the authenticated user's Redis-backed
+        cart. If the product is already in the cart, the quantity is incremented rather
+        than overwritten.
+      parameters:
+      - description: Cart payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_cart_dto.CartItemCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: BAD_REQUEST / VALIDATION_FAILED
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "401":
+          description: UNAUTHORIZED
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "404":
+          description: PRODUCT_NOT_FOUND
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "500":
+          description: INTERNAL_SERVER_ERROR
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Add an item to the cart
+      tags:
+      - carts
+  /cart/{product_id}:
+    delete:
+      description: Removes one product from the authenticated user's cart by product
+        ID. Removing a product that isn't in the cart is treated as a no-op, not an
+        error.
+      parameters:
+      - description: Product ID
+        in: path
+        name: product_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: BAD_REQUEST
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "401":
+          description: UNAUTHORIZED
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "500":
+          description: INTERNAL_SERVER_ERROR
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Remove a single item from the cart
+      tags:
+      - carts
+    patch:
+      consumes:
+      - application/json
+      description: Overwrites the quantity of a product already in the cart with the
+        given value. Returns 404 if the product was never added to this cart. Sending
+        a quantity of 0 removes the item instead.
+      parameters:
+      - description: Product ID
+        in: path
+        name: product_id
+        required: true
+        type: integer
+      - description: Cart payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_cart_dto.CartItemUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: BAD_REQUEST / VALIDATION_FAILED
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "401":
+          description: UNAUTHORIZED
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "404":
+          description: CART_NOT_FOUND
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "500":
+          description: INTERNAL_SERVER_ERROR
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Update a cart item's quantity
+      tags:
+      - carts
+  /orders:
+    get:
+      description: Returns a paginated list of every order placed by the authenticated
+        user along with their line items, using the price and product name captured
+        at checkout time rather than current catalog data.
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.OrderHistoryResponse'
+              type: object
+        "400":
+          description: BAD_REQUEST / VALIDATION_FAILED
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "401":
+          description: UNAUTHORIZED
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "500":
+          description: INTERNAL_SERVER_ERROR
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: List the authenticated user's past orders
+      tags:
+      - orders
+    post:
+      description: 'Converts the cart into a permanent order: validates and decrements
+        stock for each item under a row lock inside a single database transaction,
+        snapshots product name and price at time of purchase, then clears the cart
+        only after the transaction commits successfully. If any item fails validation,
+        the entire order is rolled back and the cart is left untouched so the user
+        can retry.'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.OrderResponse'
+              type: object
+        "400":
+          description: CART_EMPTY
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "401":
+          description: UNAUTHORIZED
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "404":
+          description: PRODUCT_NOT_FOUND
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "422":
+          description: INSUFFICIENT_STOCK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "500":
+          description: INTERNAL_SERVER_ERROR
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Checkout the current cart into an order
+      tags:
+      - orders
+  /orders/{order_id}:
+    get:
+      description: Returns the full detail of one order, including its line items.
+        Returns 404 both when the order doesn't exist and when it belongs to a different
+        user, so ownership is never leaked through the error response.
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.OrderResponse'
+              type: object
+        "400":
+          description: BAD_REQUEST
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "401":
+          description: UNAUTHORIZED
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "404":
+          description: ORDER_NOT_FOUND
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "500":
+          description: INTERNAL_SERVER_ERROR
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get a single order's detail
+      tags:
+      - orders
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

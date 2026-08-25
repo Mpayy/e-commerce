@@ -170,7 +170,7 @@ paths:
                   $ref: '#/definitions/github_com_Mpayy_e-commerce_services_product-service_internal_product_dto.CategoryResponse'
               type: object
         "400":
-          description: Validation error
+          description: BAD_REQUEST / VALIDATION_FAILED
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -179,7 +179,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "401":
-          description: Unauthorized
+          description: UNAUTHORIZED
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -188,7 +188,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "403":
-          description: Forbidden — admin role required
+          description: FORBIDDEN
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -197,7 +197,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "409":
-          description: Category name already exists
+          description: DUPLICATED_CATEGORY
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -206,7 +206,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "500":
-          description: Internal server error
+          description: INTERNAL_SERVER_ERROR
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -246,7 +246,7 @@ paths:
                   $ref: '#/definitions/github_com_Mpayy_e-commerce_services_product-service_internal_product_dto.ProductResponse'
               type: object
         "400":
-          description: Validation error
+          description: BAD_REQUEST / VALIDATION_FAILED
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -255,7 +255,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "401":
-          description: Unauthorized
+          description: UNAUTHORIZED
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -264,7 +264,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "403":
-          description: Forbidden — admin role required
+          description: FORBIDDEN
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -273,7 +273,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "404":
-          description: Category not found
+          description: CATEGORY_NOT_FOUND
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -282,7 +282,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "409":
-          description: Conflict (duplicate slug or SKU)
+          description: DUPLICATED_PRODUCT / DUPLICATED_PRODUCT_SKU
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -291,7 +291,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "500":
-          description: Internal server error
+          description: INTERNAL_SERVER_ERROR
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -323,7 +323,7 @@ paths:
           schema:
             $ref: '#/definitions/response.SuccessResponse'
         "400":
-          description: Invalid product ID
+          description: BAD_REQUEST
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -332,7 +332,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "401":
-          description: Unauthorized
+          description: UNAUTHORIZED
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -341,7 +341,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "403":
-          description: Forbidden — admin role required
+          description: FORBIDDEN
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -350,7 +350,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "404":
-          description: Product not found
+          description: PRODUCT_NOT_FOUND
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -359,7 +359,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "500":
-          description: Internal server error
+          description: INTERNAL_SERVER_ERROR
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -402,7 +402,7 @@ paths:
                   $ref: '#/definitions/github_com_Mpayy_e-commerce_services_product-service_internal_product_dto.ProductResponse'
               type: object
         "400":
-          description: Validation error
+          description: BAD_REQUEST / VALIDATION_FAILED
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -411,7 +411,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "401":
-          description: Unauthorized
+          description: UNAUTHORIZED
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -420,7 +420,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "403":
-          description: Forbidden — admin role required
+          description: FORBIDDEN
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -429,7 +429,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "404":
-          description: Not Found (Product or Category not found)
+          description: PRODUCT_NOT_FOUND / CATEGORY_NOT_FOUND
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -438,7 +438,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "409":
-          description: Conflict (duplicate slug or SKU)
+          description: DUPLICATED_PRODUCT / DUPLICATED_PRODUCT_SKU
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -447,7 +447,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "500":
-          description: Internal server error
+          description: INTERNAL_SERVER_ERROR
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -485,7 +485,7 @@ paths:
           schema:
             $ref: '#/definitions/response.SuccessResponse'
         "400":
-          description: Validation error
+          description: BAD_REQUEST / VALIDATION_FAILED
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -494,7 +494,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "401":
-          description: Unauthorized
+          description: UNAUTHORIZED
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -503,7 +503,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "403":
-          description: Forbidden — admin role required
+          description: FORBIDDEN
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -512,7 +512,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "404":
-          description: Product not found
+          description: PRODUCT_NOT_FOUND
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -521,7 +521,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "500":
-          description: Internal server error
+          description: INTERNAL_SERVER_ERROR
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -553,7 +553,7 @@ paths:
                   type: array
               type: object
         "500":
-          description: Internal server error
+          description: INTERNAL_SERVER_ERROR
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -601,7 +601,7 @@ paths:
                   $ref: '#/definitions/github_com_Mpayy_e-commerce_services_product-service_internal_product_dto.ProductSearchResponse'
               type: object
         "400":
-          description: Validation error
+          description: BAD_REQUEST / VALIDATION_FAILED
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -610,7 +610,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "500":
-          description: Internal server error
+          description: INTERNAL_SERVER_ERROR
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -645,7 +645,7 @@ paths:
                   $ref: '#/definitions/github_com_Mpayy_e-commerce_services_product-service_internal_product_dto.ProductResponse'
               type: object
         "400":
-          description: Invalid product ID
+          description: BAD_REQUEST
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -654,7 +654,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "404":
-          description: Product not found
+          description: PRODUCT_NOT_FOUND
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -663,7 +663,7 @@ paths:
                   $ref: '#/definitions/apperror.AppError'
               type: object
         "500":
-          description: Internal server error
+          description: INTERNAL_SERVER_ERROR
           schema:
             allOf:
             - $ref: '#/definitions/response.ErrorResponse'
@@ -676,8 +676,7 @@ paths:
       - products
 securityDefinitions:
   BearerAuth:
-    description: Type "Bearer" followed by a space and JWT token (issued by the monolith's
-      /login).
+    description: Type "Bearer" followed by a space and JWT token.
     in: header
     name: Authorization
     type: apiKey

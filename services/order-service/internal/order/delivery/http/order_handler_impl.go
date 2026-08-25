@@ -30,11 +30,11 @@ func NewOrderHandler(orderUsecase usecase.OrderUsecase, validator *validator.Val
 // @Produce      json
 // @Security     BearerAuth
 // @Success      201 {object} response.SuccessResponse{data=dto.OrderResponse}
-// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "Cart is empty"
-// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "Unauthorized"
-// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "Product not found"
-// @Failure      422 {object} response.ErrorResponse{error=apperror.AppError} "Insufficient stock"
-// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "Internal server error"
+// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "CART_EMPTY"
+// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "UNAUTHORIZED"
+// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "PRODUCT_NOT_FOUND"
+// @Failure      422 {object} response.ErrorResponse{error=apperror.AppError} "INSUFFICIENT_STOCK"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
 // @Router       /orders [post]
 func (h *OrderHandlerImpl) Checkout(ctx *gin.Context) {
 	auth := middleware.GetAuthUser(ctx)
@@ -54,13 +54,16 @@ func (h *OrderHandlerImpl) Checkout(ctx *gin.Context) {
 
 // GetOrderHistory godoc
 // @Summary      List the authenticated user's past orders
-// @Description  Returns every order placed by the authenticated user along with their line items, using the price and product name captured at checkout time rather than current catalog data.
+// @Description  Returns a paginated list of every order placed by the authenticated user along with their line items, using the price and product name captured at checkout time rather than current catalog data.
 // @Tags         orders
 // @Produce      json
 // @Security     BearerAuth
+// @Param        page query int false "Page number" default(1)
+// @Param        limit query int false "Items per page" default(10)
 // @Success      200 {object} response.SuccessResponse{data=dto.OrderHistoryResponse}
-// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "Unauthorized"
-// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "Internal server error"
+// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "BAD_REQUEST / VALIDATION_FAILED"
+// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "UNAUTHORIZED"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
 // @Router       /orders [get]
 func (h *OrderHandlerImpl) GetHistory(ctx *gin.Context) {
 	auth := middleware.GetAuthUser(ctx)
@@ -97,10 +100,10 @@ func (h *OrderHandlerImpl) GetHistory(ctx *gin.Context) {
 // @Security     BearerAuth
 // @Param        order_id path int true "Order ID"
 // @Success      200 {object} response.SuccessResponse{data=dto.OrderResponse}
-// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "Invalid order ID"
-// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "Unauthorized"
-// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "Order not found"
-// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "Internal server error"
+// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "BAD_REQUEST"
+// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "UNAUTHORIZED"
+// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "ORDER_NOT_FOUND"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
 // @Router       /orders/{order_id} [get]
 func (h *OrderHandlerImpl) GetDetail(ctx *gin.Context) {
 	auth := middleware.GetAuthUser(ctx)

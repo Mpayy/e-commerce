@@ -1,0 +1,279 @@
+basePath: /api/v1
+definitions:
+  apperror.AppError:
+    properties:
+      code:
+        type: string
+      fields:
+        additionalProperties:
+          type: string
+        type: object
+      message:
+        type: string
+    type: object
+  github_com_Mpayy_e-commerce_services_user-service_internal_user_dto.TokenResponse:
+    properties:
+      token:
+        type: string
+    type: object
+  github_com_Mpayy_e-commerce_services_user-service_internal_user_dto.UserLoginRequest:
+    properties:
+      email:
+        maxLength: 150
+        type: string
+      password:
+        maxLength: 255
+        minLength: 6
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  github_com_Mpayy_e-commerce_services_user-service_internal_user_dto.UserRegisterRequest:
+    properties:
+      email:
+        maxLength: 150
+        type: string
+      name:
+        maxLength: 100
+        type: string
+      password:
+        maxLength: 255
+        minLength: 6
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+  github_com_Mpayy_e-commerce_services_user-service_internal_user_dto.UserResponse:
+    properties:
+      email:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  response.ErrorResponse:
+    properties:
+      error: {}
+      success:
+        example: false
+        type: boolean
+    type: object
+  response.SuccessResponse:
+    properties:
+      data: {}
+      success:
+        example: true
+        type: boolean
+    type: object
+host: localhost:8082
+info:
+  contact: {}
+  description: User registration, authentication, and session management. Backed by
+    PostgreSQL (via sqlx) and Redis for JWT session tracking with instant revocation
+    on logout.
+  title: User Service API
+  version: "1.0"
+paths:
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates a user by email and password, then issues a JWT stored
+        in Redis for session tracking. Returns a generic error for both wrong password
+        and unknown email to avoid leaking which emails are registered.
+      parameters:
+      - description: User payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_Mpayy_e-commerce_services_user-service_internal_user_dto.UserLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_Mpayy_e-commerce_services_user-service_internal_user_dto.TokenResponse'
+              type: object
+        "400":
+          description: BAD_REQUEST / VALIDATION_FAILED
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "401":
+          description: WRONG_EMAIL_OR_PASSWORD
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "500":
+          description: INTERNAL_SERVER_ERROR
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+      summary: Login and obtain a JWT token
+      tags:
+      - users
+  /logout:
+    post:
+      description: Logs out a user.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User logged out successfully
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "401":
+          description: UNAUTHORIZED
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "500":
+          description: INTERNAL_SERVER_ERROR
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Logout a user
+      tags:
+      - users
+  /profile:
+    get:
+      description: Returns the profile of the user identified by the JWT in the Authorization
+        header. The password hash is never included in the response.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_Mpayy_e-commerce_services_user-service_internal_user_dto.UserResponse'
+              type: object
+        "401":
+          description: UNAUTHORIZED
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "404":
+          description: USER_NOT_FOUND
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "500":
+          description: INTERNAL_SERVER_ERROR
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get the authenticated user's profile
+      tags:
+      - users
+  /register:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new user account with a bcrypt-hashed password. Email
+        must be unique; returns 409 if already registered.
+      parameters:
+      - description: User payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_Mpayy_e-commerce_services_user-service_internal_user_dto.UserRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_Mpayy_e-commerce_services_user-service_internal_user_dto.UserResponse'
+              type: object
+        "400":
+          description: BAD_REQUEST / VALIDATION_FAILED
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "409":
+          description: DUPLICATED_EMAIL
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "500":
+          description: INTERNAL_SERVER_ERROR
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+      summary: Register a new user
+      tags:
+      - users
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

@@ -17,6 +17,7 @@ import (
 	"github.com/Mpayy/e-commerce/pkg/middleware"
 	"github.com/Mpayy/e-commerce/pkg/validator"
 	"github.com/Mpayy/e-commerce/services/order-service/dependency"
+	_ "github.com/Mpayy/e-commerce/services/order-service/docs"
 	cartHttp "github.com/Mpayy/e-commerce/services/order-service/internal/cart/delivery/http"
 	cartRepo "github.com/Mpayy/e-commerce/services/order-service/internal/cart/repository"
 	cartUC "github.com/Mpayy/e-commerce/services/order-service/internal/cart/usecase"
@@ -25,6 +26,8 @@ import (
 	orderUC "github.com/Mpayy/e-commerce/services/order-service/internal/order/usecase"
 	productRepo "github.com/Mpayy/e-commerce/services/order-service/internal/product/repository"
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 func setupRouter(r *gin.Engine, orderHandler orderHttp.OrderHandler, cartHandler cartHttp.CartHandler, AuthMiddleware *middleware.AuthMiddleware) *gin.Engine {
@@ -34,6 +37,7 @@ func setupRouter(r *gin.Engine, orderHandler orderHttp.OrderHandler, cartHandler
 		})
 	})
 
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	api := r.Group("/api/v1", AuthMiddleware.RequireAuth())
 	{
 		cart := api.Group("/cart")
@@ -52,6 +56,16 @@ func setupRouter(r *gin.Engine, orderHandler orderHttp.OrderHandler, cartHandler
 	return r
 }
 
+// @title           Order & Cart Service API
+// @version         1.0
+// @description     Shopping cart (Redis Hash) and checkout/order history (PostgreSQL via sqlc). Resolves product data via gRPC to the Product Service; publishes an order.created event to RabbitMQ after successful checkout.
+// @host            localhost:8083
+// @BasePath        /api/v1
+
+// @securitydefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

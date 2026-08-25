@@ -31,11 +31,11 @@ func NewCartHandler(cartUsecase usecase.CartUsecase, cartService usecase.CartSer
 // @Produce      json
 // @Security     BearerAuth
 // @Param        request body dto.CartItemCreateRequest true "Cart payload"
-// @Success      200 {object} response.SuccessResponse "Item added to cart successfully"
-// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "Validation error"
-// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "Unauthorized"
-// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "Product not found"
-// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "Internal server error"
+// @Success      200 {object} response.SuccessResponse
+// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "BAD_REQUEST / VALIDATION_FAILED"
+// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "UNAUTHORIZED"
+// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "PRODUCT_NOT_FOUND"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
 // @Router       /cart [post]
 func (h *CartHandlerImpl) AddItem(ctx *gin.Context) {
 	auth := middleware.GetAuthUser(ctx)
@@ -73,11 +73,11 @@ func (h *CartHandlerImpl) AddItem(ctx *gin.Context) {
 // @Security     BearerAuth
 // @Param        product_id path int true "Product ID"
 // @Param        request body dto.CartItemUpdateRequest true "Cart payload"
-// @Success      200 {object} response.SuccessResponse "Item updated in cart successfully"
-// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "Validation error"
-// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "Unauthorized"
-// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "Cart item not found"
-// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "Internal server error"
+// @Success      200 {object} response.SuccessResponse
+// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "BAD_REQUEST / VALIDATION_FAILED"
+// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "UNAUTHORIZED"
+// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "CART_NOT_FOUND"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
 // @Router       /cart/{product_id} [patch]
 func (h *CartHandlerImpl) UpdateItem(ctx *gin.Context) {
 	auth := middleware.GetAuthUser(ctx)
@@ -124,10 +124,10 @@ func (h *CartHandlerImpl) UpdateItem(ctx *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        product_id path int true "Product ID"
-// @Success      200 {object} response.SuccessResponse "Item removed from cart successfully"
-// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "Invalid product ID"
-// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "Unauthorized"
-// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "Internal server error"
+// @Success      200 {object} response.SuccessResponse
+// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "BAD_REQUEST"
+// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "UNAUTHORIZED"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
 // @Router       /cart/{product_id} [delete]
 func (h *CartHandlerImpl) RemoveItem(ctx *gin.Context) {
 	auth := middleware.GetAuthUser(ctx)
@@ -163,9 +163,9 @@ func (h *CartHandlerImpl) RemoveItem(ctx *gin.Context) {
 // @Tags         carts
 // @Produce      json
 // @Security     BearerAuth
-// @Success      200 {object} response.SuccessResponse{data=dto.CartDetailResponse} "cart detail retrieved successfully"
-// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "Unauthorized"
-// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "Internal server error"
+// @Success      200 {object} response.SuccessResponse{data=dto.CartDetailResponse}
+// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "UNAUTHORIZED"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
 // @Router       /cart [get]
 func (h *CartHandlerImpl) GetCart(ctx *gin.Context) {
 	auth := middleware.GetAuthUser(ctx)
@@ -189,9 +189,9 @@ func (h *CartHandlerImpl) GetCart(ctx *gin.Context) {
 // @Tags         carts
 // @Produce      json
 // @Security     BearerAuth
-// @Success      200 {object} response.SuccessResponse "cart cleared successfully"
-// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "Unauthorized"
-// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "Internal server error"
+// @Success      200 {object} response.SuccessResponse
+// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "UNAUTHORIZED"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
 // @Router       /cart [delete]
 func (h *CartHandlerImpl) ClearCart(ctx *gin.Context) {
 	auth := middleware.GetAuthUser(ctx)

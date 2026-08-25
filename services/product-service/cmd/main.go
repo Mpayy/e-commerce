@@ -63,7 +63,7 @@ func setupRouter(r *gin.Engine, categoryHandler producthttp.CategoryHandler, pro
 // @securitydefinitions.apikey BearerAuth
 // @in header
 // @name Authorization
-// @description Type "Bearer" followed by a space and JWT token (issued by the monolith's /login).
+// @description Type "Bearer" followed by a space and JWT token.
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()

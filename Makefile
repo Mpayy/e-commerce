@@ -49,6 +49,14 @@ swag-user:
 		--parseDependency \
 		--parseInternal
 
+swag-order:
+	cd services/order-service && swag init \
+		-g cmd/main.go \
+		-d ./,../../pkg \
+		--output docs \
+		--parseDependency \
+		--parseInternal
+
 swag-monolith:
 	cd monolith && swag init \
 		-g cmd/api/main.go \
