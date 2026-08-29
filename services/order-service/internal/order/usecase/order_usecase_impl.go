@@ -16,6 +16,7 @@ import (
 	productentity "github.com/Mpayy/e-commerce/services/order-service/internal/product/entity"
 	productUC "github.com/Mpayy/e-commerce/services/order-service/internal/product/usecase"
 	"github.com/google/uuid"
+	"golang.org/x/sync/errgroup"
 )
 
 type OrderUsecaseImpl struct {
@@ -262,5 +263,121 @@ func (u *OrderUsecaseImpl) GetOrderDetail(ctx context.Context, userID uint, orde
 		TotalAmount:   order.TotalAmount,
 		Status:        order.Status,
 		Items:         responseItems,
+	}, nil
+}
+
+func (u *OrderUsecaseImpl) GetSalesAnalytics(ctx context.Context, req *dto.SalesAnalyticsRequest) (*dto.SalesAnalyticsResponse, error) {
+	log := u.log.WithFields(logger.Fields{
+		"from":  req.From,
+		"to":    req.To,
+		"limit": req.Limit,
+	})
+	log.Debug("Getting Sales Analytics")
+
+	now := time.Now()
+	loc := now.Location()
+
+	var toTime time.Time
+	if req.To == "" {
+		toTime = time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 999999999, loc)
+	} else {
+		parsed, err := time.ParseInLocation("2006-01-02", req.To, loc)
+		if err != nil {
+			return nil, apperror.ErrInvalidDateRange
+		}
+		toTime = time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 23, 59, 59, 999999999, loc)
+	}
+
+	var fromTime time.Time
+	if req.From == "" {
+		thirtyDaysAgo := toTime.AddDate(0, 0, -30)
+		fromTime = time.Date(thirtyDaysAgo.Year(), thirtyDaysAgo.Month(), thirtyDaysAgo.Day(), 0, 0, 0, 0, loc)
+	} else {
+		parsed, err := time.ParseInLocation("2006-01-02", req.From, loc)
+		if err != nil {
+			return nil, apperror.ErrInvalidDateRange
+		}
+		fromTime = time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, loc)
+	}
+
+	if fromTime.After(toTime) {
+		return nil, apperror.ErrInvalidDateRange
+	}
+
+	limit := req.Limit
+	if limit <= 0 {
+		limit = 5
+	}
+
+	var (
+		dailyRevenueReport []entity.DailyRevenueRow
+		topProducts        []entity.TopProductRow
+	)
+
+	g, gCtx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		var err error
+		dailyRevenueReport, err = u.orderRepository.GetDailyRevenueReport(gCtx, fromTime, toTime)
+		if err != nil {
+			return fmt.Errorf("failed to get daily revenue report: %w", err)
+		}
+		return nil
+	})
+
+	g.Go(func() error {
+		var err error
+		topProducts, err = u.orderRepository.GetTopProducts(gCtx, fromTime, toTime, int32(limit))
+		if err != nil {
+			return fmt.Errorf("failed to get top products: %w", err)
+		}
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	var totalRevenue float64
+	var totalOrders int64
+	dailyRevenueRes := make([]dto.DailyRevenueResponse, 0, len(dailyRevenueReport))
+
+	for _, revenue := range dailyRevenueReport {
+		totalRevenue += revenue.DailyRevenue
+		totalOrders += revenue.OrderCount
+
+		dailyRevenueRes = append(dailyRevenueRes, dto.DailyRevenueResponse{
+			Date:         revenue.Date.Format("2006-01-02"),
+			OrderCount:   revenue.OrderCount,
+			DailyRevenue: revenue.DailyRevenue,
+			RunningTotal: revenue.RunningTotal,
+		})
+	}
+
+	summaryRes := dto.SummaryResponse{
+		TotalRevenue: totalRevenue,
+		TotalOrders:  totalOrders,
+	}
+
+	topProductRes := make([]dto.TopProductResponse, 0, len(topProducts))
+	for _, product := range topProducts {
+		topProductRes = append(topProductRes, dto.TopProductResponse{
+			Rank:              product.Rank,
+			ProductID:         product.ProductID,
+			ProductName:       product.ProductName,
+			TotalQuantitySold: product.TotalQuantitySold,
+			TotalRevenue:      product.TotalRevenue,
+		})
+	}
+
+	log.Debug("Sales Analytics retrieved successfully")
+	return &dto.SalesAnalyticsResponse{
+		Period: dto.PeriodResponse{
+			From: fromTime.Format("2006-01-02"),
+			To:   toTime.Format("2006-01-02"),
+		},
+		Summary:      summaryRes,
+		DailyRevenue: dailyRevenueRes,
+		TopProducts:  topProductRes,
 	}, nil
 }

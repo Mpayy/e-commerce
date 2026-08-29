@@ -5,6 +5,8 @@
 package sqlc
 
 import (
+	"time"
+
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -14,8 +16,8 @@ type Order struct {
 	InvoiceNumber pgtype.Text
 	TotalAmount   float64
 	Status        string
-	CreatedAt     pgtype.Timestamp
-	UpdatedAt     pgtype.Timestamp
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 type OrderItem struct {

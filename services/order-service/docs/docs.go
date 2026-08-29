@@ -15,6 +15,136 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/admin/analytics/sales": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns daily revenue with a running total and the top-selling products for the given period, computed entirely from this service's own orders and order_items tables — no cross-service calls. Defaults to the last 30 days if from/to are omitted. Requires admin role.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-analytics"
+                ],
+                "summary": "Get sales analytics for a date range",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start date (YYYY-MM-DD), defaults to 30 days before 'to'",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End date (YYYY-MM-DD), defaults to today",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 5,
+                        "description": "Number of top products to return",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.SalesAnalyticsResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "BAD_REQUEST / VALIDATION_FAILED",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.ErrorResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "error": {
+                                            "$ref": "#/definitions/apperror.AppError"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "UNAUTHORIZED",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.ErrorResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "error": {
+                                            "$ref": "#/definitions/apperror.AppError"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "403": {
+                        "description": "FORBIDDEN",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.ErrorResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "error": {
+                                            "$ref": "#/definitions/apperror.AppError"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "INTERNAL_SERVER_ERROR",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.ErrorResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "error": {
+                                            "$ref": "#/definitions/apperror.AppError"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/cart": {
             "get": {
                 "security": [
@@ -911,6 +1041,23 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.DailyRevenueResponse": {
+            "type": "object",
+            "properties": {
+                "daily_revenue": {
+                    "type": "number"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "order_count": {
+                    "type": "integer"
+                },
+                "running_total": {
+                    "type": "number"
+                }
+            }
+        },
         "github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.MetaPagination": {
             "type": "object",
             "properties": {
@@ -981,6 +1128,71 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "total_amount": {
+                    "type": "number"
+                }
+            }
+        },
+        "github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.PeriodResponse": {
+            "type": "object",
+            "properties": {
+                "from": {
+                    "type": "string"
+                },
+                "to": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.SalesAnalyticsResponse": {
+            "type": "object",
+            "properties": {
+                "daily_revenue": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.DailyRevenueResponse"
+                    }
+                },
+                "period": {
+                    "$ref": "#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.PeriodResponse"
+                },
+                "summary": {
+                    "$ref": "#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.SummaryResponse"
+                },
+                "top_products": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.TopProductResponse"
+                    }
+                }
+            }
+        },
+        "github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.SummaryResponse": {
+            "type": "object",
+            "properties": {
+                "total_orders": {
+                    "type": "integer"
+                },
+                "total_revenue": {
+                    "type": "number"
+                }
+            }
+        },
+        "github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.TopProductResponse": {
+            "type": "object",
+            "properties": {
+                "product_id": {
+                    "type": "integer"
+                },
+                "product_name": {
+                    "type": "string"
+                },
+                "rank": {
+                    "type": "integer"
+                },
+                "total_quantity_sold": {
+                    "type": "integer"
+                },
+                "total_revenue": {
                     "type": "number"
                 }
             }

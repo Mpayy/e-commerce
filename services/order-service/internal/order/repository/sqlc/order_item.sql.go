@@ -7,6 +7,7 @@ package sqlc
 
 import (
 	"context"
+	"time"
 )
 
 const createOrderItem = `-- name: CreateOrderItem :one
@@ -80,10 +81,69 @@ func (q *Queries) GetItemsByOrderID(ctx context.Context, orderID int64) ([]Order
 	return items, nil
 }
 
+const getTopProducts = `-- name: GetTopProducts :many
+SELECT 
+    oi.product_id,
+    oi.product_name,
+    SUM(oi.quantity)::BIGINT AS total_quantity_sold,
+    SUM(oi.subtotal)::NUMERIC AS total_revenue,
+    DENSE_RANK() OVER (
+        ORDER BY SUM(oi.quantity) DESC, SUM(oi.subtotal) DESC
+        )::BIGINT AS rank
+FROM orders AS o
+JOIN order_items AS oi ON o.id = oi.order_id
+WHERE o.status = 'PAID'
+  AND o.created_at >= $1::TIMESTAMP
+  AND o.created_at <= $2::TIMESTAMP
+GROUP BY oi.product_id, oi.product_name
+ORDER BY rank ASC
+LIMIT $3
+`
+
+type GetTopProductsParams struct {
+	FromDate   time.Time
+	ToDate     time.Time
+	LimitCount int32
+}
+
+type GetTopProductsRow struct {
+	ProductID         int64
+	ProductName       string
+	TotalQuantitySold int64
+	TotalRevenue      float64
+	Rank              int64
+}
+
+func (q *Queries) GetTopProducts(ctx context.Context, arg GetTopProductsParams) ([]GetTopProductsRow, error) {
+	rows, err := q.db.Query(ctx, getTopProducts, arg.FromDate, arg.ToDate, arg.LimitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetTopProductsRow
+	for rows.Next() {
+		var i GetTopProductsRow
+		if err := rows.Scan(
+			&i.ProductID,
+			&i.ProductName,
+			&i.TotalQuantitySold,
+			&i.TotalRevenue,
+			&i.Rank,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listItemsByOrderIDs = `-- name: ListItemsByOrderIDs :many
 SELECT id, order_id, product_id, product_name, price, quantity, subtotal
 FROM order_items
-WHERE order_id = ANY($1::bigint[])
+WHERE order_id = ANY($1::BIGINT[])
 `
 
 func (q *Queries) ListItemsByOrderIDs(ctx context.Context, orderIds []int64) ([]OrderItem, error) {

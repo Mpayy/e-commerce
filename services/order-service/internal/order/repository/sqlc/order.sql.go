@@ -7,21 +7,22 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const countOrdersByUser = `-- name: CountOrdersByUser :one
-SELECT COUNT(*)
+SELECT COUNT(*)::BIGINT
 FROM orders
 WHERE user_id = $1
 `
 
 func (q *Queries) CountOrdersByUser(ctx context.Context, userID int64) (int64, error) {
 	row := q.db.QueryRow(ctx, countOrdersByUser, userID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const createOrder = `-- name: CreateOrder :one
@@ -49,6 +50,64 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getDailyRevenueReport = `-- name: GetDailyRevenueReport :many
+WITH daily_summary AS (
+    SELECT
+    DATE(created_at) AS date,
+    COUNT(*)::BIGINT AS order_count,
+    SUM(total_amount)::NUMERIC AS daily_revenue
+    FROM orders
+    WHERE status = 'PAID'
+      AND created_at >= $1::TIMESTAMP 
+      AND created_at <= $2::TIMESTAMP
+    GROUP BY DATE(created_at)
+)
+SELECT
+date, 
+order_count,
+daily_revenue,
+SUM(daily_revenue) OVER (ORDER BY date ASC)::NUMERIC AS running_total
+FROM daily_summary
+ORDER BY date ASC
+`
+
+type GetDailyRevenueReportParams struct {
+	FromDate time.Time
+	ToDate   time.Time
+}
+
+type GetDailyRevenueReportRow struct {
+	Date         time.Time
+	OrderCount   int64
+	DailyRevenue float64
+	RunningTotal float64
+}
+
+func (q *Queries) GetDailyRevenueReport(ctx context.Context, arg GetDailyRevenueReportParams) ([]GetDailyRevenueReportRow, error) {
+	rows, err := q.db.Query(ctx, getDailyRevenueReport, arg.FromDate, arg.ToDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetDailyRevenueReportRow
+	for rows.Next() {
+		var i GetDailyRevenueReportRow
+		if err := rows.Scan(
+			&i.Date,
+			&i.OrderCount,
+			&i.DailyRevenue,
+			&i.RunningTotal,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getOrderByID = `-- name: GetOrderByID :one

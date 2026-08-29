@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/Mpayy/e-commerce/pkg/apperror"
 	"github.com/Mpayy/e-commerce/services/order-service/internal/order/entity"
@@ -45,7 +46,7 @@ func (r *OrderRepositoryImpl) CreateOrderWithItems(ctx context.Context, order *e
 		return err
 	}
 
-	invoiceNumber := fmt.Sprintf("INV-%s-%06d", created.CreatedAt.Time.Format("20060102"), created.ID)
+	invoiceNumber := fmt.Sprintf("INV-%s-%06d", created.CreatedAt.Format("20060102"), created.ID)
 	if err := qtx.UpdateInvoiceNumber(ctx, sqlcgen.UpdateInvoiceNumberParams{
 		ID: created.ID,
 		InvoiceNumber: pgtype.Text{
@@ -62,6 +63,8 @@ func (r *OrderRepositoryImpl) CreateOrderWithItems(ctx context.Context, order *e
 			ProductID:   int64(item.ProductID),
 			ProductName: item.ProductName,
 			Price:       item.Price,
+			Quantity:    int32(item.Quantity),
+			Subtotal:    item.Subtotal,
 		}); err != nil {
 			return err
 		}
@@ -133,8 +136,8 @@ func (r *OrderRepositoryImpl) FindByUserID(ctx context.Context, userID uint, pag
 			UserID:        uint(order.UserID),
 			TotalAmount:   order.TotalAmount,
 			Status:        order.Status,
-			CreatedAt:     order.CreatedAt.Time,
-			UpdatedAt:     order.UpdatedAt.Time,
+			CreatedAt:     order.CreatedAt,
+			UpdatedAt:     order.UpdatedAt,
 			Items:         items,
 		})
 	}
@@ -175,10 +178,66 @@ func (r *OrderRepositoryImpl) FindByID(ctx context.Context, orderID uint) (*enti
 		InvoiceNumber: sqlcOrder.InvoiceNumber.String,
 		TotalAmount:   sqlcOrder.TotalAmount,
 		Status:        sqlcOrder.Status,
-		CreatedAt:     sqlcOrder.CreatedAt.Time,
-		UpdatedAt:     sqlcOrder.UpdatedAt.Time,
+		CreatedAt:     sqlcOrder.CreatedAt,
+		UpdatedAt:     sqlcOrder.UpdatedAt,
 		Items:         items,
 	}
 
 	return &order, nil
+}
+
+func (r *OrderRepositoryImpl) GetDailyRevenueReport(ctx context.Context, from, to time.Time) ([]entity.DailyRevenueRow, error) {
+	sqlcGetDailyRevenueReportRow, err := r.queries.GetDailyRevenueReport(ctx, sqlcgen.GetDailyRevenueReportParams{
+		FromDate: from,
+		ToDate:   to,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(sqlcGetDailyRevenueReportRow) == 0 {
+		return []entity.DailyRevenueRow{}, nil
+	}
+
+	getDailyRevenueReportRow := make([]entity.DailyRevenueRow, 0, len(sqlcGetDailyRevenueReportRow))
+	for _, row := range sqlcGetDailyRevenueReportRow {
+		getDailyRevenueReportRow = append(getDailyRevenueReportRow, entity.DailyRevenueRow{
+			Date:         row.Date,
+			OrderCount:   row.OrderCount,
+			DailyRevenue: row.DailyRevenue,
+			RunningTotal: row.RunningTotal,
+		})
+	}
+
+	return getDailyRevenueReportRow, nil
+}
+
+func (r *OrderRepositoryImpl) GetTopProducts(ctx context.Context, from, to time.Time, limit int32) ([]entity.TopProductRow, error) {
+	sqlcGetTopProductsRow, err := r.queries.GetTopProducts(ctx, sqlcgen.GetTopProductsParams{
+		LimitCount:    limit,
+		FromDate: from,
+		ToDate:   to,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(sqlcGetTopProductsRow) == 0 {
+		return []entity.TopProductRow{}, nil
+	}
+
+	getTopProductsRow := make([]entity.TopProductRow, 0, len(sqlcGetTopProductsRow))
+	for _, row := range sqlcGetTopProductsRow {
+		getTopProductsRow = append(getTopProductsRow, entity.TopProductRow{
+			ProductID:         uint(row.ProductID),
+			ProductName:       row.ProductName,
+			TotalQuantitySold: row.TotalQuantitySold,
+			TotalRevenue:      row.TotalRevenue,
+			Rank:              row.Rank,
+		})
+	}
+
+	return getTopProductsRow, nil
 }
