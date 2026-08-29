@@ -9,3 +9,11 @@ type OrderItem struct {
 	Quantity    int
 	Subtotal    float64
 }
+
+type TopProductRow struct {
+	ProductID uint
+	ProductName string
+	TotalQuantitySold int64
+	TotalRevenue float64
+	Rank int64
+}

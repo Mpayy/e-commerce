@@ -8,7 +8,6 @@ import (
 	"github.com/Mpayy/e-commerce/pkg/middleware"
 	"github.com/Mpayy/e-commerce/pkg/response"
 	"github.com/Mpayy/e-commerce/services/order-service/internal/order/dto"
-	_ "github.com/Mpayy/e-commerce/services/order-service/internal/order/dto"
 	"github.com/Mpayy/e-commerce/services/order-service/internal/order/usecase"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -131,4 +130,40 @@ func (h *OrderHandlerImpl) GetDetail(ctx *gin.Context) {
 	}
 
 	response.ResponseSuccess(ctx, http.StatusOK, order)
+}
+
+// GetSalesAnalytics godoc
+// @Summary      Get sales analytics for a date range
+// @Description  Returns daily revenue with a running total and the top-selling products for the given period, computed entirely from this service's own orders and order_items tables — no cross-service calls. Defaults to the last 30 days if from/to are omitted. Requires admin role.
+// @Tags         admin-analytics
+// @Produce      json
+// @Security     BearerAuth
+// @Param        from  query string false "Start date (YYYY-MM-DD), defaults to 30 days before 'to'"
+// @Param        to    query string false "End date (YYYY-MM-DD), defaults to today"
+// @Param        limit query int    false "Number of top products to return" default(5)
+// @Success      200 {object} response.SuccessResponse{data=dto.SalesAnalyticsResponse}
+// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "BAD_REQUEST / VALIDATION_FAILED"
+// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "UNAUTHORIZED"
+// @Failure      403 {object} response.ErrorResponse{error=apperror.AppError} "FORBIDDEN"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
+// @Router       /admin/analytics/sales [get]
+func (h *OrderHandlerImpl) GetSalesAnalytics(ctx *gin.Context) {
+	var request dto.SalesAnalyticsRequest
+	if err := ctx.ShouldBindQuery(&request); err != nil {
+		response.HandleError(ctx, apperror.ErrBadRequest)
+		return
+	}
+
+	if err := h.validator.Struct(&request); err != nil {
+		response.HandleError(ctx, apperror.ExtractValidationErrors(err))
+		return
+	}
+
+	report, err := h.orderUsecase.GetSalesAnalytics(ctx.Request.Context(), &request)
+	if err != nil {
+		response.HandleError(ctx, err)
+		return
+	}
+
+	response.ResponseSuccess(ctx, http.StatusOK, report)
 }

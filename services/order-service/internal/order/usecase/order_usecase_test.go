@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"io"
 
@@ -483,5 +484,213 @@ func TestOrderUsecase_GetOrderDetail(t *testing.T) {
 
 		assert.Nil(t, result)
 		assert.ErrorIs(t, err, apperror.ErrOrderNotFound)
+	})
+}
+
+func TestOrderUsecase_GetSalesAnalytics(t *testing.T) {
+	ctx := context.Background()
+	dbErr := errors.New("database connection failed")
+
+	// Sample mock data untuk skenario sukses
+	mockDailyRevenue := []entity.DailyRevenueRow{
+		{
+			Date:         time.Date(2026, 8, 20, 0, 0, 0, 0, time.Local),
+			OrderCount:   5,
+			DailyRevenue: 150000,
+			RunningTotal: 150000,
+		},
+		{
+			Date:         time.Date(2026, 8, 21, 0, 0, 0, 0, time.Local),
+			OrderCount:   3,
+			DailyRevenue: 90000,
+			RunningTotal: 240000,
+		},
+	}
+
+	mockTopProducts := []entity.TopProductRow{
+		{
+			Rank:              1,
+			ProductID:         10,
+			ProductName:       "Kopi Susu",
+			TotalQuantitySold: 20,
+			TotalRevenue:      200000,
+		},
+		{
+			Rank:              2,
+			ProductID:         11,
+			ProductName:       "Roti Bakar",
+			TotalQuantitySold: 8,
+			TotalRevenue:      40000,
+		},
+	}
+
+	t.Run("success_with_explicit_dates_and_limit", func(t *testing.T) {
+		usecase, _, _, orderRepo, _ := setupOrderUsecase(t)
+
+		req := &dto.SalesAnalyticsRequest{
+			From:  "2026-08-01",
+			To:    "2026-08-25",
+			Limit: 10,
+		}
+
+		// Mock repository calls
+		orderRepo.EXPECT().
+			GetDailyRevenueReport(mock.Anything, mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).
+			Return(mockDailyRevenue, nil).
+			Once()
+
+		orderRepo.EXPECT().
+			GetTopProducts(mock.Anything, mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time"), int32(10)).
+			Return(mockTopProducts, nil).
+			Once()
+
+		res, err := usecase.GetSalesAnalytics(ctx, req)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
+
+		// Assert Period
+		assert.Equal(t, "2026-08-01", res.Period.From)
+		assert.Equal(t, "2026-08-25", res.Period.To)
+
+		// Assert Summary Accumulation (150000 + 90000 = 240000 | 5 + 3 = 8)
+		assert.Equal(t, float64(240000), res.Summary.TotalRevenue)
+		assert.Equal(t, int64(8), res.Summary.TotalOrders)
+
+		// Assert Daily Revenue Mapping
+		assert.Len(t, res.DailyRevenue, 2)
+		assert.Equal(t, "2026-08-20", res.DailyRevenue[0].Date)
+		assert.Equal(t, int64(5), res.DailyRevenue[0].OrderCount)
+
+		// Assert Top Products Mapping
+		assert.Len(t, res.TopProducts, 2)
+		assert.Equal(t, uint(10), res.TopProducts[0].ProductID)
+		assert.Equal(t, "Kopi Susu", res.TopProducts[0].ProductName)
+	})
+
+	t.Run("success_with_empty_dates_and_default_limit", func(t *testing.T) {
+		usecase, _, _, orderRepo, _ := setupOrderUsecase(t)
+
+		// Empty request -> trigger default limit=5 & 30 days date fallback
+		req := &dto.SalesAnalyticsRequest{
+			From:  "",
+			To:    "",
+			Limit: 0,
+		}
+
+		orderRepo.EXPECT().
+			GetDailyRevenueReport(mock.Anything, mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).
+			Return([]entity.DailyRevenueRow{}, nil).
+			Once()
+
+		orderRepo.EXPECT().
+			GetTopProducts(mock.Anything, mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time"), int32(5)). // Limit defaulted to 5
+			Return([]entity.TopProductRow{}, nil).
+			Once()
+
+		res, err := usecase.GetSalesAnalytics(ctx, req)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
+		assert.Equal(t, float64(0), res.Summary.TotalRevenue)
+		assert.Equal(t, int64(0), res.Summary.TotalOrders)
+		assert.Empty(t, res.DailyRevenue)
+		assert.Empty(t, res.TopProducts)
+	})
+
+	t.Run("error_invalid_to_date_format", func(t *testing.T) {
+		usecase, _, _, _, _ := setupOrderUsecase(t)
+
+		req := &dto.SalesAnalyticsRequest{
+			From: "2026-08-01",
+			To:   "25-08-2026", // Wrong format
+		}
+
+		res, err := usecase.GetSalesAnalytics(ctx, req)
+
+		assert.Error(t, err)
+		assert.Nil(t, res)
+		assert.ErrorIs(t, err, apperror.ErrInvalidDateRange)
+	})
+
+	t.Run("error_invalid_from_date_format", func(t *testing.T) {
+		usecase, _, _, _, _ := setupOrderUsecase(t)
+
+		req := &dto.SalesAnalyticsRequest{
+			From: "invalid-date", // Wrong format
+			To:   "2026-08-25",
+		}
+
+		res, err := usecase.GetSalesAnalytics(ctx, req)
+
+		assert.Error(t, err)
+		assert.Nil(t, res)
+		assert.ErrorIs(t, err, apperror.ErrInvalidDateRange)
+	})
+
+	t.Run("error_from_date_after_to_date", func(t *testing.T) {
+		usecase, _, _, _, _ := setupOrderUsecase(t)
+
+		req := &dto.SalesAnalyticsRequest{
+			From: "2026-08-30", // From > To
+			To:   "2026-08-01",
+		}
+
+		res, err := usecase.GetSalesAnalytics(ctx, req)
+
+		assert.Error(t, err)
+		assert.Nil(t, res)
+		assert.ErrorIs(t, err, apperror.ErrInvalidDateRange)
+	})
+
+	t.Run("error_get_daily_revenue_report_repository_failed", func(t *testing.T) {
+		usecase, _, _, orderRepo, _ := setupOrderUsecase(t)
+
+		req := &dto.SalesAnalyticsRequest{
+			From: "2026-08-01",
+			To:   "2026-08-25",
+		}
+
+		// Simulasikan error pada salah satu goroutine
+		orderRepo.EXPECT().
+			GetDailyRevenueReport(mock.Anything, mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).
+			Return(nil, dbErr).
+			Once()
+
+		orderRepo.EXPECT().
+			GetTopProducts(mock.Anything, mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time"), mock.AnythingOfType("int32")).
+			Return(mockTopProducts, nil).
+			Maybe() // Gunakan Maybe() karena errgroup bisa menyelesaikan atau membatalkan context goroutine ini
+
+		res, err := usecase.GetSalesAnalytics(ctx, req)
+
+		assert.Error(t, err)
+		assert.Nil(t, res)
+		assert.Contains(t, err.Error(), "failed to get daily revenue report")
+	})
+
+	t.Run("error_get_top_products_repository_failed", func(t *testing.T) {
+		usecase, _, _, orderRepo, _ := setupOrderUsecase(t)
+
+		req := &dto.SalesAnalyticsRequest{
+			From: "2026-08-01",
+			To:   "2026-08-25",
+		}
+
+		orderRepo.EXPECT().
+			GetDailyRevenueReport(mock.Anything, mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).
+			Return(mockDailyRevenue, nil).
+			Maybe()
+
+		orderRepo.EXPECT().
+			GetTopProducts(mock.Anything, mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time"), mock.AnythingOfType("int32")).
+			Return(nil, dbErr).
+			Once()
+
+		res, err := usecase.GetSalesAnalytics(ctx, req)
+
+		assert.Error(t, err)
+		assert.Nil(t, res)
+		assert.Contains(t, err.Error(), "failed to get top products")
 	})
 }

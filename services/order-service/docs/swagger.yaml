@@ -65,6 +65,17 @@ definitions:
       product_id:
         type: integer
     type: object
+  github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.DailyRevenueResponse:
+    properties:
+      daily_revenue:
+        type: number
+      date:
+        type: string
+      order_count:
+        type: integer
+      running_total:
+        type: number
+    type: object
   github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.MetaPagination:
     properties:
       limit:
@@ -113,6 +124,48 @@ definitions:
       total_amount:
         type: number
     type: object
+  github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.PeriodResponse:
+    properties:
+      from:
+        type: string
+      to:
+        type: string
+    type: object
+  github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.SalesAnalyticsResponse:
+    properties:
+      daily_revenue:
+        items:
+          $ref: '#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.DailyRevenueResponse'
+        type: array
+      period:
+        $ref: '#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.PeriodResponse'
+      summary:
+        $ref: '#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.SummaryResponse'
+      top_products:
+        items:
+          $ref: '#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.TopProductResponse'
+        type: array
+    type: object
+  github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.SummaryResponse:
+    properties:
+      total_orders:
+        type: integer
+      total_revenue:
+        type: number
+    type: object
+  github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.TopProductResponse:
+    properties:
+      product_id:
+        type: integer
+      product_name:
+        type: string
+      rank:
+        type: integer
+      total_quantity_sold:
+        type: integer
+      total_revenue:
+        type: number
+    type: object
   response.ErrorResponse:
     properties:
       error: {}
@@ -136,6 +189,79 @@ info:
   title: Order & Cart Service API
   version: "1.0"
 paths:
+  /admin/analytics/sales:
+    get:
+      description: Returns daily revenue with a running total and the top-selling
+        products for the given period, computed entirely from this service's own orders
+        and order_items tables — no cross-service calls. Defaults to the last 30 days
+        if from/to are omitted. Requires admin role.
+      parameters:
+      - description: Start date (YYYY-MM-DD), defaults to 30 days before 'to'
+        in: query
+        name: from
+        type: string
+      - description: End date (YYYY-MM-DD), defaults to today
+        in: query
+        name: to
+        type: string
+      - default: 5
+        description: Number of top products to return
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.SalesAnalyticsResponse'
+              type: object
+        "400":
+          description: BAD_REQUEST / VALIDATION_FAILED
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "401":
+          description: UNAUTHORIZED
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "403":
+          description: FORBIDDEN
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "500":
+          description: INTERNAL_SERVER_ERROR
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get sales analytics for a date range
+      tags:
+      - admin-analytics
   /cart:
     delete:
       description: Removes all items from the authenticated user's cart in a single

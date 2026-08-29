@@ -12,3 +12,10 @@ type Order struct {
 	UpdatedAt     time.Time
 	Items         []OrderItem
 }
+
+type DailyRevenueRow struct {
+	Date         time.Time
+	OrderCount   int64
+	DailyRevenue float64
+	RunningTotal float64
+}

@@ -81,3 +81,21 @@ mongo-docker:
 
 redis-docker:
 	docker exec -it ecommerce-redis redis-cli
+
+sqlc-order:
+	cd services/order-service && sqlc generate
+
+build-and-run:
+	docker compose up -d --build
+
+build:
+	docker compose build
+
+run:
+	docker compose up -d
+
+log-real-time:
+	docker compose logs -f
+
+status:
+	docker compose ps

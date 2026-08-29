@@ -6,6 +6,7 @@ package mocks
 
 import (
 	"context"
+	"time"
 
 	"github.com/Mpayy/e-commerce/services/order-service/internal/order/entity"
 	mock "github.com/stretchr/testify/mock"
@@ -251,6 +252,160 @@ func (_c *MockOrderRepository_FindByUserID_Call) Return(orders []entity.Order, n
 }
 
 func (_c *MockOrderRepository_FindByUserID_Call) RunAndReturn(run func(ctx context.Context, userID uint, page int, limit int) ([]entity.Order, int64, error)) *MockOrderRepository_FindByUserID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetDailyRevenueReport provides a mock function for the type MockOrderRepository
+func (_mock *MockOrderRepository) GetDailyRevenueReport(ctx context.Context, from time.Time, to time.Time) ([]entity.DailyRevenueRow, error) {
+	ret := _mock.Called(ctx, from, to)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetDailyRevenueReport")
+	}
+
+	var r0 []entity.DailyRevenueRow
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time, time.Time) ([]entity.DailyRevenueRow, error)); ok {
+		return returnFunc(ctx, from, to)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time, time.Time) []entity.DailyRevenueRow); ok {
+		r0 = returnFunc(ctx, from, to)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]entity.DailyRevenueRow)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, time.Time, time.Time) error); ok {
+		r1 = returnFunc(ctx, from, to)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockOrderRepository_GetDailyRevenueReport_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetDailyRevenueReport'
+type MockOrderRepository_GetDailyRevenueReport_Call struct {
+	*mock.Call
+}
+
+// GetDailyRevenueReport is a helper method to define mock.On call
+//   - ctx context.Context
+//   - from time.Time
+//   - to time.Time
+func (_e *MockOrderRepository_Expecter) GetDailyRevenueReport(ctx any, from any, to any) *MockOrderRepository_GetDailyRevenueReport_Call {
+	return &MockOrderRepository_GetDailyRevenueReport_Call{Call: _e.mock.On("GetDailyRevenueReport", ctx, from, to)}
+}
+
+func (_c *MockOrderRepository_GetDailyRevenueReport_Call) Run(run func(ctx context.Context, from time.Time, to time.Time)) *MockOrderRepository_GetDailyRevenueReport_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 time.Time
+		if args[1] != nil {
+			arg1 = args[1].(time.Time)
+		}
+		var arg2 time.Time
+		if args[2] != nil {
+			arg2 = args[2].(time.Time)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockOrderRepository_GetDailyRevenueReport_Call) Return(dailyRevenueRows []entity.DailyRevenueRow, err error) *MockOrderRepository_GetDailyRevenueReport_Call {
+	_c.Call.Return(dailyRevenueRows, err)
+	return _c
+}
+
+func (_c *MockOrderRepository_GetDailyRevenueReport_Call) RunAndReturn(run func(ctx context.Context, from time.Time, to time.Time) ([]entity.DailyRevenueRow, error)) *MockOrderRepository_GetDailyRevenueReport_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetTopProducts provides a mock function for the type MockOrderRepository
+func (_mock *MockOrderRepository) GetTopProducts(ctx context.Context, from time.Time, to time.Time, limit int32) ([]entity.TopProductRow, error) {
+	ret := _mock.Called(ctx, from, to, limit)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetTopProducts")
+	}
+
+	var r0 []entity.TopProductRow
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time, time.Time, int32) ([]entity.TopProductRow, error)); ok {
+		return returnFunc(ctx, from, to, limit)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time, time.Time, int32) []entity.TopProductRow); ok {
+		r0 = returnFunc(ctx, from, to, limit)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]entity.TopProductRow)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, time.Time, time.Time, int32) error); ok {
+		r1 = returnFunc(ctx, from, to, limit)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockOrderRepository_GetTopProducts_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTopProducts'
+type MockOrderRepository_GetTopProducts_Call struct {
+	*mock.Call
+}
+
+// GetTopProducts is a helper method to define mock.On call
+//   - ctx context.Context
+//   - from time.Time
+//   - to time.Time
+//   - limit int32
+func (_e *MockOrderRepository_Expecter) GetTopProducts(ctx any, from any, to any, limit any) *MockOrderRepository_GetTopProducts_Call {
+	return &MockOrderRepository_GetTopProducts_Call{Call: _e.mock.On("GetTopProducts", ctx, from, to, limit)}
+}
+
+func (_c *MockOrderRepository_GetTopProducts_Call) Run(run func(ctx context.Context, from time.Time, to time.Time, limit int32)) *MockOrderRepository_GetTopProducts_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 time.Time
+		if args[1] != nil {
+			arg1 = args[1].(time.Time)
+		}
+		var arg2 time.Time
+		if args[2] != nil {
+			arg2 = args[2].(time.Time)
+		}
+		var arg3 int32
+		if args[3] != nil {
+			arg3 = args[3].(int32)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockOrderRepository_GetTopProducts_Call) Return(topProductRows []entity.TopProductRow, err error) *MockOrderRepository_GetTopProducts_Call {
+	_c.Call.Return(topProductRows, err)
+	return _c
+}
+
+func (_c *MockOrderRepository_GetTopProducts_Call) RunAndReturn(run func(ctx context.Context, from time.Time, to time.Time, limit int32) ([]entity.TopProductRow, error)) *MockOrderRepository_GetTopProducts_Call {
 	_c.Call.Return(run)
 	return _c
 }

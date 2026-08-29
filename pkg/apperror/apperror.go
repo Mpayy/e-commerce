@@ -51,7 +51,8 @@ var (
 	ErrInvalidQuantity = &AppError{Code: "INVALID_QUANTITY", Message: "invalid quantity", Status: http.StatusBadRequest}
 
 	// Order Errors
-	ErrOrderNotFound = &AppError{Code: "ORDER_NOT_FOUND", Message: "order not found", Status: http.StatusNotFound}
+	ErrOrderNotFound    = &AppError{Code: "ORDER_NOT_FOUND", Message: "order not found", Status: http.StatusNotFound}
+	ErrInvalidDateRange = &AppError{Code: "INVALID_DATE_RANGE", Message: "invalid date range", Status: http.StatusBadRequest}
 )
 
 func ExtractValidationErrors(err error) *AppError {

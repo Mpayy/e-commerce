@@ -27,3 +27,35 @@ type MetaPagination struct {
 	Total      int64 `json:"total"`
 	TotalPages int64 `json:"total_pages"`
 }
+
+type SalesAnalyticsResponse struct {
+	Period       PeriodResponse          `json:"period"`
+	Summary      SummaryResponse         `json:"summary"`
+	DailyRevenue []DailyRevenueResponse  `json:"daily_revenue"`
+	TopProducts  []TopProductResponse    `json:"top_products"`
+}
+
+type PeriodResponse struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
+type SummaryResponse struct {
+	TotalRevenue float64 `json:"total_revenue"`
+	TotalOrders  int64   `json:"total_orders"`
+}
+
+type DailyRevenueResponse struct {
+	Date         string  `json:"date"`
+	OrderCount   int64   `json:"order_count"`
+	DailyRevenue float64 `json:"daily_revenue"`
+	RunningTotal float64 `json:"running_total"`
+}
+
+type TopProductResponse struct {
+	Rank              int64   `json:"rank"`
+	ProductID         uint    `json:"product_id"`
+	ProductName       string  `json:"product_name"`
+	TotalQuantitySold int64   `json:"total_quantity_sold"`
+	TotalRevenue      float64 `json:"total_revenue"`
+}

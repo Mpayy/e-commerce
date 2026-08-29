@@ -4,6 +4,10 @@ overrides:
     overrides:
       - db_type: "pg_catalog.numeric"
         go_type: "float64"
+      - db_type: "pg_catalog.timestamp"
+        go_type: "time.Time"
+      - db_type: "date"
+        go_type: "time.Time"
 sql:
   - engine: "postgresql"
     queries: "database/query"
