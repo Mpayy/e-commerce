@@ -54,6 +54,7 @@ func setupRouter(r *gin.Engine, orderHandler orderHttp.OrderHandler, cartHandler
 
 		admin := api.Group("/admin", AuthMiddleware.RequireAuth(), middleware.AdminMiddleware())
 		admin.GET("/analytics/sales", orderHandler.GetSalesAnalytics)
+		admin.GET("/orders", orderHandler.GetAdminOrderList)
 	}
 
 	return r

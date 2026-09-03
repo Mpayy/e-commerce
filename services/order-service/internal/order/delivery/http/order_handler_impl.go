@@ -167,3 +167,44 @@ func (h *OrderHandlerImpl) GetSalesAnalytics(ctx *gin.Context) {
 
 	response.ResponseSuccess(ctx, http.StatusOK, report)
 }
+
+// GetAdminOrderList godoc
+// @Summary      List all orders with dynamic filters (Admin)
+// @Description  Returns a paginated list of all orders across all users. Filters are combined with AND when provided, and the query itself is built dynamically at runtime with Squirrel — unlike other list endpoints in this service, which use fixed sqlc queries. Item breakdown is intentionally excluded from each row; use the order detail endpoint for that. Requires admin role.
+// @Tags         admin-orders
+// @Produce      json
+// @Security     BearerAuth
+// @Param        status     query string  false "Filter by order status (e.g. PAID)"
+// @Param        user_id    query int     false "Filter by user ID"
+// @Param        min_amount query number  false "Minimum total amount (inclusive)"
+// @Param        max_amount query number  false "Maximum total amount (inclusive)"
+// @Param        from       query string  false "Start date (YYYY-MM-DD), inclusive"
+// @Param        to         query string  false "End date (YYYY-MM-DD), inclusive"
+// @Param        page       query int     false "Page number" default(1)
+// @Param        limit      query int     false "Items per page" default(10)
+// @Success      200 {object} response.SuccessResponse{data=dto.AdminOrderListResponse}
+// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "BAD_REQUEST / VALIDATION_FAILED"
+// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "UNAUTHORIZED"
+// @Failure      403 {object} response.ErrorResponse{error=apperror.AppError} "FORBIDDEN"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
+// @Router       /admin/orders [get]
+func (h *OrderHandlerImpl) GetAdminOrderList(ctx *gin.Context) {
+	var req dto.AdminOrderListRequest
+	if err := ctx.ShouldBindQuery(&req); err != nil {
+		response.HandleError(ctx, apperror.ErrBadRequest)
+		return
+	}
+
+	if err := h.validator.Struct(&req); err != nil {
+		response.HandleError(ctx, apperror.ExtractValidationErrors(err))
+		return
+	}
+
+	listOrders, err := h.orderUsecase.GetAdminOrderList(ctx.Request.Context(), &req)
+	if err != nil {
+		response.HandleError(ctx, err)
+		return
+	}
+
+	response.ResponseSuccess(ctx, http.StatusOK, listOrders)
+}

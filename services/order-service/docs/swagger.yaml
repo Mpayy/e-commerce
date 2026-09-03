@@ -65,6 +65,30 @@ definitions:
       product_id:
         type: integer
     type: object
+  github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.AdminOrderListResponse:
+    properties:
+      meta:
+        $ref: '#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.MetaPagination'
+      orders:
+        items:
+          $ref: '#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.AdminOrderSummaryResponse'
+        type: array
+    type: object
+  github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.AdminOrderSummaryResponse:
+    properties:
+      created_at:
+        type: string
+      invoice_number:
+        type: string
+      order_id:
+        type: integer
+      status:
+        type: string
+      total_amount:
+        type: number
+      user_id:
+        type: integer
+    type: object
   github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.DailyRevenueResponse:
     properties:
       daily_revenue:
@@ -262,6 +286,101 @@ paths:
       summary: Get sales analytics for a date range
       tags:
       - admin-analytics
+  /admin/orders:
+    get:
+      description: Returns a paginated list of all orders across all users. Filters
+        are combined with AND when provided, and the query itself is built dynamically
+        at runtime with Squirrel — unlike other list endpoints in this service, which
+        use fixed sqlc queries. Item breakdown is intentionally excluded from each
+        row; use the order detail endpoint for that. Requires admin role.
+      parameters:
+      - description: Filter by order status (e.g. PAID)
+        in: query
+        name: status
+        type: string
+      - description: Filter by user ID
+        in: query
+        name: user_id
+        type: integer
+      - description: Minimum total amount (inclusive)
+        in: query
+        name: min_amount
+        type: number
+      - description: Maximum total amount (inclusive)
+        in: query
+        name: max_amount
+        type: number
+      - description: Start date (YYYY-MM-DD), inclusive
+        in: query
+        name: from
+        type: string
+      - description: End date (YYYY-MM-DD), inclusive
+        in: query
+        name: to
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.AdminOrderListResponse'
+              type: object
+        "400":
+          description: BAD_REQUEST / VALIDATION_FAILED
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "401":
+          description: UNAUTHORIZED
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "403":
+          description: FORBIDDEN
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "500":
+          description: INTERNAL_SERVER_ERROR
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: List all orders with dynamic filters (Admin)
+      tags:
+      - admin-orders
   /cart:
     delete:
       description: Removes all items from the authenticated user's cart in a single

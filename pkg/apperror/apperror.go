@@ -84,6 +84,8 @@ func translateTag(e validator.FieldError) string {
 	switch e.Tag() {
 	case "required":
 		return "must be filled"
+	case "datetime":
+		return "must be in YYYY-MM-DD format"
 	case "min":
 		return "must be at least " + e.Param()
 	case "max":
@@ -92,6 +94,10 @@ func translateTag(e validator.FieldError) string {
 		return "must be greater than " + e.Param()
 	case "gte":
 		return "must be greater than or equal to " + e.Param()
+	case "gtefield":
+		return "must be greater than or equal to " + e.Param()
+	case "gtfield":
+		return "must be greater than " + e.Param()
 	default:
 		return "invalid input value"
 	}

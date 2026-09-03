@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	sq "github.com/Masterminds/squirrel"
 	"github.com/Mpayy/e-commerce/pkg/apperror"
 	"github.com/Mpayy/e-commerce/services/order-service/internal/order/entity"
 	sqlcgen "github.com/Mpayy/e-commerce/services/order-service/internal/order/repository/sqlc"
@@ -215,9 +216,9 @@ func (r *OrderRepositoryImpl) GetDailyRevenueReport(ctx context.Context, from, t
 
 func (r *OrderRepositoryImpl) GetTopProducts(ctx context.Context, from, to time.Time, limit int32) ([]entity.TopProductRow, error) {
 	sqlcGetTopProductsRow, err := r.queries.GetTopProducts(ctx, sqlcgen.GetTopProductsParams{
-		LimitCount:    limit,
-		FromDate: from,
-		ToDate:   to,
+		LimitCount: limit,
+		FromDate:   from,
+		ToDate:     to,
 	})
 
 	if err != nil {
@@ -240,4 +241,89 @@ func (r *OrderRepositoryImpl) GetTopProducts(ctx context.Context, from, to time.
 	}
 
 	return getTopProductsRow, nil
+}
+
+func (r *OrderRepositoryImpl) applyOrderFilter(builder sq.SelectBuilder, filter *entity.OrderFilter) sq.SelectBuilder {
+	if filter.Status != "" {
+		builder = builder.Where(sq.Eq{"status": filter.Status})
+	}
+	if filter.MinAmount != 0 {
+		builder = builder.Where(sq.GtOrEq{"total_amount": filter.MinAmount})
+	}
+	if filter.MaxAmount != 0 {
+		builder = builder.Where(sq.LtOrEq{"total_amount": filter.MaxAmount})
+	}
+	if filter.UserID != 0 {
+		builder = builder.Where(sq.Eq{"user_id": filter.UserID})
+	}
+	if filter.From != nil {
+		builder = builder.Where(sq.GtOrEq{"created_at": filter.From})
+	}
+	if filter.To != nil {
+		builder = builder.Where(sq.LtOrEq{"created_at": filter.To})
+	}
+	return builder
+}
+
+func (r *OrderRepositoryImpl) GetAdminOrderList(ctx context.Context, filter *entity.OrderFilter) ([]entity.Order, error) {
+	builder := sq.Select("id, user_id, invoice_number, total_amount, status, created_at").From("orders").PlaceholderFormat(sq.Dollar)
+
+	builder = r.applyOrderFilter(builder, filter)
+
+	offset := (filter.Page - 1) * filter.Limit
+
+	query, args, err := builder.OrderBy("created_at DESC").Limit(uint64(filter.Limit)).Offset(uint64(offset)).ToSql()
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	orders := make([]entity.Order, 0)
+	for rows.Next() {
+		var order entity.Order
+		if err := rows.Scan(
+			&order.ID,
+			&order.UserID,
+			&order.InvoiceNumber,
+			&order.TotalAmount,
+			&order.Status,
+			&order.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		
+		orders = append(orders, order)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return orders, nil
+}
+
+func (r *OrderRepositoryImpl) CountAdminOrderList(ctx context.Context, filter *entity.OrderFilter) (int64, error) {
+	builder := sq.Select("COUNT(*)").
+		From("orders").
+		PlaceholderFormat(sq.Dollar)
+
+	builder = r.applyOrderFilter(builder, filter)
+
+	query, args, err := builder.ToSql()
+	if err != nil {
+		return 0, err
+	}
+
+	var totalRecords int64
+	err = r.pool.QueryRow(ctx, query, args...).Scan(&totalRecords)
+	if err != nil {
+		return 0, err
+	}
+
+	return totalRecords, nil
 }

@@ -186,6 +186,11 @@ func (u *OrderUsecaseImpl) GetOrderHistory(ctx context.Context, userID uint, fil
 		return nil, fmt.Errorf("failed to get order history: %w", err)
 	}
 
+	var totalPages int64
+	if total > 0 {
+		totalPages = (total + int64(filter.Limit) - 1) / int64(filter.Limit)
+	}
+
 	responseOrders := make([]dto.OrderResponse, 0, len(orders))
 	for _, order := range orders {
 
@@ -220,7 +225,7 @@ func (u *OrderUsecaseImpl) GetOrderHistory(ctx context.Context, userID uint, fil
 			Page:       filter.Page,
 			Limit:      filter.Limit,
 			Total:      total,
-			TotalPages: (total + int64(filter.Limit) - 1) / int64(filter.Limit),
+			TotalPages: totalPages,
 		},
 	}, nil
 }
@@ -275,33 +280,27 @@ func (u *OrderUsecaseImpl) GetSalesAnalytics(ctx context.Context, req *dto.Sales
 	log.Debug("Getting Sales Analytics")
 
 	now := time.Now()
-	loc := now.Location()
-
 	var toTime time.Time
 	if req.To == "" {
-		toTime = time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 999999999, loc)
+		toTime = time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 999999999, time.UTC)
 	} else {
-		parsed, err := time.ParseInLocation("2006-01-02", req.To, loc)
+		parsed, err := time.Parse("2006-01-02", req.To)
 		if err != nil {
 			return nil, apperror.ErrInvalidDateRange
 		}
-		toTime = time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 23, 59, 59, 999999999, loc)
+		toTime = time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 23, 59, 59, 999999999, time.UTC)
 	}
 
 	var fromTime time.Time
 	if req.From == "" {
 		thirtyDaysAgo := toTime.AddDate(0, 0, -30)
-		fromTime = time.Date(thirtyDaysAgo.Year(), thirtyDaysAgo.Month(), thirtyDaysAgo.Day(), 0, 0, 0, 0, loc)
+		fromTime = time.Date(thirtyDaysAgo.Year(), thirtyDaysAgo.Month(), thirtyDaysAgo.Day(), 0, 0, 0, 0, time.UTC)
 	} else {
-		parsed, err := time.ParseInLocation("2006-01-02", req.From, loc)
+		parsed, err := time.Parse("2006-01-02", req.From)
 		if err != nil {
 			return nil, apperror.ErrInvalidDateRange
 		}
-		fromTime = time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, loc)
-	}
-
-	if fromTime.After(toTime) {
-		return nil, apperror.ErrInvalidDateRange
+		fromTime = time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, time.UTC)
 	}
 
 	limit := req.Limit
@@ -379,5 +378,105 @@ func (u *OrderUsecaseImpl) GetSalesAnalytics(ctx context.Context, req *dto.Sales
 		Summary:      summaryRes,
 		DailyRevenue: dailyRevenueRes,
 		TopProducts:  topProductRes,
+	}, nil
+}
+
+func (u *OrderUsecaseImpl) GetAdminOrderList(ctx context.Context, req *dto.AdminOrderListRequest) (*dto.AdminOrderListResponse, error) {
+	var toTime *time.Time
+	if req.To != "" {
+		parsed, err := time.Parse("2006-01-02", req.To)
+		if err != nil {
+			return nil, apperror.ErrInvalidDateRange
+		}
+		t := time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 23, 59, 59, 999999999, time.UTC)
+		toTime = &t
+	}
+
+	var fromTime *time.Time
+	if req.From != "" {
+		parsed, err := time.Parse("2006-01-02", req.From)
+		if err != nil {
+			return nil, apperror.ErrInvalidDateRange
+		}
+		t := time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, time.UTC)
+		fromTime = &t
+	}
+
+	limit := req.Limit
+	if limit <= 0 {
+		limit = 10
+	}
+
+	page := req.Page
+	if page <= 0 {
+		page = 1
+	}
+
+	filter := &entity.OrderFilter{
+		UserID:    req.UserID,
+		Status:    req.Status,
+		MinAmount: req.MinAmount,
+		MaxAmount: req.MaxAmount,
+		From:      fromTime,
+		To:        toTime,
+		Page:      page,
+		Limit:     limit,
+	}
+
+	var (
+		orders       []entity.Order
+		totalRecords int64
+	)
+
+	g, gCtx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		var err error
+		orders, err = u.orderRepository.GetAdminOrderList(gCtx, filter)
+		if err != nil {
+			return fmt.Errorf("failed to get admin order list: %w", err)
+		}
+		return nil
+	})
+
+	g.Go(func() error {
+		var err error
+		totalRecords, err = u.orderRepository.CountAdminOrderList(gCtx, filter)
+		if err != nil {
+			return fmt.Errorf("failed to count admin order list: %w", err)
+		}
+		return nil
+
+	})
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	var totalPages int64
+	if totalRecords > 0 {
+		totalPages = (totalRecords + int64(limit) - 1) / int64(limit)
+	}
+
+	orderSummaryRes := make([]dto.AdminOrderSummaryResponse, 0, len(orders))
+	for _, order := range orders {
+		orderSummaryRes = append(orderSummaryRes, dto.AdminOrderSummaryResponse{
+			OrderID:       order.ID,
+			UserID:        order.UserID,
+			InvoiceNumber: order.InvoiceNumber,
+			TotalAmount:   order.TotalAmount,
+			Status:        order.Status,
+			CreatedAt:     order.CreatedAt.Format(time.RFC3339),
+		})
+	}
+
+	return &dto.AdminOrderListResponse{
+		Orders: orderSummaryRes,
+		Meta: dto.MetaPagination{
+			Page:       page,
+			Limit:      limit,
+			Total:      totalRecords,
+			TotalPages: totalPages,
+		},
 	}, nil
 }
