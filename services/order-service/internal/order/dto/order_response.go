@@ -59,3 +59,17 @@ type TopProductResponse struct {
 	TotalQuantitySold int64   `json:"total_quantity_sold"`
 	TotalRevenue      float64 `json:"total_revenue"`
 }
+
+type AdminOrderListResponse struct {
+	Orders []AdminOrderSummaryResponse `json:"orders"`
+	Meta   MetaPagination               `json:"meta"`
+}
+
+type AdminOrderSummaryResponse struct {
+	OrderID       uint    `json:"order_id"`
+	UserID        uint    `json:"user_id"`
+	InvoiceNumber string  `json:"invoice_number"`
+	TotalAmount   float64 `json:"total_amount"`
+	Status        string  `json:"status"`
+	CreatedAt     string  `json:"created_at"`
+}

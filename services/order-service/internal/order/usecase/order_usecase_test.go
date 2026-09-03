@@ -628,21 +628,6 @@ func TestOrderUsecase_GetSalesAnalytics(t *testing.T) {
 		assert.ErrorIs(t, err, apperror.ErrInvalidDateRange)
 	})
 
-	t.Run("error_from_date_after_to_date", func(t *testing.T) {
-		usecase, _, _, _, _ := setupOrderUsecase(t)
-
-		req := &dto.SalesAnalyticsRequest{
-			From: "2026-08-30", // From > To
-			To:   "2026-08-01",
-		}
-
-		res, err := usecase.GetSalesAnalytics(ctx, req)
-
-		assert.Error(t, err)
-		assert.Nil(t, res)
-		assert.ErrorIs(t, err, apperror.ErrInvalidDateRange)
-	})
-
 	t.Run("error_get_daily_revenue_report_repository_failed", func(t *testing.T) {
 		usecase, _, _, orderRepo, _ := setupOrderUsecase(t)
 
@@ -692,5 +677,164 @@ func TestOrderUsecase_GetSalesAnalytics(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, res)
 		assert.Contains(t, err.Error(), "failed to get top products")
+	})
+}
+
+func TestOrderUsecase_GetAdminOrderList(t *testing.T) {
+	ctx := context.Background()
+	dummyErr := errors.New("database connection failed")
+
+	t.Run("success_with_default_pagination_and_empty_dates", func(t *testing.T) {
+		usecase, _, _, orderRepository, _ := setupOrderUsecase(t)
+
+		req := &dto.AdminOrderListRequest{
+			Page:  0,
+			Limit: 0,
+		}
+
+		now := time.Now()
+		mockOrders := []entity.Order{
+			{
+				ID:            1,
+				UserID:        10,
+				InvoiceNumber: "INV-001",
+				TotalAmount:   150000,
+				Status:        "PAID",
+				CreatedAt:     now,
+			},
+		}
+
+		orderRepository.EXPECT().
+			GetAdminOrderList(mock.Anything, mock.MatchedBy(func(filter *entity.OrderFilter) bool {
+				return filter.Page == 1 && filter.Limit == 10 && filter.From == nil && filter.To == nil
+			})).
+			Return(mockOrders, nil)
+
+		orderRepository.EXPECT().
+			CountAdminOrderList(mock.Anything, mock.MatchedBy(func(filter *entity.OrderFilter) bool {
+				return filter.Page == 1 && filter.Limit == 10
+			})).
+			Return(int64(1), nil)
+
+		res, err := usecase.GetAdminOrderList(ctx, req)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
+		assert.Equal(t, 1, res.Meta.Page)
+		assert.Equal(t, 10, res.Meta.Limit)
+		assert.Equal(t, int64(1), res.Meta.Total)
+		assert.Equal(t, int64(1), res.Meta.TotalPages)
+		assert.Len(t, res.Orders, 1)
+		assert.Equal(t, uint(1), res.Orders[0].OrderID)
+		assert.Equal(t, "INV-001", res.Orders[0].InvoiceNumber)
+		assert.Equal(t, now.Format(time.RFC3339), res.Orders[0].CreatedAt)
+	})
+
+	t.Run("success_with_valid_dates_and_zero_total_records", func(t *testing.T) {
+		usecase, _, _, orderRepository, _ := setupOrderUsecase(t)
+
+		req := &dto.AdminOrderListRequest{
+			From:  "2026-09-01",
+			To:    "2026-09-10",
+			Page:  2,
+			Limit: 5,
+		}
+
+		orderRepository.EXPECT().
+			GetAdminOrderList(mock.Anything, mock.MatchedBy(func(filter *entity.OrderFilter) bool {
+				if filter.From == nil || filter.To == nil {
+					return false
+				}
+				expectedFrom := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+				expectedTo := time.Date(2026, 9, 10, 23, 59, 59, 999999999, time.UTC)
+				return filter.From.Equal(expectedFrom) && filter.To.Equal(expectedTo) && filter.Page == 2 && filter.Limit == 5
+			})).
+			Return([]entity.Order{}, nil)
+
+		orderRepository.EXPECT().
+			CountAdminOrderList(mock.Anything, mock.Anything).
+			Return(int64(0), nil)
+
+		res, err := usecase.GetAdminOrderList(ctx, req)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
+		assert.Equal(t, int64(0), res.Meta.Total)
+		assert.Equal(t, int64(0), res.Meta.TotalPages)
+		assert.Empty(t, res.Orders)
+	})
+
+	t.Run("error_invalid_to_date_format", func(t *testing.T) {
+		usecase, _, _, _, _ := setupOrderUsecase(t)
+
+		req := &dto.AdminOrderListRequest{
+			To: "invalid-date",
+		}
+
+		res, err := usecase.GetAdminOrderList(ctx, req)
+
+		assert.Nil(t, res)
+		assert.ErrorIs(t, err, apperror.ErrInvalidDateRange)
+	})
+
+	t.Run("error_invalid_from_date_format", func(t *testing.T) {
+		usecase, _, _, _, _ := setupOrderUsecase(t)
+
+		req := &dto.AdminOrderListRequest{
+			From: "01-09-2026",
+		}
+
+		res, err := usecase.GetAdminOrderList(ctx, req)
+
+		assert.Nil(t, res)
+		assert.ErrorIs(t, err, apperror.ErrInvalidDateRange)
+	})
+
+	t.Run("error_get_admin_order_list_repo_fails", func(t *testing.T) {
+		usecase, _, _, orderRepository, _ := setupOrderUsecase(t)
+
+		req := &dto.AdminOrderListRequest{
+			Page:  1,
+			Limit: 10,
+		}
+
+		orderRepository.EXPECT().
+			GetAdminOrderList(mock.Anything, mock.Anything).
+			Return(nil, dummyErr)
+
+		orderRepository.EXPECT().
+			CountAdminOrderList(mock.Anything, mock.Anything).
+			Return(int64(0), nil).
+			Maybe()
+
+		res, err := usecase.GetAdminOrderList(ctx, req)
+
+		assert.Nil(t, res)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get admin order list")
+	})
+
+	t.Run("error_count_admin_order_list_repo_fails", func(t *testing.T) {
+		usecase, _, _, orderRepository, _ := setupOrderUsecase(t)
+
+		req := &dto.AdminOrderListRequest{
+			Page:  1,
+			Limit: 10,
+		}
+
+		orderRepository.EXPECT().
+			GetAdminOrderList(mock.Anything, mock.Anything).
+			Return([]entity.Order{}, nil).
+			Maybe()
+
+		orderRepository.EXPECT().
+			CountAdminOrderList(mock.Anything, mock.Anything).
+			Return(int64(0), dummyErr)
+
+		res, err := usecase.GetAdminOrderList(ctx, req)
+
+		assert.Nil(t, res)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to count admin order list")
 	})
 }

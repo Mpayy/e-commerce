@@ -39,6 +39,72 @@ func (_m *MockOrderRepository) EXPECT() *MockOrderRepository_Expecter {
 	return &MockOrderRepository_Expecter{mock: &_m.Mock}
 }
 
+// CountAdminOrderList provides a mock function for the type MockOrderRepository
+func (_mock *MockOrderRepository) CountAdminOrderList(ctx context.Context, filter *entity.OrderFilter) (int64, error) {
+	ret := _mock.Called(ctx, filter)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CountAdminOrderList")
+	}
+
+	var r0 int64
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *entity.OrderFilter) (int64, error)); ok {
+		return returnFunc(ctx, filter)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *entity.OrderFilter) int64); ok {
+		r0 = returnFunc(ctx, filter)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *entity.OrderFilter) error); ok {
+		r1 = returnFunc(ctx, filter)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockOrderRepository_CountAdminOrderList_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountAdminOrderList'
+type MockOrderRepository_CountAdminOrderList_Call struct {
+	*mock.Call
+}
+
+// CountAdminOrderList is a helper method to define mock.On call
+//   - ctx context.Context
+//   - filter *entity.OrderFilter
+func (_e *MockOrderRepository_Expecter) CountAdminOrderList(ctx any, filter any) *MockOrderRepository_CountAdminOrderList_Call {
+	return &MockOrderRepository_CountAdminOrderList_Call{Call: _e.mock.On("CountAdminOrderList", ctx, filter)}
+}
+
+func (_c *MockOrderRepository_CountAdminOrderList_Call) Run(run func(ctx context.Context, filter *entity.OrderFilter)) *MockOrderRepository_CountAdminOrderList_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *entity.OrderFilter
+		if args[1] != nil {
+			arg1 = args[1].(*entity.OrderFilter)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockOrderRepository_CountAdminOrderList_Call) Return(n int64, err error) *MockOrderRepository_CountAdminOrderList_Call {
+	_c.Call.Return(n, err)
+	return _c
+}
+
+func (_c *MockOrderRepository_CountAdminOrderList_Call) RunAndReturn(run func(ctx context.Context, filter *entity.OrderFilter) (int64, error)) *MockOrderRepository_CountAdminOrderList_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateOrderWithItems provides a mock function for the type MockOrderRepository
 func (_mock *MockOrderRepository) CreateOrderWithItems(ctx context.Context, order *entity.Order, items []entity.OrderItem) error {
 	ret := _mock.Called(ctx, order, items)
@@ -252,6 +318,74 @@ func (_c *MockOrderRepository_FindByUserID_Call) Return(orders []entity.Order, n
 }
 
 func (_c *MockOrderRepository_FindByUserID_Call) RunAndReturn(run func(ctx context.Context, userID uint, page int, limit int) ([]entity.Order, int64, error)) *MockOrderRepository_FindByUserID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetAdminOrderList provides a mock function for the type MockOrderRepository
+func (_mock *MockOrderRepository) GetAdminOrderList(ctx context.Context, filter *entity.OrderFilter) ([]entity.Order, error) {
+	ret := _mock.Called(ctx, filter)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAdminOrderList")
+	}
+
+	var r0 []entity.Order
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *entity.OrderFilter) ([]entity.Order, error)); ok {
+		return returnFunc(ctx, filter)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *entity.OrderFilter) []entity.Order); ok {
+		r0 = returnFunc(ctx, filter)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]entity.Order)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *entity.OrderFilter) error); ok {
+		r1 = returnFunc(ctx, filter)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockOrderRepository_GetAdminOrderList_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAdminOrderList'
+type MockOrderRepository_GetAdminOrderList_Call struct {
+	*mock.Call
+}
+
+// GetAdminOrderList is a helper method to define mock.On call
+//   - ctx context.Context
+//   - filter *entity.OrderFilter
+func (_e *MockOrderRepository_Expecter) GetAdminOrderList(ctx any, filter any) *MockOrderRepository_GetAdminOrderList_Call {
+	return &MockOrderRepository_GetAdminOrderList_Call{Call: _e.mock.On("GetAdminOrderList", ctx, filter)}
+}
+
+func (_c *MockOrderRepository_GetAdminOrderList_Call) Run(run func(ctx context.Context, filter *entity.OrderFilter)) *MockOrderRepository_GetAdminOrderList_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *entity.OrderFilter
+		if args[1] != nil {
+			arg1 = args[1].(*entity.OrderFilter)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockOrderRepository_GetAdminOrderList_Call) Return(orders []entity.Order, err error) *MockOrderRepository_GetAdminOrderList_Call {
+	_c.Call.Return(orders, err)
+	return _c
+}
+
+func (_c *MockOrderRepository_GetAdminOrderList_Call) RunAndReturn(run func(ctx context.Context, filter *entity.OrderFilter) ([]entity.Order, error)) *MockOrderRepository_GetAdminOrderList_Call {
 	_c.Call.Return(run)
 	return _c
 }

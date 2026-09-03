@@ -17,4 +17,6 @@ type OrderRepository interface {
 	FindByID(ctx context.Context, orderID uint) (*entity.Order, error)
 	GetDailyRevenueReport(ctx context.Context, from, to time.Time) ([]entity.DailyRevenueRow, error)
 	GetTopProducts(ctx context.Context, from, to time.Time, limit int32) ([]entity.TopProductRow, error)
+	GetAdminOrderList(ctx context.Context, filter *entity.OrderFilter) ([]entity.Order, error)
+	CountAdminOrderList(ctx context.Context, filter *entity.OrderFilter) (int64, error)
 }

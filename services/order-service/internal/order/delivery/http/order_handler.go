@@ -9,4 +9,5 @@ type OrderHandler interface {
 	GetHistory(ctx *gin.Context)
 	GetDetail(ctx *gin.Context)
 	GetSalesAnalytics(ctx *gin.Context)
+	GetAdminOrderList(ctx *gin.Context)
 }

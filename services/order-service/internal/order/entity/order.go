@@ -19,3 +19,14 @@ type DailyRevenueRow struct {
 	DailyRevenue float64
 	RunningTotal float64
 }
+
+type OrderFilter struct {
+	UserID uint
+	Status string
+	MinAmount float64
+	MaxAmount float64
+	From *time.Time
+	To *time.Time
+	Page int
+	Limit int
+}
