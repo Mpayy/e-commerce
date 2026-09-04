@@ -480,3 +480,32 @@ func (u *OrderUsecaseImpl) GetAdminOrderList(ctx context.Context, req *dto.Admin
 		},
 	}, nil
 }
+
+func (u *OrderUsecaseImpl) GetAdminOrderDetail(ctx context.Context, orderID uint) (*dto.OrderResponse, error) {
+	order, err := u.orderRepository.FindByID(ctx, orderID)
+	if err != nil {
+		if errors.Is(err, apperror.ErrRecordNotFound) {
+			return nil, apperror.ErrOrderNotFound
+		}
+		return nil, fmt.Errorf("failed find by id: %w", err)
+	}
+
+	items := make([]dto.OrderItemResponse, 0, len(order.Items))
+	for _, item := range order.Items {
+		items = append(items, dto.OrderItemResponse{
+			ProductID:   item.ProductID,
+			ProductName: item.ProductName,
+			Price:       item.Price,
+			Quantity:    item.Quantity,
+			Subtotal:    item.Subtotal,
+		})
+	}
+
+	return &dto.OrderResponse{
+		OrderID:       order.ID,
+		InvoiceNumber: order.InvoiceNumber,
+		TotalAmount:   order.TotalAmount,
+		Status:        order.Status,
+		Items:         items,
+	}, nil
+}

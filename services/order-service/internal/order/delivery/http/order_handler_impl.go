@@ -208,3 +208,39 @@ func (h *OrderHandlerImpl) GetAdminOrderList(ctx *gin.Context) {
 
 	response.ResponseSuccess(ctx, http.StatusOK, listOrders)
 }
+
+// GetAdminOrderDetail godoc
+// @Summary      
+// @Description  
+// @Tags         admin-orders
+// @Produce      json
+// @Security     BearerAuth
+// @Param        order_id path int true "Order ID"
+// @Success      200 {object} response.SuccessResponse{data=dto.OrderResponse}
+// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "BAD_REQUEST"
+// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "UNAUTHORIZED"
+// @Failure      403 {object} response.ErrorResponse{error=apperror.AppError} "FORBIDDEN"
+// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "ORDER_NOT_FOUND"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
+// @Router       /admin/orders/{order_id} [get]
+func (h *OrderHandlerImpl) GetAdminOrderDetail(ctx *gin.Context) {
+	orderIDStr := ctx.Param("order_id")
+	if orderIDStr == "" {
+		response.HandleError(ctx, apperror.ErrBadRequest)
+		return
+	}
+
+	orderID, err := strconv.Atoi(orderIDStr)
+	if err != nil {
+		response.HandleError(ctx, apperror.ErrBadRequest)
+		return
+	}
+
+	order, err := h.orderUsecase.GetAdminOrderDetail(ctx.Request.Context(), uint(orderID))
+	if err != nil {
+		response.HandleError(ctx, err)
+		return
+	}
+
+	response.ResponseSuccess(ctx, http.StatusOK, order)
+}

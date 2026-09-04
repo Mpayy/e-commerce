@@ -838,3 +838,74 @@ func TestOrderUsecase_GetAdminOrderList(t *testing.T) {
 		assert.Contains(t, err.Error(), "failed to count admin order list")
 	})
 }
+
+func TestOrderUsecase_GetAdminOrderDetail(t *testing.T) {
+	ctx := context.Background()
+	orderID := uint(145)
+	dbErr := errors.New("unexpected database error")
+
+	t.Run("success_get_admin_order_detail", func(t *testing.T) {
+		usecase, _, _, orderRepository, _ := setupOrderUsecase(t)
+
+		mockOrder := &entity.Order{
+			ID:            145,
+			UserID:        10,
+			InvoiceNumber: "INV-20260825-000145",
+			TotalAmount:   750000,
+			Status:        "PAID",
+			Items: []entity.OrderItem{
+				{
+					ID:          1,
+					OrderID:     145,
+					ProductID:   12,
+					ProductName: "Mechanical Keyboard 60%",
+					Price:       750000,
+					Quantity:    1,
+					Subtotal:    750000,
+				},
+			},
+		}
+
+		orderRepository.EXPECT().FindByID(ctx, orderID).Return(mockOrder, nil)
+
+		result, err := usecase.GetAdminOrderDetail(ctx, orderID)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, uint(145), result.OrderID)
+		assert.Equal(t, "INV-20260825-000145", result.InvoiceNumber)
+		assert.Equal(t, float64(750000), result.TotalAmount)
+		assert.Equal(t, "PAID", result.Status)
+		assert.Len(t, result.Items, 1)
+		assert.Equal(t, uint(12), result.Items[0].ProductID)
+		assert.Equal(t, "Mechanical Keyboard 60%", result.Items[0].ProductName)
+		assert.Equal(t, float64(750000), result.Items[0].Price)
+		assert.Equal(t, 1, result.Items[0].Quantity)
+		assert.Equal(t, float64(750000), result.Items[0].Subtotal)
+	})
+
+	t.Run("error_order_not_found", func(t *testing.T) {
+		usecase, _, _, orderRepository, _ := setupOrderUsecase(t)
+
+		orderRepository.EXPECT().FindByID(ctx, orderID).Return(nil, apperror.ErrRecordNotFound)
+
+		result, err := usecase.GetAdminOrderDetail(ctx, orderID)
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.ErrorIs(t, err, apperror.ErrOrderNotFound)
+	})
+
+	t.Run("error_repository_unexpected_error", func(t *testing.T) {
+		usecase, _, _, orderRepository, _ := setupOrderUsecase(t)
+
+		orderRepository.EXPECT().FindByID(ctx, orderID).Return(nil, dbErr)
+
+		result, err := usecase.GetAdminOrderDetail(ctx, orderID)
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.ErrorContains(t, err, "failed find by id")
+		assert.ErrorIs(t, err, dbErr)
+	})
+}
