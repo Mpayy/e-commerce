@@ -110,7 +110,7 @@
             }
         },
         "/logout": {
-            "post": {
+            "delete": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -126,7 +126,7 @@
                 "summary": "Logout a user",
                 "responses": {
                     "200": {
-                        "description": "User logged out successfully",
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/response.SuccessResponse"
                         }

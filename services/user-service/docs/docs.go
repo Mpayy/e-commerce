@@ -116,7 +116,7 @@ const docTemplate = `{
             }
         },
         "/logout": {
-            "post": {
+            "delete": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -132,7 +132,7 @@ const docTemplate = `{
                 "summary": "Logout a user",
                 "responses": {
                     "200": {
-                        "description": "User logged out successfully",
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/response.SuccessResponse"
                         }

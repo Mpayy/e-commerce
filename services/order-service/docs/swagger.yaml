@@ -381,6 +381,82 @@ paths:
       summary: List all orders with dynamic filters (Admin)
       tags:
       - admin-orders
+  /admin/orders/{order_id}:
+    get:
+      description: Returns the complete detail of a single order, including its item
+        breakdown, regardless of which user placed it. Unlike GET /orders/:order_id,
+        there is no ownership check — the usecase signature intentionally omits a
+        requesting-user parameter, so ownership simply cannot be enforced here even
+        by accident. Reuses the same OrderRepository.FindByID as the customer-facing
+        endpoint. Requires admin role.
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.OrderResponse'
+              type: object
+        "400":
+          description: BAD_REQUEST
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "401":
+          description: UNAUTHORIZED
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "403":
+          description: FORBIDDEN
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "404":
+          description: ORDER_NOT_FOUND
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "500":
+          description: INTERNAL_SERVER_ERROR
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get full order detail for any user (Admin)
+      tags:
+      - admin-orders
   /cart:
     delete:
       description: Removes all items from the authenticated user's cart in a single
