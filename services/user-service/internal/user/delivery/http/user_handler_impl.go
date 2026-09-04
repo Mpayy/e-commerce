@@ -122,10 +122,10 @@ func (h *UserHandlerImpl) GetProfile(ctx *gin.Context) {
 // @Tags         users
 // @Produce      json
 // @Security     BearerAuth
-// @Success      200 {object} response.SuccessResponse "User logged out successfully"
+// @Success      200 {object} response.SuccessResponse
 // @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "UNAUTHORIZED"
 // @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
-// @Router       /logout [post]
+// @Router       /logout [delete]
 func (h *UserHandlerImpl) Logout(ctx *gin.Context) {
 	token := ctx.GetString("token")
 	if token == "" {

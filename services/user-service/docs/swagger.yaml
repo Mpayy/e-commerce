@@ -135,13 +135,13 @@ paths:
       tags:
       - users
   /logout:
-    post:
+    delete:
       description: Logs out a user.
       produces:
       - application/json
       responses:
         "200":
-          description: User logged out successfully
+          description: OK
           schema:
             $ref: '#/definitions/response.SuccessResponse'
         "401":

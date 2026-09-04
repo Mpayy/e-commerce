@@ -482,6 +482,11 @@ func (u *OrderUsecaseImpl) GetAdminOrderList(ctx context.Context, req *dto.Admin
 }
 
 func (u *OrderUsecaseImpl) GetAdminOrderDetail(ctx context.Context, orderID uint) (*dto.OrderResponse, error) {
+	log := u.log.WithFields(logger.Fields{
+		"order_id": orderID,
+	})
+	log.Debug("Getting admin order detail")
+
 	order, err := u.orderRepository.FindByID(ctx, orderID)
 	if err != nil {
 		if errors.Is(err, apperror.ErrRecordNotFound) {
@@ -500,6 +505,8 @@ func (u *OrderUsecaseImpl) GetAdminOrderDetail(ctx context.Context, orderID uint
 			Subtotal:    item.Subtotal,
 		})
 	}
+
+	log.Debug("Admin order detail retrieved successfully")
 
 	return &dto.OrderResponse{
 		OrderID:       order.ID,

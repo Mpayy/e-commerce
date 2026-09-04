@@ -210,8 +210,8 @@ func (h *OrderHandlerImpl) GetAdminOrderList(ctx *gin.Context) {
 }
 
 // GetAdminOrderDetail godoc
-// @Summary      
-// @Description  
+// @Summary      Get full order detail for any user (Admin)
+// @Description  Returns the complete detail of a single order, including its item breakdown, regardless of which user placed it. Unlike GET /orders/:order_id, there is no ownership check — the usecase signature intentionally omits a requesting-user parameter, so ownership simply cannot be enforced here even by accident. Reuses the same OrderRepository.FindByID as the customer-facing endpoint. Requires admin role.
 // @Tags         admin-orders
 // @Produce      json
 // @Security     BearerAuth
