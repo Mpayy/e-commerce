@@ -73,3 +73,9 @@ type AdminOrderSummaryResponse struct {
 	Status        string  `json:"status"`
 	CreatedAt     string  `json:"created_at"`
 }
+
+type AdminCancelOrderResponse struct {
+	OrderID       uint   `json:"order_id"`
+	InvoiceNumber string `json:"invoice_number"`
+	Status        string `json:"status"`
+}

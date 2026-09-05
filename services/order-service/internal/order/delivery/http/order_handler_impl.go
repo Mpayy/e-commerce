@@ -244,3 +244,52 @@ func (h *OrderHandlerImpl) GetAdminOrderDetail(ctx *gin.Context) {
 
 	response.ResponseSuccess(ctx, http.StatusOK, order)
 }
+
+// CancelOrder godoc
+// @Summary      Cancel a PAID order (Admin)
+// @Description  Transitions a single order from PAID to CANCELLED. The status precondition lives in the UPDATE's WHERE clause itself, so the check-and-update is atomic — two concurrent cancel attempts on the same order can't both succeed. Returns 404 if the order doesn't exist, 409 if it exists but isn't currently PAID (e.g., already cancelled). Only "CANCELLED" is accepted as the request body's status value for now.
+// @Tags         admin-orders
+// @Produce      json
+// @Security     BearerAuth
+// @Param        order_id path int true "Order ID"
+// @Param        request body dto.AdminCancelOrderRequest true "Order payload"
+// @Success      200 {object} response.SuccessResponse{data=dto.AdminCancelOrderResponse}
+// @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "BAD_REQUEST / VALIDATION_FAILED"
+// @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "UNAUTHORIZED"
+// @Failure      403 {object} response.ErrorResponse{error=apperror.AppError} "FORBIDDEN"
+// @Failure      404 {object} response.ErrorResponse{error=apperror.AppError} "ORDER_NOT_FOUND"
+// @Failure      409 {object} response.ErrorResponse{error=apperror.AppError} "INVALID_ORDER_STATUS_TRANSITION"
+// @Failure      500 {object} response.ErrorResponse{error=apperror.AppError} "INTERNAL_SERVER_ERROR"
+// @Router       /admin/orders/{order_id}/status [patch]
+func (h *OrderHandlerImpl) CancelOrder(ctx *gin.Context) {
+	orderIDStr := ctx.Param("order_id")
+	if orderIDStr == "" {
+		response.HandleError(ctx, apperror.ErrBadRequest)
+		return
+	}
+
+	orderID, err := strconv.Atoi(orderIDStr)
+	if err != nil {
+		response.HandleError(ctx, apperror.ErrBadRequest)
+		return
+	}
+
+	var request dto.AdminCancelOrderRequest
+	if err := ctx.ShouldBindJSON(&request); err != nil {
+		response.HandleError(ctx, apperror.ErrBadRequest)
+		return
+	}
+
+	if err := h.validator.Struct(&request); err != nil {
+		response.HandleError(ctx, apperror.ExtractValidationErrors(err))
+		return
+	}
+
+	order, err := h.orderUsecase.CancelOrder(ctx.Request.Context(), uint(orderID))
+	if err != nil {
+		response.HandleError(ctx, err)
+		return
+	}
+
+	response.ResponseSuccess(ctx, http.StatusOK, order)
+}
