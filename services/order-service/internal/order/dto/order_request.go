@@ -21,3 +21,7 @@ type AdminOrderListRequest struct {
 	Page      int     `form:"page" validate:"omitempty,min=1"`
 	Limit     int     `form:"limit" validate:"omitempty,min=1,max=100"`
 }
+
+type AdminCancelOrderRequest struct {
+	Status string `json:"status" validate:"required,oneof=CANCELLED"`
+}

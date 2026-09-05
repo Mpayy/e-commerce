@@ -65,6 +65,24 @@ definitions:
       product_id:
         type: integer
     type: object
+  github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.AdminCancelOrderRequest:
+    properties:
+      status:
+        enum:
+        - CANCELLED
+        type: string
+    required:
+    - status
+    type: object
+  github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.AdminCancelOrderResponse:
+    properties:
+      invoice_number:
+        type: string
+      order_id:
+        type: integer
+      status:
+        type: string
+    type: object
   github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.AdminOrderListResponse:
     properties:
       meta:
@@ -455,6 +473,97 @@ paths:
       security:
       - BearerAuth: []
       summary: Get full order detail for any user (Admin)
+      tags:
+      - admin-orders
+  /admin/orders/{order_id}/status:
+    patch:
+      description: Transitions a single order from PAID to CANCELLED. The status precondition
+        lives in the UPDATE's WHERE clause itself, so the check-and-update is atomic
+        — two concurrent cancel attempts on the same order can't both succeed. Returns
+        404 if the order doesn't exist, 409 if it exists but isn't currently PAID
+        (e.g., already cancelled). Only "CANCELLED" is accepted as the request body's
+        status value for now.
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: integer
+      - description: Order payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.AdminCancelOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_Mpayy_e-commerce_services_order-service_internal_order_dto.AdminCancelOrderResponse'
+              type: object
+        "400":
+          description: BAD_REQUEST / VALIDATION_FAILED
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "401":
+          description: UNAUTHORIZED
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "403":
+          description: FORBIDDEN
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "404":
+          description: ORDER_NOT_FOUND
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "409":
+          description: INVALID_ORDER_STATUS_TRANSITION
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+        "500":
+          description: INTERNAL_SERVER_ERROR
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ErrorResponse'
+            - properties:
+                error:
+                  $ref: '#/definitions/apperror.AppError'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Cancel a PAID order (Admin)
       tags:
       - admin-orders
   /cart:

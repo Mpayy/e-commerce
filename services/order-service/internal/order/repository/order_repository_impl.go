@@ -296,7 +296,7 @@ func (r *OrderRepositoryImpl) GetAdminOrderList(ctx context.Context, filter *ent
 		); err != nil {
 			return nil, err
 		}
-		
+
 		orders = append(orders, order)
 	}
 
@@ -326,4 +326,29 @@ func (r *OrderRepositoryImpl) CountAdminOrderList(ctx context.Context, filter *e
 	}
 
 	return totalRecords, nil
+}
+
+func (r *OrderRepositoryImpl) CancelOrder(ctx context.Context, orderID uint) (*entity.Order, error) {
+	sqlcCancelOrderRow, err := r.queries.CancelOrder(ctx, int64(orderID))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			_, fetchErr := r.queries.GetOrderByID(ctx, int64(orderID))
+			if fetchErr != nil {
+				if errors.Is(fetchErr, sql.ErrNoRows) {
+					return nil, apperror.ErrRecordNotFound
+				}
+				return nil, fetchErr
+			}
+			return nil, apperror.ErrStatusTransitionFailed
+		}
+		return nil, err
+	}
+
+	order := &entity.Order{
+		ID:            uint(sqlcCancelOrderRow.ID),
+		InvoiceNumber: sqlcCancelOrderRow.InvoiceNumber.String,
+		Status:        sqlcCancelOrderRow.Status,
+	}
+
+	return order, nil
 }

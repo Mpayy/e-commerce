@@ -19,4 +19,5 @@ type OrderRepository interface {
 	GetTopProducts(ctx context.Context, from, to time.Time, limit int32) ([]entity.TopProductRow, error)
 	GetAdminOrderList(ctx context.Context, filter *entity.OrderFilter) ([]entity.Order, error)
 	CountAdminOrderList(ctx context.Context, filter *entity.OrderFilter) (int64, error)
+	CancelOrder(ctx context.Context, orderID uint) (*entity.Order, error)
 }

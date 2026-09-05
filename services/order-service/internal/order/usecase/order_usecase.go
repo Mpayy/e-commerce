@@ -13,4 +13,5 @@ type OrderUsecase interface {
 	GetSalesAnalytics(ctx context.Context, req *dto.SalesAnalyticsRequest) (*dto.SalesAnalyticsResponse, error)
 	GetAdminOrderList(ctx context.Context, filter *dto.AdminOrderListRequest) (*dto.AdminOrderListResponse, error)
 	GetAdminOrderDetail(ctx context.Context, orderID uint) (*dto.OrderResponse, error)
+	CancelOrder(ctx context.Context, orderID uint) (*dto.AdminCancelOrderResponse, error)
 }

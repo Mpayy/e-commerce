@@ -56,6 +56,7 @@ func setupRouter(r *gin.Engine, orderHandler orderHttp.OrderHandler, cartHandler
 		admin.GET("/analytics/sales", orderHandler.GetSalesAnalytics)
 		admin.GET("/orders", orderHandler.GetAdminOrderList)
 		admin.GET("/orders/:order_id", orderHandler.GetAdminOrderDetail)
+		admin.PATCH("/orders/:order_id/status", orderHandler.CancelOrder)
 	}
 
 	return r

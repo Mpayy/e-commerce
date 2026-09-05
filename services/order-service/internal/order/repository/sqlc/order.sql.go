@@ -12,6 +12,26 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const cancelOrder = `-- name: CancelOrder :one
+UPDATE orders
+SET status = 'CANCELLED', updated_at = NOW()
+WHERE id = $1 AND status = 'PAID'
+RETURNING id, invoice_number, status
+`
+
+type CancelOrderRow struct {
+	ID            int64
+	InvoiceNumber pgtype.Text
+	Status        string
+}
+
+func (q *Queries) CancelOrder(ctx context.Context, orderID int64) (CancelOrderRow, error) {
+	row := q.db.QueryRow(ctx, cancelOrder, orderID)
+	var i CancelOrderRow
+	err := row.Scan(&i.ID, &i.InvoiceNumber, &i.Status)
+	return i, err
+}
+
 const countOrdersByUser = `-- name: CountOrdersByUser :one
 SELECT COUNT(*)::BIGINT
 FROM orders

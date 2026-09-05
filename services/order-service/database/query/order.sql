@@ -44,3 +44,9 @@ daily_revenue,
 SUM(daily_revenue) OVER (ORDER BY date ASC)::NUMERIC AS running_total
 FROM daily_summary
 ORDER BY date ASC;
+
+-- name: CancelOrder :one
+UPDATE orders
+SET status = 'CANCELLED', updated_at = NOW()
+WHERE id = sqlc.arg(order_id) AND status = 'PAID'
+RETURNING id, invoice_number, status;

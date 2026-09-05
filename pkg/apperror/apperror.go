@@ -18,13 +18,14 @@ func (e *AppError) Error() string { return e.Message }
 
 var (
 	// Common / General Errors
-	ErrInternalServer      = &AppError{Code: "INTERNAL_SERVER_ERROR", Message: "something went wrong", Status: http.StatusInternalServerError}
-	ErrDuplicatedKey       = &AppError{Code: "DUPLICATED_KEY", Message: "duplicated key", Status: http.StatusConflict}
-	ErrRecordNotFound      = &AppError{Code: "RECORD_NOT_FOUND", Message: "record not found", Status: http.StatusNotFound}
-	ErrInvalidID           = &AppError{Code: "INVALID_ID", Message: "invalid id", Status: http.StatusBadRequest}
-	ErrBadRequest          = &AppError{Code: "BAD_REQUEST", Message: "bad request", Status: http.StatusBadRequest}
-	ErrNoActiveTransaction = &AppError{Code: "NO_ACTIVE_TRANSACTION", Message: "no active transaction", Status: http.StatusInternalServerError}
-	ErrValidationFailed    = &AppError{Code: "VALIDATION_FAILED", Message: "validation failed", Status: http.StatusUnprocessableEntity}
+	ErrInternalServer         = &AppError{Code: "INTERNAL_SERVER_ERROR", Message: "something went wrong", Status: http.StatusInternalServerError}
+	ErrDuplicatedKey          = &AppError{Code: "DUPLICATED_KEY", Message: "duplicated key", Status: http.StatusConflict}
+	ErrRecordNotFound         = &AppError{Code: "RECORD_NOT_FOUND", Message: "record not found", Status: http.StatusNotFound}
+	ErrInvalidID              = &AppError{Code: "INVALID_ID", Message: "invalid id", Status: http.StatusBadRequest}
+	ErrBadRequest             = &AppError{Code: "BAD_REQUEST", Message: "bad request", Status: http.StatusBadRequest}
+	ErrNoActiveTransaction    = &AppError{Code: "NO_ACTIVE_TRANSACTION", Message: "no active transaction", Status: http.StatusInternalServerError}
+	ErrValidationFailed       = &AppError{Code: "VALIDATION_FAILED", Message: "validation failed", Status: http.StatusUnprocessableEntity}
+	ErrStatusTransitionFailed = &AppError{Code: "STATUS_TRANSITION_FAILED", Message: "status transition failed", Status: http.StatusConflict}
 
 	// Auth & User Errors
 	ErrUnauthorized         = &AppError{Code: "UNAUTHORIZED", Message: "unauthorized access", Status: http.StatusUnauthorized}
@@ -51,8 +52,9 @@ var (
 	ErrInvalidQuantity = &AppError{Code: "INVALID_QUANTITY", Message: "invalid quantity", Status: http.StatusBadRequest}
 
 	// Order Errors
-	ErrOrderNotFound    = &AppError{Code: "ORDER_NOT_FOUND", Message: "order not found", Status: http.StatusNotFound}
-	ErrInvalidDateRange = &AppError{Code: "INVALID_DATE_RANGE", Message: "invalid date range", Status: http.StatusBadRequest}
+	ErrOrderNotFound                = &AppError{Code: "ORDER_NOT_FOUND", Message: "order not found", Status: http.StatusNotFound}
+	ErrInvalidDateRange             = &AppError{Code: "INVALID_DATE_RANGE", Message: "invalid date range", Status: http.StatusBadRequest}
+	ErrInvalidOrderStatusTransition = &AppError{Code: "INVALID_ORDER_STATUS_TRANSITION", Message: "status order transition failed", Status: http.StatusConflict}
 )
 
 func ExtractValidationErrors(err error) *AppError {
@@ -98,6 +100,8 @@ func translateTag(e validator.FieldError) string {
 		return "must be greater than or equal to " + e.Param()
 	case "gtfield":
 		return "must be greater than " + e.Param()
+	case "oneof":
+		return "must be one of: " + e.Param()
 	default:
 		return "invalid input value"
 	}

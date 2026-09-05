@@ -516,3 +516,28 @@ func (u *OrderUsecaseImpl) GetAdminOrderDetail(ctx context.Context, orderID uint
 		Items:         items,
 	}, nil
 }
+
+func (u *OrderUsecaseImpl) CancelOrder(ctx context.Context, orderID uint) (*dto.AdminCancelOrderResponse, error) {
+	log := u.log.WithFields(logger.Fields{
+		"order_id": orderID,
+	})
+	log.Debug("Attempting to cancel order")
+
+	order, err := u.orderRepository.CancelOrder(ctx, orderID)
+	if err != nil {
+		if errors.Is(err, apperror.ErrRecordNotFound) {
+			return nil, apperror.ErrOrderNotFound
+		}
+		if errors.Is(err, apperror.ErrStatusTransitionFailed) {
+			return nil, apperror.ErrInvalidOrderStatusTransition
+		}
+		return nil, fmt.Errorf("failed cancel order: %w", err)
+	}
+
+	log.Debug("cancel order successful")
+	return &dto.AdminCancelOrderResponse{
+		OrderID:       order.ID,
+		InvoiceNumber: order.InvoiceNumber,
+		Status:        order.Status,
+	}, nil
+}

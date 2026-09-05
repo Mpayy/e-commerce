@@ -909,3 +909,66 @@ func TestOrderUsecase_GetAdminOrderDetail(t *testing.T) {
 		assert.ErrorIs(t, err, dbErr)
 	})
 }
+
+func TestOrderUsecase_CancelOrder(t *testing.T) {
+	ctx := context.Background()
+	orderID := uint(8)
+	dbErr := errors.New("unexpected database error")
+
+	t.Run("success_cancel_order", func(t *testing.T) {
+		usecase, _, _, orderRepository, _ := setupOrderUsecase(t)
+
+		mockOrder := &entity.Order{
+			ID:            8,
+			InvoiceNumber: "INV-20260829-000008",
+			Status:        "CANCELLED",
+		}
+
+		orderRepository.EXPECT().CancelOrder(ctx, orderID).Return(mockOrder, nil)
+
+		result, err := usecase.CancelOrder(ctx, orderID)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, uint(8), result.OrderID)
+		assert.Equal(t, "INV-20260829-000008", result.InvoiceNumber)
+		assert.Equal(t, "CANCELLED", result.Status)
+	})
+
+	t.Run("error_record_not_found", func(t *testing.T) {
+		usecase, _, _, orderRepository, _ := setupOrderUsecase(t)
+
+		orderRepository.EXPECT().CancelOrder(ctx, orderID).Return(nil, apperror.ErrRecordNotFound)
+
+		result, err := usecase.CancelOrder(ctx, orderID)
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.ErrorIs(t, err, apperror.ErrOrderNotFound)
+	})
+
+	t.Run("error_status_transition_failed", func(t *testing.T) {
+		usecase, _, _, orderRepository, _ := setupOrderUsecase(t)
+
+		orderRepository.EXPECT().CancelOrder(ctx, orderID).Return(nil, apperror.ErrStatusTransitionFailed)
+
+		result, err := usecase.CancelOrder(ctx, orderID)
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.ErrorIs(t, err, apperror.ErrInvalidOrderStatusTransition)
+	})
+
+	t.Run("error_unexpected_repository_error", func(t *testing.T) {
+		usecase, _, _, orderRepository, _ := setupOrderUsecase(t)
+
+		orderRepository.EXPECT().CancelOrder(ctx, orderID).Return(nil, dbErr)
+
+		result, err := usecase.CancelOrder(ctx, orderID)
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.ErrorContains(t, err, "failed cancel order")
+		assert.ErrorIs(t, err, dbErr)
+	})
+}
