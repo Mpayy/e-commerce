@@ -274,7 +274,7 @@ func (r *ProductRepositoryImpl) Delete(ctx context.Context, id uint) error {
 	return nil
 }
 
-func (r *ProductRepositoryImpl) BulkDecreaseStock(ctx context.Context, checkoutID string, items []entity.BulkDecreaseStock) error {
+func (r *ProductRepositoryImpl) BulkDecreaseStock(ctx context.Context, idemKey string, items []entity.StockItem) error {
 	session, err := r.collection.Database().Client().StartSession()
 	if err != nil {
 		return err
@@ -283,11 +283,11 @@ func (r *ProductRepositoryImpl) BulkDecreaseStock(ctx context.Context, checkoutI
 
 	_, err = session.WithTransaction(ctx, func(sessCtx context.Context) (any, error) {
 		ledger := model.StockLedgerModel{
-			ID:         checkoutID + ":decrease",
-			CheckoutID: checkoutID,
-			Operation:  "decrease",
-			Items:      toLedgerItems(items),
-			CreatedAt:  time.Now(),
+			ID:             idemKey + ":decrease",
+			IdempotencyKey: idemKey,
+			Operation:      "decrease",
+			Items:          toLedgerItems(items),
+			CreatedAt:      time.Now(),
 		}
 		if _, err := r.ledgerCollection.InsertOne(sessCtx, ledger); err != nil {
 			if mongo.IsDuplicateKeyError(err) {
@@ -330,7 +330,7 @@ func (r *ProductRepositoryImpl) BulkDecreaseStock(ctx context.Context, checkoutI
 	return err
 }
 
-func (r *ProductRepositoryImpl) BulkRestoreStock(ctx context.Context, checkoutID string) error {
+func (r *ProductRepositoryImpl) BulkRestoreStock(ctx context.Context, idemKey string, items []entity.StockItem) error {
 	session, err := r.collection.Database().Client().StartSession()
 	if err != nil {
 		return err
@@ -338,7 +338,7 @@ func (r *ProductRepositoryImpl) BulkRestoreStock(ctx context.Context, checkoutID
 	defer session.EndSession(ctx)
 
 	_, err = session.WithTransaction(ctx, func(sessCtx context.Context) (any, error) {
-		restoreID := checkoutID + ":restore"
+		restoreID := idemKey + ":restore"
 		var existing model.StockLedgerModel
 		err := r.ledgerCollection.FindOne(sessCtx, bson.M{"_id": restoreID}).Decode(&existing)
 		if err == nil {
@@ -348,17 +348,8 @@ func (r *ProductRepositoryImpl) BulkRestoreStock(ctx context.Context, checkoutID
 			return nil, err
 		}
 
-		var decreaseLedger model.StockLedgerModel
-		err = r.ledgerCollection.FindOne(sessCtx, bson.M{"_id": checkoutID + ":decrease"}).Decode(&decreaseLedger)
-		if err != nil {
-			if errors.Is(err, mongo.ErrNoDocuments) {
-				return nil, nil
-			}
-			return nil, err
-		}
-
 		now := time.Now()
-		for _, item := range decreaseLedger.Items {
+		for _, item := range items {
 			filter := bson.M{
 				"_id": int64(item.ProductID),
 			}
@@ -372,17 +363,23 @@ func (r *ProductRepositoryImpl) BulkRestoreStock(ctx context.Context, checkoutID
 				},
 			}
 
-			if _, err := r.collection.UpdateOne(sessCtx, filter, update); err != nil {
+			result, err := r.collection.UpdateOne(sessCtx, filter, update)
+			if err != nil {
 				return nil, err
 			}
+
+			if result.MatchedCount == 0 {
+				return nil, apperror.ErrRecordNotFound
+			}
+
 		}
 
 		restoreLedger := model.StockLedgerModel{
-			ID:         restoreID,
-			CheckoutID: checkoutID,
-			Operation:  "restore",
-			Items:      decreaseLedger.Items,
-			CreatedAt:  now,
+			ID:             restoreID,
+			IdempotencyKey: idemKey,
+			Operation:      "restore",
+			Items:          toLedgerItems(items),
+			CreatedAt:      now,
 		}
 		_, err = r.ledgerCollection.InsertOne(sessCtx, restoreLedger)
 		return nil, err
@@ -415,7 +412,7 @@ func (r *ProductRepositoryImpl) AdjustStock(ctx context.Context, productID uint,
 	return nil
 }
 
-func toLedgerItems(items []entity.BulkDecreaseStock) []model.StockLedgerItem {
+func toLedgerItems(items []entity.StockItem) []model.StockLedgerItem {
 	ledgerItems := make([]model.StockLedgerItem, len(items))
 	for i, item := range items {
 		ledgerItems[i] = model.StockLedgerItem{

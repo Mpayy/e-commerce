@@ -69,7 +69,7 @@ func (u *OrderUsecaseImpl) Checkout(ctx context.Context, userID uint) (*dto.Orde
 
 	checkoutID := uuid.NewString()
 	orderItems := make([]entity.OrderItem, 0, len(rawCart))
-	decrements := make([]productentity.BulkDecreaseStock, 0, len(rawCart))
+	decrements := make([]productentity.StockItem, 0, len(rawCart))
 	var grandTotal float64
 
 	for productID, qty := range rawCart {
@@ -82,7 +82,7 @@ func (u *OrderUsecaseImpl) Checkout(ctx context.Context, userID uint) (*dto.Orde
 			return nil, apperror.ErrProductNotFound
 		}
 
-		decrements = append(decrements, productentity.BulkDecreaseStock{
+		decrements = append(decrements, productentity.StockItem{
 			ProductID: product.ID,
 			Quantity:  qty,
 		})
@@ -117,7 +117,7 @@ func (u *OrderUsecaseImpl) Checkout(ctx context.Context, userID uint) (*dto.Orde
 		restoreCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		if restoreErr := u.productService.BulkRestoreStock(restoreCtx, checkoutID); restoreErr != nil {
+		if restoreErr := u.productService.BulkRestoreStock(restoreCtx, checkoutID, decrements); restoreErr != nil {
 			log.WithFields(logger.Fields{
 				"checkout_id":    checkoutID,
 				"restore_error":  restoreErr,
@@ -523,7 +523,28 @@ func (u *OrderUsecaseImpl) CancelOrder(ctx context.Context, orderID uint) (*dto.
 	})
 	log.Debug("Attempting to cancel order")
 
-	order, err := u.orderRepository.CancelOrder(ctx, orderID)
+	order, err := u.orderRepository.FindByID(ctx, orderID)
+	if err != nil {
+		if errors.Is(err, apperror.ErrRecordNotFound) {
+			return nil, apperror.ErrOrderNotFound
+		}
+		return nil, fmt.Errorf("failed to get order: %w", err)
+	}
+
+	items := make([]productentity.StockItem, 0, len(order.Items))
+	for _, item := range order.Items {
+		items = append(items, productentity.StockItem{
+			ProductID: item.ProductID,
+			Quantity:  item.Quantity,
+		})
+	}
+
+	idemKey := fmt.Sprintf("cancel-order-%d", orderID)
+	if err := u.productService.BulkRestoreStock(ctx, idemKey, items); err != nil {
+		return nil, err
+	}
+
+	cancelOrder, err := u.orderRepository.CancelOrder(ctx, orderID)
 	if err != nil {
 		if errors.Is(err, apperror.ErrRecordNotFound) {
 			return nil, apperror.ErrOrderNotFound
@@ -531,13 +552,17 @@ func (u *OrderUsecaseImpl) CancelOrder(ctx context.Context, orderID uint) (*dto.
 		if errors.Is(err, apperror.ErrStatusTransitionFailed) {
 			return nil, apperror.ErrInvalidOrderStatusTransition
 		}
+		log.WithFields(logger.Fields{
+			"idem_key": idemKey,
+			"error":    err,
+		}).Error("CRITICAL: stock already restored but order status update failed — manual reconciliation required")
 		return nil, fmt.Errorf("failed cancel order: %w", err)
 	}
 
-	log.Debug("cancel order successful")
+	log.Info("cancel order successful")
 	return &dto.AdminCancelOrderResponse{
-		OrderID:       order.ID,
-		InvoiceNumber: order.InvoiceNumber,
-		Status:        order.Status,
+		OrderID:       cancelOrder.ID,
+		InvoiceNumber: cancelOrder.InvoiceNumber,
+		Status:        cancelOrder.Status,
 	}, nil
 }

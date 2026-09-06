@@ -443,14 +443,14 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Transitions a single order from PAID to CANCELLED. The status precondition lives in the UPDATE's WHERE clause itself, so the check-and-update is atomic — two concurrent cancel attempts on the same order can't both succeed. Returns 404 if the order doesn't exist, 409 if it exists but isn't currently PAID (e.g., already cancelled). Only \"CANCELLED\" is accepted as the request body's status value for now.",
+                "description": "Transitions a single order from PAID to CANCELLED, and restores the stock for each item back to the Product Service beforehand. Stock is restored FIRST via gRPC (idempotent, keyed by \"cancel-order-{order_id}\" so retries can't double-restore); the order status is only updated after that succeeds — if restore fails, the order stays PAID so the admin can safely retry. The status precondition lives in the UPDATE's WHERE clause itself, so the check-and-update is atomic — two concurrent cancel attempts on the same order can't both succeed. Returns 404 if the order doesn't exist, 409 if it exists but isn't currently PAID (e.g., already cancelled). Only \"CANCELLED\" is accepted as the request body's status value for now.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "admin-orders"
                 ],
-                "summary": "Cancel a PAID order (Admin)",
+                "summary": "Cancel a PAID order and restore its stock (Admin)",
                 "parameters": [
                     {
                         "type": "integer",

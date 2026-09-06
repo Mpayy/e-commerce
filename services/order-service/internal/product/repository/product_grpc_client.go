@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Mpayy/e-commerce/services/order-service/internal/product/entity"
 	"github.com/Mpayy/e-commerce/pkg/apperror"
 	productv1 "github.com/Mpayy/e-commerce/proto/product/v1"
+	"github.com/Mpayy/e-commerce/services/order-service/internal/product/entity"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -78,17 +78,17 @@ func (c *ProductGRPCClient) GetProductsByIDs(ctx context.Context, ids []uint) ([
 	return products, nil
 }
 
-func (c *ProductGRPCClient) BulkDecreaseStock(ctx context.Context, checkoutID string, items []entity.BulkDecreaseStock) error {
-	protoItems := make([]*productv1.DecreaseStockRequest, len(items))
-	for i, item := range items {
-		protoItems[i] = &productv1.DecreaseStockRequest{
+func (c *ProductGRPCClient) BulkDecreaseStock(ctx context.Context, idemKey string, items []entity.StockItem) error {
+	protoItems := make([]*productv1.StockItemRequest, 0, len(items))
+	for _, item := range items {
+		protoItems = append(protoItems, &productv1.StockItemRequest{
 			ProductId: uint64(item.ProductID),
 			Quantity:  int32(item.Quantity),
-		}
+		})
 	}
 	_, err := c.client.BulkDecreaseStock(ctx, &productv1.BulkDecreaseStockRequest{
-		CheckoutId: checkoutID,
-		Items:      protoItems,
+		IdempotencyKey: idemKey,
+		Items:          protoItems,
 	})
 	if err != nil {
 		st, _ := status.FromError(err)
@@ -104,8 +104,18 @@ func (c *ProductGRPCClient) BulkDecreaseStock(ctx context.Context, checkoutID st
 	return nil
 }
 
-func (c *ProductGRPCClient) BulkRestoreStock(ctx context.Context, checkoutID string) error {
-	_, err := c.client.BulkRestoreStock(ctx, &productv1.BulkRestoreStockRequest{CheckoutId: checkoutID})
+func (c *ProductGRPCClient) BulkRestoreStock(ctx context.Context, idemKey string, items []entity.StockItem) error {
+	protoItems := make([]*productv1.StockItemRequest, 0, len(items))
+	for _, item := range items {
+		protoItems = append(protoItems, &productv1.StockItemRequest{
+			ProductId: uint64(item.ProductID),
+			Quantity:  int32(item.Quantity),
+		})
+	}
+	_, err := c.client.BulkRestoreStock(ctx, &productv1.BulkRestoreStockRequest{
+		IdempotencyKey: idemKey,
+		Items:          protoItems,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to restore stock from grpc: %w", err)
 	}

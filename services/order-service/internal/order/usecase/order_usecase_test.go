@@ -247,7 +247,7 @@ func TestOrderUsecase_Checkout(t *testing.T) {
 		productService.EXPECT().BulkDecreaseStock(mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		orderRepository.EXPECT().CreateOrderWithItems(mock.Anything, mock.Anything, mock.Anything).Return(dbErr)
-		productService.EXPECT().BulkRestoreStock(mock.Anything, mock.Anything).Return(nil)
+		productService.EXPECT().BulkRestoreStock(mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		result, err := usecase.Checkout(ctx, userID)
 
@@ -270,7 +270,7 @@ func TestOrderUsecase_Checkout(t *testing.T) {
 
 		orderRepository.EXPECT().CreateOrderWithItems(mock.Anything, mock.Anything, mock.Anything).Return(dbErr)
 		restoreErr := errors.New("failed to reach grpc for restore")
-		productService.EXPECT().BulkRestoreStock(mock.Anything, mock.Anything).Return(restoreErr)
+		productService.EXPECT().BulkRestoreStock(mock.Anything, mock.Anything, mock.Anything).Return(restoreErr)
 
 		result, err := usecase.Checkout(ctx, userID)
 
@@ -914,17 +914,30 @@ func TestOrderUsecase_CancelOrder(t *testing.T) {
 	ctx := context.Background()
 	orderID := uint(8)
 	dbErr := errors.New("unexpected database error")
+	grpcErr := errors.New("grpc connection error")
+
+	mockOrder := &entity.Order{
+		ID:            8,
+		InvoiceNumber: "INV-20260829-000008",
+		Status:        "PAID",
+		Items: []entity.OrderItem{
+			{ProductID: 1, Quantity: 2},
+			{ProductID: 2, Quantity: 1},
+		},
+	}
+
+	canceledOrder := &entity.Order{
+		ID:            8,
+		InvoiceNumber: "INV-20260829-000008",
+		Status:        "CANCELLED",
+	}
 
 	t.Run("success_cancel_order", func(t *testing.T) {
-		usecase, _, _, orderRepository, _ := setupOrderUsecase(t)
+		usecase, productService, _, orderRepository, _ := setupOrderUsecase(t)
 
-		mockOrder := &entity.Order{
-			ID:            8,
-			InvoiceNumber: "INV-20260829-000008",
-			Status:        "CANCELLED",
-		}
-
-		orderRepository.EXPECT().CancelOrder(ctx, orderID).Return(mockOrder, nil)
+		orderRepository.EXPECT().FindByID(ctx, orderID).Return(mockOrder, nil)
+		productService.EXPECT().BulkRestoreStock(ctx, "cancel-order-8", mock.Anything).Return(nil)
+		orderRepository.EXPECT().CancelOrder(ctx, orderID).Return(canceledOrder, nil)
 
 		result, err := usecase.CancelOrder(ctx, orderID)
 
@@ -935,38 +948,76 @@ func TestOrderUsecase_CancelOrder(t *testing.T) {
 		assert.Equal(t, "CANCELLED", result.Status)
 	})
 
-	t.Run("error_record_not_found", func(t *testing.T) {
+	t.Run("failed_find_by_id_not_found", func(t *testing.T) {
 		usecase, _, _, orderRepository, _ := setupOrderUsecase(t)
 
-		orderRepository.EXPECT().CancelOrder(ctx, orderID).Return(nil, apperror.ErrRecordNotFound)
+		orderRepository.EXPECT().FindByID(ctx, orderID).Return(nil, apperror.ErrRecordNotFound)
 
 		result, err := usecase.CancelOrder(ctx, orderID)
 
-		assert.Error(t, err)
 		assert.Nil(t, result)
 		assert.ErrorIs(t, err, apperror.ErrOrderNotFound)
 	})
 
-	t.Run("error_status_transition_failed", func(t *testing.T) {
+	t.Run("failed_find_by_id_unexpected_error", func(t *testing.T) {
 		usecase, _, _, orderRepository, _ := setupOrderUsecase(t)
 
+		orderRepository.EXPECT().FindByID(ctx, orderID).Return(nil, dbErr)
+
+		result, err := usecase.CancelOrder(ctx, orderID)
+
+		assert.Nil(t, result)
+		assert.ErrorContains(t, err, "failed to get order")
+		assert.ErrorIs(t, err, dbErr)
+	})
+
+	t.Run("failed_bulk_restore_stock", func(t *testing.T) {
+		usecase, productService, _, orderRepository, _ := setupOrderUsecase(t)
+
+		orderRepository.EXPECT().FindByID(ctx, orderID).Return(mockOrder, nil)
+		productService.EXPECT().BulkRestoreStock(ctx, "cancel-order-8", mock.Anything).Return(grpcErr)
+
+		result, err := usecase.CancelOrder(ctx, orderID)
+
+		assert.Nil(t, result)
+		assert.ErrorIs(t, err, grpcErr)
+	})
+
+	t.Run("failed_cancel_order_not_found", func(t *testing.T) {
+		usecase, productService, _, orderRepository, _ := setupOrderUsecase(t)
+
+		orderRepository.EXPECT().FindByID(ctx, orderID).Return(mockOrder, nil)
+		productService.EXPECT().BulkRestoreStock(ctx, "cancel-order-8", mock.Anything).Return(nil)
+		orderRepository.EXPECT().CancelOrder(ctx, orderID).Return(nil, apperror.ErrRecordNotFound)
+
+		result, err := usecase.CancelOrder(ctx, orderID)
+
+		assert.Nil(t, result)
+		assert.ErrorIs(t, err, apperror.ErrOrderNotFound)
+	})
+
+	t.Run("failed_cancel_order_invalid_status_transition", func(t *testing.T) {
+		usecase, productService, _, orderRepository, _ := setupOrderUsecase(t)
+
+		orderRepository.EXPECT().FindByID(ctx, orderID).Return(mockOrder, nil)
+		productService.EXPECT().BulkRestoreStock(ctx, "cancel-order-8", mock.Anything).Return(nil)
 		orderRepository.EXPECT().CancelOrder(ctx, orderID).Return(nil, apperror.ErrStatusTransitionFailed)
 
 		result, err := usecase.CancelOrder(ctx, orderID)
 
-		assert.Error(t, err)
 		assert.Nil(t, result)
 		assert.ErrorIs(t, err, apperror.ErrInvalidOrderStatusTransition)
 	})
 
-	t.Run("error_unexpected_repository_error", func(t *testing.T) {
-		usecase, _, _, orderRepository, _ := setupOrderUsecase(t)
+	t.Run("failed_cancel_order_unexpected_repository_error", func(t *testing.T) {
+		usecase, productService, _, orderRepository, _ := setupOrderUsecase(t)
 
+		orderRepository.EXPECT().FindByID(ctx, orderID).Return(mockOrder, nil)
+		productService.EXPECT().BulkRestoreStock(ctx, "cancel-order-8", mock.Anything).Return(nil)
 		orderRepository.EXPECT().CancelOrder(ctx, orderID).Return(nil, dbErr)
 
 		result, err := usecase.CancelOrder(ctx, orderID)
 
-		assert.Error(t, err)
 		assert.Nil(t, result)
 		assert.ErrorContains(t, err, "failed cancel order")
 		assert.ErrorIs(t, err, dbErr)

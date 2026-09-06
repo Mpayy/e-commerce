@@ -23,7 +23,7 @@ type ProductFilter struct {
 	Limit      int
 }
 
-type BulkDecreaseStock struct {
+type StockItem struct {
 	ProductID uint
 	Quantity  int
 }

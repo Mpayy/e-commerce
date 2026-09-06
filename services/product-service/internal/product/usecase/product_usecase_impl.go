@@ -321,13 +321,13 @@ func (u *ProductUsecaseImpl) GetProductsByIDs(ctx context.Context, ids []uint) (
 	return result, nil
 }
 
-func (u *ProductUsecaseImpl) BulkDecreaseStock(ctx context.Context, checkoutID string, items []entity.BulkDecreaseStock) error {
+func (u *ProductUsecaseImpl) BulkDecreaseStock(ctx context.Context, idemKey string, items []entity.StockItem) error {
 	logger := u.log.WithFields(logger.Fields{
-		"checkout_id": checkoutID,
-		"items":       items,
+		"idem_key": idemKey,
+		"items":    items,
 	})
 	logger.Debug("Attempting to decrease stock")
-	err := u.productRepository.BulkDecreaseStock(ctx, checkoutID, items)
+	err := u.productRepository.BulkDecreaseStock(ctx, idemKey, items)
 	if err != nil {
 		if errors.Is(err, apperror.ErrRecordNotFound) {
 			logger.Warn("Failed to decrease stock: product not found")
@@ -343,10 +343,13 @@ func (u *ProductUsecaseImpl) BulkDecreaseStock(ctx context.Context, checkoutID s
 	return nil
 }
 
-func (u *ProductUsecaseImpl) BulkRestoreStock(ctx context.Context, checkoutID string) error {
-	logger := u.log.WithField("checkout_id", checkoutID)
+func (u *ProductUsecaseImpl) BulkRestoreStock(ctx context.Context, idemKey string, items []entity.StockItem) error {
+	logger := u.log.WithFields(logger.Fields{
+		"idem_key": idemKey,
+		"items":    items,
+	})
 	logger.Debug("Attempting to restore stock")
-	err := u.productRepository.BulkRestoreStock(ctx, checkoutID)
+	err := u.productRepository.BulkRestoreStock(ctx, idemKey, items)
 	if err != nil {
 		return fmt.Errorf("failed to restore stock: %w", err)
 	}

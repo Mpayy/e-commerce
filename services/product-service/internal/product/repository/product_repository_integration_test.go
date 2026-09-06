@@ -112,7 +112,7 @@ func TestDecreaseStockBulk_PartialFailureRollsBackAll(t *testing.T) {
 		}
 	})
 
-	items := []entity.BulkDecreaseStock{
+	items := []entity.StockItem{
 		{ProductID: id1, Quantity: 5},
 		{ProductID: id2, Quantity: 5},
 	}
@@ -129,7 +129,7 @@ func TestRestoreStockBulk_CalledTwice_OnlyRestoresOnce(t *testing.T) {
 	ctx := context.Background()
 
 	id := seedProduct(t, testDB, 10)
-	checkoutID := "checkout-test-2"
+	idemKey := "checkout-test-2"
 
 	t.Cleanup(func() {
 		filter := bson.M{
@@ -141,11 +141,12 @@ func TestRestoreStockBulk_CalledTwice_OnlyRestoresOnce(t *testing.T) {
 		}
 	})
 
-	err := repo.BulkDecreaseStock(ctx, checkoutID, []entity.BulkDecreaseStock{{ProductID: id, Quantity: 3}})
+	items := []entity.StockItem{{ProductID: id, Quantity: 3}}
+	err := repo.BulkDecreaseStock(ctx, idemKey, items)
 	assert.NoError(t, err)
 
-	err1 := repo.BulkRestoreStock(ctx, checkoutID)
-	err2 := repo.BulkRestoreStock(ctx, checkoutID)
+	err1 := repo.BulkRestoreStock(ctx, idemKey, items)
+	err2 := repo.BulkRestoreStock(ctx, idemKey, items)
 
 	assert.NoError(t, err1)
 	assert.NoError(t, err2)
@@ -179,7 +180,7 @@ func TestDecreaseStockBulk_ConcurrentOverlappingCheckouts(t *testing.T) {
 
 	g.Go(func() error {
 		<-startSignal
-		items := []entity.BulkDecreaseStock{
+		items := []entity.StockItem{
 			{ProductID: id1, Quantity: 3},
 			{ProductID: id2, Quantity: 4},
 		}
@@ -189,7 +190,7 @@ func TestDecreaseStockBulk_ConcurrentOverlappingCheckouts(t *testing.T) {
 
 	g.Go(func() error {
 		<-startSignal
-		items := []entity.BulkDecreaseStock{
+		items := []entity.StockItem{
 			{ProductID: id2, Quantity: 2},
 			{ProductID: id1, Quantity: 1},
 		}
