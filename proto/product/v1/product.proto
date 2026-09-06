@@ -39,20 +39,21 @@ message GetByIDsResponse {
   repeated Product products = 1;
 }
 
-message DecreaseStockRequest {
+message StockItemRequest {
   uint64 product_id = 1;
   int32 quantity = 2;
 }
 
 message BulkDecreaseStockRequest {
-  string checkout_id = 1;
-  repeated DecreaseStockRequest items = 2;
+  string idempotency_key = 1;
+  repeated StockItemRequest items = 2;
 }
 
 message BulkDecreaseStockResponse {}
 
 message BulkRestoreStockRequest {
-  string checkout_id = 1;
+  string idempotency_key = 1;
+  repeated StockItemRequest items = 2;
 }
 
 message BulkRestoreStockResponse {}

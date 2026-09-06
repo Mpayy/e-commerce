@@ -16,7 +16,7 @@ type Product struct {
 	UpdatedAt   time.Time
 }
 
-type BulkDecreaseStock struct {
+type StockItem struct {
 	ProductID uint
 	Quantity  int
 }

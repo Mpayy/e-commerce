@@ -765,7 +765,7 @@ func TestProductUsecaseImpl_GetProductsByIDs(t *testing.T) {
 func TestProductUsecaseImpl_BulkDecreaseStock(t *testing.T) {
 	ctx := context.Background()
 	checkoutID := "test-checkout-123"
-	items := []entity.BulkDecreaseStock{
+	items := []entity.StockItem{
 		{
 			ProductID: 1,
 			Quantity:  2,
@@ -828,16 +828,26 @@ func TestProductUsecaseImpl_BulkDecreaseStock(t *testing.T) {
 func TestProductUsecaseImpl_BulkRestoreStock(t *testing.T) {
 	ctx := context.Background()
 	checkoutID := "test-checkout-123"
+	items := []entity.StockItem{
+		{
+			ProductID: 1,
+			Quantity:  2,
+		},
+		{
+			ProductID: 2,
+			Quantity:  5,
+		},
+	}
 	dbErr := errors.New("unexpected database error")
 
 	t.Run("successful_bulk_restore_stock", func(t *testing.T) {
 		srv, repo := setupProductService(t)
 
 		repo.EXPECT().
-			BulkRestoreStock(mock.Anything, checkoutID).
+			BulkRestoreStock(mock.Anything, checkoutID, items).
 			Return(nil)
 
-		err := srv.BulkRestoreStock(ctx, checkoutID)
+		err := srv.BulkRestoreStock(ctx, checkoutID, items)
 		assert.NoError(t, err)
 	})
 
@@ -845,10 +855,10 @@ func TestProductUsecaseImpl_BulkRestoreStock(t *testing.T) {
 		srv, repo := setupProductService(t)
 
 		repo.EXPECT().
-			BulkRestoreStock(mock.Anything, checkoutID).
+			BulkRestoreStock(mock.Anything, checkoutID, items).
 			Return(dbErr)
 
-		err := srv.BulkRestoreStock(ctx, checkoutID)
+		err := srv.BulkRestoreStock(ctx, checkoutID, items)
 
 		assert.ErrorIs(t, err, dbErr)
 	})

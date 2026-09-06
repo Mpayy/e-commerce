@@ -39,16 +39,16 @@ func (_m *MockProductService) EXPECT() *MockProductService_Expecter {
 }
 
 // BulkDecreaseStock provides a mock function for the type MockProductService
-func (_mock *MockProductService) BulkDecreaseStock(ctx context.Context, checkoutID string, items []entity.BulkDecreaseStock) error {
-	ret := _mock.Called(ctx, checkoutID, items)
+func (_mock *MockProductService) BulkDecreaseStock(ctx context.Context, idemKey string, items []entity.StockItem) error {
+	ret := _mock.Called(ctx, idemKey, items)
 
 	if len(ret) == 0 {
 		panic("no return value specified for BulkDecreaseStock")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, []entity.BulkDecreaseStock) error); ok {
-		r0 = returnFunc(ctx, checkoutID, items)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, []entity.StockItem) error); ok {
+		r0 = returnFunc(ctx, idemKey, items)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -62,13 +62,13 @@ type MockProductService_BulkDecreaseStock_Call struct {
 
 // BulkDecreaseStock is a helper method to define mock.On call
 //   - ctx context.Context
-//   - checkoutID string
-//   - items []entity.BulkDecreaseStock
-func (_e *MockProductService_Expecter) BulkDecreaseStock(ctx any, checkoutID any, items any) *MockProductService_BulkDecreaseStock_Call {
-	return &MockProductService_BulkDecreaseStock_Call{Call: _e.mock.On("BulkDecreaseStock", ctx, checkoutID, items)}
+//   - idemKey string
+//   - items []entity.StockItem
+func (_e *MockProductService_Expecter) BulkDecreaseStock(ctx any, idemKey any, items any) *MockProductService_BulkDecreaseStock_Call {
+	return &MockProductService_BulkDecreaseStock_Call{Call: _e.mock.On("BulkDecreaseStock", ctx, idemKey, items)}
 }
 
-func (_c *MockProductService_BulkDecreaseStock_Call) Run(run func(ctx context.Context, checkoutID string, items []entity.BulkDecreaseStock)) *MockProductService_BulkDecreaseStock_Call {
+func (_c *MockProductService_BulkDecreaseStock_Call) Run(run func(ctx context.Context, idemKey string, items []entity.StockItem)) *MockProductService_BulkDecreaseStock_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -78,9 +78,9 @@ func (_c *MockProductService_BulkDecreaseStock_Call) Run(run func(ctx context.Co
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
-		var arg2 []entity.BulkDecreaseStock
+		var arg2 []entity.StockItem
 		if args[2] != nil {
-			arg2 = args[2].([]entity.BulkDecreaseStock)
+			arg2 = args[2].([]entity.StockItem)
 		}
 		run(
 			arg0,
@@ -96,22 +96,22 @@ func (_c *MockProductService_BulkDecreaseStock_Call) Return(err error) *MockProd
 	return _c
 }
 
-func (_c *MockProductService_BulkDecreaseStock_Call) RunAndReturn(run func(ctx context.Context, checkoutID string, items []entity.BulkDecreaseStock) error) *MockProductService_BulkDecreaseStock_Call {
+func (_c *MockProductService_BulkDecreaseStock_Call) RunAndReturn(run func(ctx context.Context, idemKey string, items []entity.StockItem) error) *MockProductService_BulkDecreaseStock_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // BulkRestoreStock provides a mock function for the type MockProductService
-func (_mock *MockProductService) BulkRestoreStock(ctx context.Context, checkoutID string) error {
-	ret := _mock.Called(ctx, checkoutID)
+func (_mock *MockProductService) BulkRestoreStock(ctx context.Context, idemKey string, items []entity.StockItem) error {
+	ret := _mock.Called(ctx, idemKey, items)
 
 	if len(ret) == 0 {
 		panic("no return value specified for BulkRestoreStock")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = returnFunc(ctx, checkoutID)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, []entity.StockItem) error); ok {
+		r0 = returnFunc(ctx, idemKey, items)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -125,12 +125,13 @@ type MockProductService_BulkRestoreStock_Call struct {
 
 // BulkRestoreStock is a helper method to define mock.On call
 //   - ctx context.Context
-//   - checkoutID string
-func (_e *MockProductService_Expecter) BulkRestoreStock(ctx any, checkoutID any) *MockProductService_BulkRestoreStock_Call {
-	return &MockProductService_BulkRestoreStock_Call{Call: _e.mock.On("BulkRestoreStock", ctx, checkoutID)}
+//   - idemKey string
+//   - items []entity.StockItem
+func (_e *MockProductService_Expecter) BulkRestoreStock(ctx any, idemKey any, items any) *MockProductService_BulkRestoreStock_Call {
+	return &MockProductService_BulkRestoreStock_Call{Call: _e.mock.On("BulkRestoreStock", ctx, idemKey, items)}
 }
 
-func (_c *MockProductService_BulkRestoreStock_Call) Run(run func(ctx context.Context, checkoutID string)) *MockProductService_BulkRestoreStock_Call {
+func (_c *MockProductService_BulkRestoreStock_Call) Run(run func(ctx context.Context, idemKey string, items []entity.StockItem)) *MockProductService_BulkRestoreStock_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -140,9 +141,14 @@ func (_c *MockProductService_BulkRestoreStock_Call) Run(run func(ctx context.Con
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
+		var arg2 []entity.StockItem
+		if args[2] != nil {
+			arg2 = args[2].([]entity.StockItem)
+		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
@@ -153,7 +159,7 @@ func (_c *MockProductService_BulkRestoreStock_Call) Return(err error) *MockProdu
 	return _c
 }
 
-func (_c *MockProductService_BulkRestoreStock_Call) RunAndReturn(run func(ctx context.Context, checkoutID string) error) *MockProductService_BulkRestoreStock_Call {
+func (_c *MockProductService_BulkRestoreStock_Call) RunAndReturn(run func(ctx context.Context, idemKey string, items []entity.StockItem) error) *MockProductService_BulkRestoreStock_Call {
 	_c.Call.Return(run)
 	return _c
 }

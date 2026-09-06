@@ -8,11 +8,11 @@ type StockLedgerItem struct {
 }
 
 type StockLedgerModel struct {
-	ID         string            `bson:"_id"`
-	CheckoutID string            `bson:"checkout_id"`
-	Operation  string            `bson:"operation"`
-	Items      []StockLedgerItem `bson:"items"`
-	CreatedAt  time.Time         `bson:"created_at"`
+	ID             string            `bson:"_id"`
+	IdempotencyKey string            `bson:"idempotency_key"`
+	Operation      string            `bson:"operation"`
+	Items          []StockLedgerItem `bson:"items"`
+	CreatedAt      time.Time         `bson:"created_at"`
 }
 
 func (StockLedgerModel) CollectionName() string {

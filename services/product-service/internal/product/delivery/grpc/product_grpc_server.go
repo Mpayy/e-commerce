@@ -80,15 +80,15 @@ func (s *ProductGRPCServer) GetByIDs(ctx context.Context, req *productv1.GetByID
 }
 
 func (s *ProductGRPCServer) BulkDecreaseStock(ctx context.Context, req *productv1.BulkDecreaseStockRequest) (*productv1.BulkDecreaseStockResponse, error) {
-	items := make([]entity.BulkDecreaseStock, 0, len(req.Items))
+	items := make([]entity.StockItem, 0, len(req.Items))
 	for _, item := range req.Items {
-		items = append(items, entity.BulkDecreaseStock{
+		items = append(items, entity.StockItem{
 			ProductID: uint(item.ProductId),
 			Quantity:  int(item.Quantity),
 		})
 	}
 
-	err := s.productUsecase.BulkDecreaseStock(ctx, req.CheckoutId, items)
+	err := s.productUsecase.BulkDecreaseStock(ctx, req.IdempotencyKey, items)
 	if err != nil {
 		switch {
 		case errors.Is(err, apperror.ErrProductNotFound):
@@ -103,7 +103,15 @@ func (s *ProductGRPCServer) BulkDecreaseStock(ctx context.Context, req *productv
 }
 
 func (s *ProductGRPCServer) BulkRestoreStock(ctx context.Context, req *productv1.BulkRestoreStockRequest) (*productv1.BulkRestoreStockResponse, error) {
-	err := s.productUsecase.BulkRestoreStock(ctx, req.CheckoutId)
+	items := make([]entity.StockItem, 0, len(req.Items))
+	for _, item := range req.Items {
+		items = append(items, entity.StockItem{
+			ProductID: uint(item.ProductId),
+			Quantity:  int(item.Quantity),
+		})
+	}
+
+	err := s.productUsecase.BulkRestoreStock(ctx, req.IdempotencyKey, items)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "internal server error: %v", err)
 	}
