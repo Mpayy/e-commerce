@@ -12,3 +12,9 @@ packages:
   github.com/Mpayy/e-commerce/services/order-service/internal/product/usecase:
   github.com/Mpayy/e-commerce/pkg/jwt:
   github.com/Mpayy/e-commerce/proto/product/v1:
+  net/http:
+    interfaces:
+      Handler:
+        config:
+          dir: "services/api-gateway/internal/gateway/mocks"
+          filename: "mock_http_handler.go"
