@@ -26,7 +26,7 @@ seeder:
 	docker compose exec user-service ./main --seed
 
 mock:
-	go generate ./...
+	mockery
 
 product-proto:
 	protoc --go_out=. --go_opt=paths=source_relative \

@@ -11,6 +11,7 @@ import (
 	"github.com/Mpayy/e-commerce/pkg/config"
 	"github.com/Mpayy/e-commerce/pkg/logger"
 	gwConfig "github.com/Mpayy/e-commerce/services/api-gateway/internal/gateway/config"
+	"github.com/Mpayy/e-commerce/services/api-gateway/internal/gateway/middleware"
 	"github.com/Mpayy/e-commerce/services/api-gateway/internal/gateway/proxy"
 )
 
@@ -20,6 +21,7 @@ func main() {
 
 	cfg := config.Load()
 	log := logger.NewLogger(cfg)
+	rateLimiter := middleware.NewRateLimiter(ctx)
 
 	targets := gwConfig.ServiceTargets{
 		UserServiceAddr:    cfg.UserServiceAddr,
@@ -37,7 +39,8 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status":"UP"}`))
 	})
-	mux.Handle("/", gateway.Handler())
+	mux.Handle("/", rateLimiter.Middleware(gateway.Handler()))
+
 
 	srv := &http.Server{Addr: ":8080", Handler: mux}
 
