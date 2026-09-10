@@ -1059,6 +1059,27 @@ The project uses two different approaches to PostgreSQL transactions across serv
 
 gRPC is synchronous: the caller waits for a response before returning to the user. A notification side-effect that fails should not cause the checkout to fail, and it should not add latency to the critical path. RabbitMQ decouples the two: the order-service publishes and moves on. If the notification consumer is down, messages queue up and are processed when it recovers. A gRPC call to a notification service would couple availability: if the notification service is unreachable, checkout fails — an unacceptable dependency for a non-critical side effect.
 
+### Why BulkRestoreStock Takes Items Directly, Not a Ledger Lookup
+The original `BulkRestoreStock` took a single `checkoutID` and looked up which items to restore from the `stock_ledgers` collection written during `BulkDecreaseStock`. That worked for checkout compensation, but coupled the restore mechanism to a concept — `checkoutID` — that only exists for orders created through the checkout flow.
+
+Admin order cancellation broke that assumption in three ways. First, checkout and cancellation are independent business operations; making cancellation depend on a checkout-specific identifier ties two domains together for no real reason. Second, retrofitting a `checkout_id` column onto the `orders` table would leave every order created before the migration without one — cancellation would silently fail for historical data. Third, an order doesn't have to originate from this system's own checkout at all — an order imported from a marketplace integration (Shopee, Tokopedia) or entered manually by an admin would never have a `checkoutID` to begin with, yet it still needs to be cancellable with its stock restored.
+
+The fix generalizes the RPC: both `BulkDecreaseStock` and `BulkRestoreStock` now accept a generic `idempotency_key` plus the item list directly, rather than deriving the items from a lookup. Checkout still generates a fresh UUID per attempt; cancellation derives a permanent key from the order itself (`cancel-order-{order_id}`), so a retried cancel request can't restore the same stock twice. Product Service no longer needs to know anything about checkouts specifically — it receives a key and a list of items to act on, atomically and idempotently.
+
+### sqlc vs. Squirrel — Chosen by Query Shape, Not Preference
+
+`order-service` builds SQL two different ways, both against the same PostgreSQL database via the same `pgxpool.Pool`, living side by side in `OrderRepository`. The choice is made per query based on whether its shape is fixed or variable — not on which library is more comfortable to use.
+
+Sales analytics (`GetDailyRevenueReport`, `GetTopProducts`) always filters on the same fixed parameters — a date range and a limit — regardless of what the caller passes in. That's exactly what sqlc is built for: the query is written once as plain SQL, and sqlc generates a fully-typed Go function at compile time. A typo in a column name fails the build, not a request in production.
+
+The admin order list (`GET /admin/orders`) is the opposite case: every filter — status, user ID, amount range, date range — is optional and can appear in any combination. sqlc can't express that, because it needs one fixed query shape to generate code from; there's no way to say "add this WHERE clause only if the caller provided it." Squirrel solves this by building the SQL string and its arguments at runtime, adding a `.Where(...)` only when the corresponding filter is present — less safe at compile time than sqlc, but the only one of the two that can represent a query whose shape isn't known until the request arrives.
+
+### Rate Limiting: Token Bucket, and Its Known Limitation
+
+Three algorithms were considered for the gateway's per-IP rate limiter: fixed window, sliding window, and token bucket. Fixed window was rejected because of the boundary burst problem — a client can send the full limit right before a window resets and the full limit again right after, doubling the effective limit for a moment at every window boundary. Sliding window (log-based) avoids that but requires storing a timestamp per request per client, scaling with traffic; token bucket needs only two values per client (remaining tokens, last-refill time) regardless of how much traffic that client sends.
+
+The current implementation keeps that per-client state in memory inside the gateway process, using `golang.org/x/time/rate`. This is accurate as long as there's exactly one gateway instance. If the gateway were ever scaled to multiple instances behind a load balancer, each instance would maintain its own independent view of a client's token count — a client hitting instance A ten times and instance B ten times would consume 20 requests total, but neither instance would know about the other's 10, and neither would block it. This is a known limitation, not an oversight: fixing it would require moving the counter to a shared store (Redis, using `INCR` + `EXPIRE` to implement the same token bucket semantics across instances) — deliberately out of scope while the gateway runs as a single instance.
+
 ### Cart Enrichment Without N+1
 
 The `GET /cart` flow keeps database/service round trips O(1) regardless of cart size:
