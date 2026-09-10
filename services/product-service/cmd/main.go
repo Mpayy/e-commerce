@@ -47,7 +47,7 @@ func setupRouter(r *gin.Engine, categoryHandler producthttp.CategoryHandler, pro
 		admin := api.Group("/admin", AuthMiddleware.RequireAuth(), middleware.AdminMiddleware())
 		admin.POST("/categories", categoryHandler.Create)
 		admin.POST("/products", productHandler.Create)
-		admin.PATCH("/products/:product_id", productHandler.Update)
+		admin.PUT("/products/:product_id", productHandler.Update)
 		admin.DELETE("/products/:product_id", productHandler.Delete)
 		admin.PATCH("/products/:product_id/adjust-stock", productHandler.AdjustStock)
 	}
@@ -73,7 +73,10 @@ func main() {
 	jwtToken := jwt.NewJwtToken(cfg)
 	validator := validator.NewValidator()
 	engine := engine.NewGin(cfg, log)
-	rdb, rdbCleanup := cache.NewRedisCli(cfg, log)
+	rdb, rdbCleanup, err := cache.NewRedisCli(cfg, log)
+	if err != nil {
+		log.Fatalf("failed to initialize redis cache: %v", err)
+	}
 	defer rdbCleanup()
 	db, cleanup, err := database.NewMongoDB(cfg, log)
 	if err != nil {

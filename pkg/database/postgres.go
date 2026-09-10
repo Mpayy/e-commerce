@@ -11,22 +11,23 @@ import (
 )
 
 func NewPostgresDB(name string, cfg *config.Config, log *logger.Logger) (*pgxpool.Pool, func(), error) {
-	host := cfg.DatabaseHost
-	user := cfg.DatabaseUsername
-	password := cfg.DatabasePassword
-	dbname := name
-	port := cfg.DatabasePort
-	sslmode := cfg.DatabaseSSLMode
-
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=Asia/Jakarta",
-		host, user, password, dbname, port, sslmode,
-	)
+	dsn := cfg.DatabaseURL
+	if dsn == "" {
+		dsn = fmt.Sprintf("host=%s user=%s password=%s port=%s sslmode=%s",
+			cfg.DatabaseHost,
+			cfg.DatabaseUsername,
+			cfg.DatabasePassword,
+			cfg.DatabasePort,
+			cfg.DatabaseSSLMode,
+		)
+	}
 
 	poolConfig, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse pgxpool config: %w", err)
 	}
 
+	poolConfig.ConnConfig.Database = name
 	poolConfig.MaxConns = 25
 	poolConfig.MinConns = 5
 	poolConfig.MaxConnLifetime = 5 * time.Minute

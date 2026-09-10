@@ -14,6 +14,8 @@ type Config struct {
 	AppEnv   string `mapstructure:"APP_ENV"`
 	LogLevel string `mapstructure:"LOG_LEVEL"`
 
+	// PostgreSQL Configuration
+	DatabaseURL      string `mapstructure:"DATABASE_URL"`
 	DatabaseHost     string `mapstructure:"DATABASE_HOST"`
 	DatabasePort     string `mapstructure:"DATABASE_PORT"`
 	DatabaseName     string `mapstructure:"DATABASE_NAME"`
@@ -22,6 +24,7 @@ type Config struct {
 	DatabaseSSLMode  string `mapstructure:"DATABASE_SSLMODE"`
 
 	// Redis Configuration
+	RedisURL        string `mapstructure:"REDIS_URL"`
 	RedisHost       string `mapstructure:"REDIS_HOST"`
 	RedisPort       string `mapstructure:"REDIS_PORT"`
 	RedisPassword   string `mapstructure:"REDIS_PASSWORD"`
@@ -29,17 +32,24 @@ type Config struct {
 	RedisTLSEnabled bool   `mapstructure:"REDIS_TLS_ENABLED"`
 
 	// MongoDB Configuration
-	MongoURI string `mapstructure:"MONGODB_URI"`
-	MongoDB  string `mapstructure:"MONGODB_DATABASE"`
+	MongoURL          string `mapstructure:"MONGODB_URL"`
+	MongoHost         string `mapstructure:"MONGODB_HOST"`
+	MongoPort         string `mapstructure:"MONGODB_PORT"`
+	MongoDB           string `mapstructure:"MONGODB_DATABASE"`
+	MongoDBReplicaSet string `mapstructure:"MONGODB_REPLICASET"`
+
+	// RabbitMQ Configuration
+	RabbitMQURL      string `mapstructure:"RABBITMQ_URL"`
+	RabbitMQUser     string `mapstructure:"RABBITMQ_USER"`
+	RabbitMQPassword string `mapstructure:"RABBITMQ_PASSWORD"`
+	RabbitMQHost     string `mapstructure:"RABBITMQ_HOST"`
+	RabbitMQPort     string `mapstructure:"RABBITMQ_PORT"`
 
 	// Auth Configuration
 	JWTSecretKey string `mapstructure:"JWT_SECRET_KEY"`
 
 	// GRPC
 	ProductServiceAddr string `mapstructure:"PRODUCT_SERVICE_ADDR"`
-
-	// RabbitMQ
-	RabbitMQUrl string `mapstructure:"RABBITMQ_URL"`
 
 	// Gateway
 	UserServiceAddr        string `mapstructure:"USER_SERVICE_ADDR"`
@@ -50,15 +60,14 @@ type Config struct {
 func Load() *Config {
 	v := viper.New()
 
-	v.SetConfigName(".env")
-	v.SetConfigType("env")
-	v.AddConfigPath(".")
+	v.SetConfigFile(".env")
 
 	v.SetDefault("APP_ENV", "development")
 	v.SetDefault("APP_HOST", "localhost")
 	v.SetDefault("APP_PORT", "8080")
 	v.SetDefault("LOG_LEVEL", "info")
 
+	v.SetDefault("DATABASE_URL", "")
 	v.SetDefault("DATABASE_HOST", "localhost")
 	v.SetDefault("DATABASE_PORT", "5432")
 	v.SetDefault("DATABASE_NAME", "ecommerce")
@@ -66,20 +75,28 @@ func Load() *Config {
 	v.SetDefault("DATABASE_PASSWORD", "postgres")
 	v.SetDefault("DATABASE_SSLMODE", "disable")
 
+	v.SetDefault("REDIS_URL", "")
 	v.SetDefault("REDIS_HOST", "localhost")
 	v.SetDefault("REDIS_PORT", "6379")
 	v.SetDefault("REDIS_PASSWORD", "")
 	v.SetDefault("REDIS_DB", 0)
 	v.SetDefault("REDIS_TLS_ENABLED", false)
 
-	v.SetDefault("MONGODB_URI", "mongodb://localhost:27017")
+	v.SetDefault("MONGODB_URL", "")
+	v.SetDefault("MONGODB_HOST", "localhost")
+	v.SetDefault("MONGODB_PORT", "27017")
 	v.SetDefault("MONGODB_DATABASE", "ecommerce")
+	v.SetDefault("MONGODB_REPLICASET", "rs0")
 
 	v.SetDefault("PRODUCT_SERVICE_ADDR", "localhost:50051")
 
-	v.SetDefault("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+	v.SetDefault("RABBITMQ_URL", "")
+	v.SetDefault("RABBITMQ_USER", "guest")
+	v.SetDefault("RABBITMQ_PASSWORD", "guest")
+	v.SetDefault("RABBITMQ_HOST", "localhost")
+	v.SetDefault("RABBITMQ_PORT", "5672")
 
-	v.SetDefault("USER_SERVICE_ADDR", "http://user-service:8082/")
+	v.SetDefault("USER_SERVICE_ADDR", "http://user-service:8082")
 	v.SetDefault("PRODUCT_SERVICE_HTTP_ADDR", "http://product-service:8081")
 	v.SetDefault("ORDER_SERVICE_ADDR", "http://order-service:8083")
 
