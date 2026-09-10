@@ -83,7 +83,10 @@ func main() {
 		return
 	}
 
-	rdb, rdbCleanup := cache.NewRedisCli(cfg, log)
+	rdb, rdbCleanup, err := cache.NewRedisCli(cfg, log)
+	if err != nil {
+		log.Fatalf("failed to initialize redis cache: %v", err)
+	}
 	defer rdbCleanup()
 
 	redisRepo := repository.NewUserRedisRepository(rdb)

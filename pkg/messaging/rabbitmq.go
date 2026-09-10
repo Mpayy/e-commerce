@@ -9,7 +9,15 @@ import (
 )
 
 func NewRabbitMQConn(cfg *config.Config, log *logger.Logger) (*amqp.Connection, func(), error) {
-	url := cfg.RabbitMQUrl
+	url := cfg.RabbitMQURL
+	if url == "" {
+		url = fmt.Sprintf("amqp://%s:%s@%s:%s/",
+			cfg.RabbitMQUser,
+			cfg.RabbitMQPassword,
+			cfg.RabbitMQHost,
+			cfg.RabbitMQPort,
+		)
+	}
 
 	conn, err := amqp.Dial(url)
 	if err != nil {

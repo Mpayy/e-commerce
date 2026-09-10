@@ -87,7 +87,10 @@ func main() {
 	}
 	defer cleanupDB()
 
-	rdb, cleanupRedis := cache.NewRedisCli(cfg, log)
+	rdb, cleanupRedis, err := cache.NewRedisCli(cfg, log)
+	if err != nil {
+		log.Fatalf("failed to initialize redis cache: %v", err)
+	}
 	defer cleanupRedis()
 
 	grpcConn, cleanupGRPC, err := dependency.NewProductServiceConn(cfg, log)

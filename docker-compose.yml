@@ -39,8 +39,7 @@ services:
     env_file: [.env]
     environment:
       REDIS_HOST: redis
-      MONGODB_URI: mongodb://mongo:27017/ecommerce?replicaSet=rs0
-      MONGODB_DATABASE: ecommerce
+      MONGODB_HOST: mongo
     depends_on:
       redis:
         condition: service_healthy
@@ -94,7 +93,7 @@ services:
     environment:
       DATABASE_HOST: postgres
       DATABASE_NAME: notification_db
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/ 
+      RABBITMQ_HOST: rabbitmq
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -116,8 +115,8 @@ services:
       DATABASE_HOST: postgres
       DATABASE_NAME: order_db
       REDIS_HOST: redis
-      PRODUCT_SERVICE_ADDR: ecommerce-product-service:50051
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      RABBITMQ_HOST: rabbitmq
+      PRODUCT_SERVICE_ADDR: product-service:50051
     depends_on:
       postgres:
         condition: service_healthy

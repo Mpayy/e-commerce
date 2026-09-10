@@ -15,13 +15,15 @@ func NewMongoDB(cfg *config.Config, log *logger.Logger) (*mongo.Database, func()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	uri := cfg.MongoURI
-	if uri == "" {
-		uri = "mongodb://localhost:27017"
+	url := cfg.MongoURL
+	if url == "" {
+		url = fmt.Sprintf(
+			"mongodb://%s:%s/%s?replicaSet=%s", cfg.MongoHost, cfg.MongoPort, cfg.MongoDB, cfg.MongoDBReplicaSet,
+		)
 	}
 
 	clientOptions := options.Client().
-		ApplyURI(uri).
+		ApplyURI(url).
 		SetMaxPoolSize(50).
 		SetMinPoolSize(10).
 		SetMaxConnIdleTime(5 * time.Minute)
@@ -49,12 +51,7 @@ func NewMongoDB(cfg *config.Config, log *logger.Logger) (*mongo.Database, func()
 		}
 	}
 
-	dbName := cfg.MongoDB
-	if dbName == "" {
-		dbName = "ecommerce"
-	}
-
-	db := client.Database(dbName)
+	db := client.Database(cfg.MongoDB)
 
 	return db, cleanup, nil
 }
