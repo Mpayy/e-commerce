@@ -22,6 +22,7 @@ import (
 	cartRepo "github.com/Mpayy/e-commerce/services/order-service/internal/cart/repository"
 	cartUC "github.com/Mpayy/e-commerce/services/order-service/internal/cart/usecase"
 	orderHttp "github.com/Mpayy/e-commerce/services/order-service/internal/order/delivery/http"
+	idemMiddleware "github.com/Mpayy/e-commerce/services/order-service/internal/order/middleware"
 	orderRepo "github.com/Mpayy/e-commerce/services/order-service/internal/order/repository"
 	orderUC "github.com/Mpayy/e-commerce/services/order-service/internal/order/usecase"
 	productRepo "github.com/Mpayy/e-commerce/services/order-service/internal/product/repository"
@@ -30,7 +31,7 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-func setupRouter(r *gin.Engine, orderHandler orderHttp.OrderHandler, cartHandler cartHttp.CartHandler, AuthMiddleware *middleware.AuthMiddleware) *gin.Engine {
+func setupRouter(r *gin.Engine, orderHandler orderHttp.OrderHandler, cartHandler cartHttp.CartHandler, AuthMiddleware *middleware.AuthMiddleware, idemRepo orderRepo.IdempotencyRepository, log *logger.Logger) *gin.Engine {
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status": "UP",
@@ -48,11 +49,11 @@ func setupRouter(r *gin.Engine, orderHandler orderHttp.OrderHandler, cartHandler
 		cart.DELETE("", cartHandler.ClearCart)
 
 		order := api.Group("/orders")
-		order.POST("", orderHandler.Checkout)
+		order.POST("", idemMiddleware.IdempotencyMiddleware(idemRepo, log), orderHandler.Checkout)
 		order.GET("", orderHandler.GetHistory)
 		order.GET("/:order_id", orderHandler.GetDetail)
 
-		admin := api.Group("/admin", AuthMiddleware.RequireAuth(), middleware.AdminMiddleware())
+		admin := api.Group("/admin", middleware.AdminMiddleware())
 		admin.GET("/analytics/sales", orderHandler.GetSalesAnalytics)
 		admin.GET("/orders", orderHandler.GetAdminOrderList)
 		admin.GET("/orders/:order_id", orderHandler.GetAdminOrderDetail)
@@ -109,6 +110,7 @@ func main() {
 	productClient := productRepo.NewProductGRPCClient(grpcConn)
 	orderRepository := orderRepo.NewOrderRepository(pool)
 	cartRepository := cartRepo.NewCartRedisRepository(rdb)
+	idempotencyRepository := orderRepo.NewIdempotencyRepository(rdb)
 
 	cartUsecase := cartUC.NewCartUsecase(cartRepository, productClient, log)
 	orderUsecase := orderUC.NewOrderUsecase(orderRepository, log, cartUsecase, productClient, eventPublisher)
@@ -118,7 +120,7 @@ func main() {
 
 	sessionChecker := middleware.NewRedisSessionChecker(rdb)
 	authMiddleware := middleware.NewAuthMiddleware(jwtToken, sessionChecker, log)
-	router := setupRouter(engine, orderHandler, cartHandler, authMiddleware)
+	router := setupRouter(engine, orderHandler, cartHandler, authMiddleware, idempotencyRepository, log)
 	srv := &http.Server{
 		Addr:    ":8083",
 		Handler: router,

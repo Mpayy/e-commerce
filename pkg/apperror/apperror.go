@@ -55,6 +55,7 @@ var (
 	ErrOrderNotFound                = &AppError{Code: "ORDER_NOT_FOUND", Message: "order not found", Status: http.StatusNotFound}
 	ErrInvalidDateRange             = &AppError{Code: "INVALID_DATE_RANGE", Message: "invalid date range", Status: http.StatusBadRequest}
 	ErrInvalidOrderStatusTransition = &AppError{Code: "INVALID_ORDER_STATUS_TRANSITION", Message: "status order transition failed", Status: http.StatusConflict}
+	ErrIdempotencyKeyLocked         = &AppError{Code: "CONCURRENT_REQUEST_LOCKED", Message: "a request with this idempotency key is currently being processed", Status: http.StatusConflict}
 )
 
 func ExtractValidationErrors(err error) *AppError {
