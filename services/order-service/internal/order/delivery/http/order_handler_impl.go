@@ -28,6 +28,7 @@ func NewOrderHandler(orderUsecase usecase.OrderUsecase, validator *validator.Val
 // @Tags         orders
 // @Produce      json
 // @Security     BearerAuth
+// @Param        Idempotency-Key header string true "Client-generated UUID v4, unique per logical operation"
 // @Success      201 {object} response.SuccessResponse{data=dto.OrderResponse}
 // @Failure      400 {object} response.ErrorResponse{error=apperror.AppError} "CART_EMPTY"
 // @Failure      401 {object} response.ErrorResponse{error=apperror.AppError} "UNAUTHORIZED"

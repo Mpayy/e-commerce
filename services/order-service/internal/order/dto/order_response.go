@@ -29,10 +29,10 @@ type MetaPagination struct {
 }
 
 type SalesAnalyticsResponse struct {
-	Period       PeriodResponse          `json:"period"`
-	Summary      SummaryResponse         `json:"summary"`
-	DailyRevenue []DailyRevenueResponse  `json:"daily_revenue"`
-	TopProducts  []TopProductResponse    `json:"top_products"`
+	Period       PeriodResponse         `json:"period"`
+	Summary      SummaryResponse        `json:"summary"`
+	DailyRevenue []DailyRevenueResponse `json:"daily_revenue"`
+	TopProducts  []TopProductResponse   `json:"top_products"`
 }
 
 type PeriodResponse struct {
@@ -62,7 +62,7 @@ type TopProductResponse struct {
 
 type AdminOrderListResponse struct {
 	Orders []AdminOrderSummaryResponse `json:"orders"`
-	Meta   MetaPagination               `json:"meta"`
+	Meta   MetaPagination              `json:"meta"`
 }
 
 type AdminOrderSummaryResponse struct {
@@ -78,4 +78,9 @@ type AdminCancelOrderResponse struct {
 	OrderID       uint   `json:"order_id"`
 	InvoiceNumber string `json:"invoice_number"`
 	Status        string `json:"status"`
+}
+
+type IdempotencyResponse struct {
+	StatusCode int            `json:"status_code"`
+	Body       *OrderResponse `json:"data"`
 }

@@ -88,6 +88,7 @@
 - [x] **Admin Order List (Dynamic Filters)** — `GET /admin/orders:` Optional filter combinations (`status`, `user_id`, `min_amount`, `max_amount`, date range) built at runtime using the Squirrel query builder, NOT sqlc — specifically chosen because the WHERE clause structure varies per request, something sqlc (compile-time query generation) cannot express. Both approaches coexist in the same OrderRepository, selected based on query shape rather than preference
 - [x] **Admin Order Detail** — `GET /admin/orders/:order_id:` Reuses the same `OrderRepository.FindByID` as the customer-facing endpoint, but INTENTIONALLY omits ownership checks — the usecase signature does not even accept a `userID` parameter, making ownership enforcement structurally impossible to add accidentally
 - [x] **Admin Order Cancellation with Stock Restoration (Saga)** — `PATCH /admin/orders/:order_id/status:` Atomic `PAID` → `CANCELLED` transition via status preconditions inside the UPDATE query's WHERE clause, disambiguating `404` (order not found) vs `409` (order exists but is not PAID) via a follow-up `SELECT` only if the `UPDATE` matches 0 rows. Stock is restored to the Product Service via gRPC BEFORE the status transition — if the restoration fails, the order remains `PAID` so the admin can safely retry
+- [x] **Client-Side Request Idempotency** — `POST /orders` requires an `Idempotency-Key` header (client-generated UUID). Redis `SETNX` claims the key atomically before processing; concurrent requests with the same key get 409 immediately rather than queueing. Successful responses are cached and replayed verbatim on retry — a network timeout followed by client retry can't create a duplicate order. Lock TTL (30s) is intentionally separate from result cache TTL (24h) — the lock only needs to outlive one Checkout attempt, not the retry window.
 
 **Notification Consumer** *(Standalone service — PostgreSQL pgx native, RabbitMQ AMQP)*
 - [x] **Event Consumption** — Subscribes to queue `notification.order.created`; QoS prefetch=1 (processes one message at a time)
@@ -607,7 +608,7 @@ e-commerce/                          # Monorepo root (single go.mod)
 
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| `POST` | `/api/v1/orders` | Checkout cart into a new order | ✅ JWT |
+| `POST` | `/api/v1/orders` | Checkout cart into a new order and Requires Idempotency-Key header | ✅ JWT |
 | `GET` | `/api/v1/orders?page=1&limit=10` | List authenticated user's order history (paginated) | ✅ JWT |
 | `GET` | `/api/v1/orders/:order_id` | Get single order detail | ✅ JWT |
 | `GET` | `/api/v1/admin/analytics/sales` | Daily revenue + top products (Admin) | ✅ Admin |
@@ -1079,6 +1080,11 @@ The admin order list (`GET /admin/orders`) is the opposite case: every filter �
 Three algorithms were considered for the gateway's per-IP rate limiter: fixed window, sliding window, and token bucket. Fixed window was rejected because of the boundary burst problem — a client can send the full limit right before a window resets and the full limit again right after, doubling the effective limit for a moment at every window boundary. Sliding window (log-based) avoids that but requires storing a timestamp per request per client, scaling with traffic; token bucket needs only two values per client (remaining tokens, last-refill time) regardless of how much traffic that client sends.
 
 The current implementation keeps that per-client state in memory inside the gateway process, using `golang.org/x/time/rate`. This is accurate as long as there's exactly one gateway instance. If the gateway were ever scaled to multiple instances behind a load balancer, each instance would maintain its own independent view of a client's token count — a client hitting instance A ten times and instance B ten times would consume 20 requests total, but neither instance would know about the other's 10, and neither would block it. This is a known limitation, not an oversight: fixing it would require moving the counter to a shared store (Redis, using `INCR` + `EXPIRE` to implement the same token bucket semantics across instances) — deliberately out of scope while the gateway runs as a single instance.
+
+### Two Layers of Idempotency, Not One
+
+This system has two independent idempotency mechanisms solving different problems. The `stock_ledgers` collection (Product Service) protects against duplicate *service-to-service* calls during the checkout saga — it doesn't know or care whether the HTTP client retried anything. The `Idempotency-Key` header (Order Service, Redis-backed) protects against duplicate *client requests* — a browser or mobile app retrying a timed-out POST /orders. A single checkout attempt that hits a network blip could theoretically trigger 
+both: the client retries the whole HTTP request (caught by the Idempotency-Key layer, which short-circuits before Checkout even runs again), while a retry *inside* Checkout's own gRPC call to Product Service would be caught by the ledger. Neither layer knows about the other, and neither needs to.
 
 ### Cart Enrichment Without N+1
 
