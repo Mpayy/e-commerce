@@ -9,4 +9,5 @@ type ProductHandler interface {
 	AdjustStock(ctx *gin.Context)
 	GetByID(ctx *gin.Context)
 	Search(ctx *gin.Context)
+	UploadProductImage(ctx *gin.Context)
 }

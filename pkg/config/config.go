@@ -11,6 +11,7 @@ type Config struct {
 	// App Configuration
 	AppHost  string `mapstructure:"APP_HOST"`
 	AppPort  string `mapstructure:"APP_PORT"`
+	AppUrl   string `mapstructure:"APP_URL"`
 	AppEnv   string `mapstructure:"APP_ENV"`
 	LogLevel string `mapstructure:"LOG_LEVEL"`
 
@@ -55,6 +56,10 @@ type Config struct {
 	UserServiceAddr        string `mapstructure:"USER_SERVICE_ADDR"`
 	ProductServiceHTTPAddr string `mapstructure:"PRODUCT_SERVICE_HTTP_ADDR"`
 	OrderServiceAddr       string `mapstructure:"ORDER_SERVICE_ADDR"`
+
+	// Image Upload
+	BasePath             string `mapstructure:"BASE_PATH"`
+	PublicImageURLPrefix string `mapstructure:"PUBLIC_IMAGE_URL_PREFIX"`
 }
 
 func Load() *Config {
@@ -65,6 +70,7 @@ func Load() *Config {
 	v.SetDefault("APP_ENV", "development")
 	v.SetDefault("APP_HOST", "localhost")
 	v.SetDefault("APP_PORT", "8080")
+	v.SetDefault("APP_URL", "http://localhost:8080")
 	v.SetDefault("LOG_LEVEL", "info")
 
 	v.SetDefault("DATABASE_URL", "")
@@ -99,6 +105,9 @@ func Load() *Config {
 	v.SetDefault("USER_SERVICE_ADDR", "http://user-service:8082")
 	v.SetDefault("PRODUCT_SERVICE_HTTP_ADDR", "http://product-service:8081")
 	v.SetDefault("ORDER_SERVICE_ADDR", "http://order-service:8083")
+
+	v.SetDefault("BASE_PATH", "./uploads/products")
+	v.SetDefault("PUBLIC_IMAGE_URL_PREFIX", "/uploads/products")
 
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))

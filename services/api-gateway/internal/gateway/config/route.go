@@ -21,6 +21,7 @@ func BuildRoutes(targets ServiceTargets) []Route {
 		{PathPrefix: "/api/v1/admin/categories", Target: targets.ProductServiceAddr},
 		{PathPrefix: "/api/v1/products", Target: targets.ProductServiceAddr},
 		{PathPrefix: "/api/v1/categories", Target: targets.ProductServiceAddr},
+		{PathPrefix: "/uploads", Target: targets.ProductServiceAddr},
 
 		{PathPrefix: "/api/v1/register", Target: targets.UserServiceAddr},
 		{PathPrefix: "/api/v1/login", Target: targets.UserServiceAddr},

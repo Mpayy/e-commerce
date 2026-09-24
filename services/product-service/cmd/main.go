@@ -30,7 +30,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-func setupRouter(r *gin.Engine, categoryHandler producthttp.CategoryHandler, productHandler producthttp.ProductHandler, AuthMiddleware *middleware.AuthMiddleware) *gin.Engine {
+func setupRouter(r *gin.Engine, cfg *config.Config, categoryHandler producthttp.CategoryHandler, productHandler producthttp.ProductHandler, AuthMiddleware *middleware.AuthMiddleware) *gin.Engine {
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status": "UP",
@@ -38,6 +38,7 @@ func setupRouter(r *gin.Engine, categoryHandler producthttp.CategoryHandler, pro
 	})
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	r.Static(cfg.PublicImageURLPrefix, cfg.BasePath)
 	api := r.Group("/api/v1")
 	{
 		api.GET("/categories", categoryHandler.GetAll)
@@ -50,6 +51,7 @@ func setupRouter(r *gin.Engine, categoryHandler producthttp.CategoryHandler, pro
 		admin.PUT("/products/:product_id", productHandler.Update)
 		admin.DELETE("/products/:product_id", productHandler.Delete)
 		admin.PATCH("/products/:product_id/adjust-stock", productHandler.AdjustStock)
+		admin.POST("/products/:product_id/image", productHandler.UploadProductImage)
 	}
 
 	return r
@@ -91,8 +93,9 @@ func main() {
 
 	categoryRepo := repository.NewCategoryRepository(db)
 	productRepo := repository.NewProductRepository(db)
+	imageStorage := repository.NewImageStorage(cfg, log)
 	categoryUsecase := usecase.NewCategoryUsecase(categoryRepo, log)
-	productUsecase := usecase.NewProductUsecase(productRepo, categoryUsecase, log)
+	productUsecase := usecase.NewProductUsecase(productRepo, categoryUsecase, imageStorage, log, cfg)
 	categoryHandler := producthttp.NewCategoryHandler(categoryUsecase, validator)
 	productHandler := producthttp.NewProductHandler(productUsecase, validator)
 
@@ -114,7 +117,7 @@ func main() {
 
 	sessionChecker := middleware.NewRedisSessionChecker(rdb)
 	authMiddleware := middleware.NewAuthMiddleware(jwtToken, sessionChecker, log)
-	router := setupRouter(engine, categoryHandler, productHandler, authMiddleware)
+	router := setupRouter(engine, cfg, categoryHandler, productHandler, authMiddleware)
 	srv := &http.Server{
 		Addr:    ":8081",
 		Handler: router,

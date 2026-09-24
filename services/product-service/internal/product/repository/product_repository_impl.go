@@ -84,6 +84,7 @@ func (r *ProductRepositoryImpl) FindByID(ctx context.Context, id uint) (*entity.
 		CategoryID:  uint(model.CategoryID),
 		Name:        model.Name,
 		Slug:        model.Slug,
+		ImagePath:   model.ImagePath,
 		Description: model.Description,
 		Price:       model.Price,
 		Stock:       model.Stock,
@@ -196,6 +197,7 @@ func (r *ProductRepositoryImpl) FindAll(ctx context.Context, filter *entity.Prod
 			CategoryID:  uint(m.CategoryID),
 			Name:        m.Name,
 			Slug:        m.Slug,
+			ImagePath:   m.ImagePath,
 			Description: m.Description,
 			Price:       m.Price,
 			Stock:       m.Stock,
@@ -421,4 +423,28 @@ func toLedgerItems(items []entity.StockItem) []model.StockLedgerItem {
 		}
 	}
 	return ledgerItems
+}
+
+func (r *ProductRepositoryImpl) UpdateImagePath(ctx context.Context, productID uint, newImagePath string) error {
+	filter := bson.M{
+		"_id": int64(productID),
+	}
+
+	update := bson.M{
+		"$set": bson.M{
+			"image_path": newImagePath,
+			"updated_at": time.Now(),
+		},
+	}
+
+	result, err := r.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+
+	if result.MatchedCount == 0 {
+		return apperror.ErrRecordNotFound
+	}
+
+	return nil
 }

@@ -20,4 +20,5 @@ type ProductRepository interface {
 	BulkDecreaseStock(ctx context.Context, idemKey string, items []entity.StockItem) error
 	BulkRestoreStock(ctx context.Context, idemKey string, items []entity.StockItem) error
 	AdjustStock(ctx context.Context, productID uint, quantity int) error
+	UpdateImagePath(ctx context.Context, productID uint, newImagePath string) error
 }
