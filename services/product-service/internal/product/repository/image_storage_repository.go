@@ -45,7 +45,9 @@ func (s *LocalImageStorage) Save(ctx context.Context, fileHeader *multipart.File
 	if err != nil {
 		return "", err
 	}
-	defer src.Close()
+	defer func() {
+		_ = src.Close()
+	}()
 
 	buf := make([]byte, 512)
 	n, err := src.Read(buf)
@@ -75,9 +77,16 @@ func (s *LocalImageStorage) Save(ctx context.Context, fileHeader *multipart.File
 	if err != nil {
 		return "", err
 	}
-	defer dst.Close()
+
+	defer func() {
+		_ = dst.Close()
+	}()
 
 	if _, err := io.Copy(dst, src); err != nil {
+		return "", err
+	}
+
+	if err := dst.Close(); err != nil {
 		return "", err
 	}
 
