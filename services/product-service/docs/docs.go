@@ -736,6 +736,152 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/products/{product_id}/image": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Uploads a single image for a product, replacing any existing one. The file is validated by inspecting its actual byte content (not the filename extension or Content-Type header) — only JPEG, PNG, and WEBP are accepted, max 2MB. The new file is written to disk before the database record is updated, and the previous image (if any) is deleted only after the update succeeds — this ordering ensures a failure at any step never leaves the database pointing to a file that doesn't exist. Requires admin role.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-products"
+                ],
+                "summary": "Upload or replace a product's image (Admin)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Product ID",
+                        "name": "product_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Image file (JPEG, PNG, or WEBP, max 2MB)",
+                        "name": "image",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_Mpayy_e-commerce_services_product-service_internal_product_dto.ProductResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "BAD_REQUEST / INVALID_FILE_TYPE / FILE_TOO_LARGE",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.ErrorResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "error": {
+                                            "$ref": "#/definitions/apperror.AppError"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "UNAUTHORIZED",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.ErrorResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "error": {
+                                            "$ref": "#/definitions/apperror.AppError"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "403": {
+                        "description": "FORBIDDEN",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.ErrorResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "error": {
+                                            "$ref": "#/definitions/apperror.AppError"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "PRODUCT_NOT_FOUND",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.ErrorResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "error": {
+                                            "$ref": "#/definitions/apperror.AppError"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "INTERNAL_SERVER_ERROR",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.ErrorResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "error": {
+                                            "$ref": "#/definitions/apperror.AppError"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/categories": {
             "get": {
                 "description": "Returns every product category. This endpoint is public and does not require authentication.",
@@ -791,7 +937,7 @@ const docTemplate = `{
         },
         "/products": {
             "get": {
-                "description": "Returns a paginated, publicly accessible list of active products, optionally filtered by name (partial match) and category_id. A category_id that matches no products returns an empty list, not a 404.",
+                "description": "Returns a paginated, publicly accessible list of active products, optionally filtered by name (partial match) and category_id. A category_id that matches no products returns an empty list, not a 404. image_url is null for products without an uploaded image.",
                 "produces": [
                     "application/json"
                 ],
@@ -887,7 +1033,7 @@ const docTemplate = `{
         },
         "/products/{product_id}": {
             "get": {
-                "description": "Returns a single product by ID. Inactive or non-existent products both return 404, so publicly disabled products are indistinguishable from products that were never created. This endpoint is public.",
+                "description": "Returns a single product by ID. Inactive or non-existent products both return 404, so publicly disabled products are indistinguishable from products that were never created. image_url is null if no image has been uploaded yet. This endpoint is public.",
                 "produces": [
                     "application/json"
                 ],
@@ -1081,6 +1227,9 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "integer"
+                },
+                "image_url": {
+                    "type": "string"
                 },
                 "is_active": {
                     "type": "boolean"

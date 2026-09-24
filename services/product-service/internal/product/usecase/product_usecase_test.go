@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"mime/multipart"
 	"testing"
 
 	"github.com/Mpayy/e-commerce/pkg/apperror"
@@ -23,22 +24,25 @@ func newTestLoggerProduct() *logger.Logger {
 	return log
 }
 
-func setupProductUsecase(t *testing.T) (ProductUsecase, *mocks.MockProductRepository, *mocks.MockCategoryUsecase) {
+func setupProductUsecase(t *testing.T) (ProductUsecase, *mocks.MockProductRepository, *mocks.MockCategoryUsecase, *mocks.MockImageStorage) {
+	cfg := config.Load()
 	log := newTestLoggerProduct()
 	productRepository := mocks.NewMockProductRepository(t)
 	categoryUsecase := mocks.NewMockCategoryUsecase(t)
-	productUsecase := NewProductUsecase(productRepository, categoryUsecase, log)
+	imageStorage := mocks.NewMockImageStorage(t)
+	productUsecase := NewProductUsecase(productRepository, categoryUsecase, imageStorage, log, cfg)
 	t.Cleanup(func() {
 		productRepository.AssertExpectations(t)
 		categoryUsecase.AssertExpectations(t)
+		imageStorage.AssertExpectations(t)
 	})
-	return productUsecase, productRepository, categoryUsecase
+	return productUsecase, productRepository, categoryUsecase, imageStorage
 }
 
 func setupProductService(t *testing.T) (ProductService, *mocks.MockProductRepository) {
 	productRepository := mocks.NewMockProductRepository(t)
 	log := newTestLoggerProduct()
-	productService := NewProductUsecase(productRepository, nil, log)
+	productService := NewProductUsecase(productRepository, nil, nil, log, nil)
 	t.Cleanup(func() {
 		productRepository.AssertExpectations(t)
 	})
@@ -56,7 +60,7 @@ func TestProductUsecaseImpl_CreateProduct(t *testing.T) {
 	dbErr := errors.New("unexpected error")
 
 	t.Run("successful_create_product", func(t *testing.T) {
-		uc, repo, categoryUC := setupProductUsecase(t)
+		uc, repo, categoryUC, _ := setupProductUsecase(t)
 
 		categoryUC.EXPECT().ValidateCategoryExists(mock.Anything, request.CategoryID).
 			Return(nil)
@@ -81,7 +85,7 @@ func TestProductUsecaseImpl_CreateProduct(t *testing.T) {
 	})
 
 	t.Run("failed_create_product_category_not_found", func(t *testing.T) {
-		uc, _, categoryUC := setupProductUsecase(t)
+		uc, _, categoryUC, _ := setupProductUsecase(t)
 
 		categoryUC.EXPECT().ValidateCategoryExists(mock.Anything, request.CategoryID).
 			Return(apperror.ErrCategoryNotFound)
@@ -93,7 +97,7 @@ func TestProductUsecaseImpl_CreateProduct(t *testing.T) {
 	})
 
 	t.Run("failed_duplicate_slug", func(t *testing.T) {
-		uc, repo, categoryUC := setupProductUsecase(t)
+		uc, repo, categoryUC, _ := setupProductUsecase(t)
 
 		categoryUC.EXPECT().ValidateCategoryExists(mock.Anything, request.CategoryID).
 			Return(nil)
@@ -108,7 +112,7 @@ func TestProductUsecaseImpl_CreateProduct(t *testing.T) {
 	})
 
 	t.Run("failed_duplicate_sku", func(t *testing.T) {
-		uc, repo, categoryUC := setupProductUsecase(t)
+		uc, repo, categoryUC, _ := setupProductUsecase(t)
 
 		categoryUC.EXPECT().ValidateCategoryExists(mock.Anything, request.CategoryID).
 			Return(nil)
@@ -123,7 +127,7 @@ func TestProductUsecaseImpl_CreateProduct(t *testing.T) {
 	})
 
 	t.Run("failed_unexpected_error_from_category_usecase", func(t *testing.T) {
-		uc, _, categoryUC := setupProductUsecase(t)
+		uc, _, categoryUC, _ := setupProductUsecase(t)
 
 		categoryUC.EXPECT().ValidateCategoryExists(mock.Anything, request.CategoryID).
 			Return(dbErr)
@@ -135,7 +139,7 @@ func TestProductUsecaseImpl_CreateProduct(t *testing.T) {
 	})
 
 	t.Run("failed_unexpected_error_from_repository", func(t *testing.T) {
-		uc, repo, categoryUC := setupProductUsecase(t)
+		uc, repo, categoryUC, _ := setupProductUsecase(t)
 
 		categoryUC.EXPECT().ValidateCategoryExists(mock.Anything, request.CategoryID).
 			Return(nil)
@@ -184,7 +188,7 @@ func TestProductUsecaseImpl_UpdateProduct(t *testing.T) {
 	dbErr := errors.New("unexpected error")
 
 	t.Run("success_update_product_category_changed", func(t *testing.T) {
-		uc, repo, categoryUC := setupProductUsecase(t)
+		uc, repo, categoryUC, _ := setupProductUsecase(t)
 		product := getFreshProduct()
 
 		repo.EXPECT().FindByID(mock.Anything, productID).
@@ -212,7 +216,7 @@ func TestProductUsecaseImpl_UpdateProduct(t *testing.T) {
 	})
 
 	t.Run("success_update_product_same_category_and_nil_optional_fields", func(t *testing.T) {
-		uc, repo, _ := setupProductUsecase(t)
+		uc, repo, _, _ := setupProductUsecase(t)
 		product := getFreshProduct()
 
 		reqSameCategory := &dto.ProductUpdateRequest{
@@ -245,7 +249,7 @@ func TestProductUsecaseImpl_UpdateProduct(t *testing.T) {
 	})
 
 	t.Run("failed_product_not_found", func(t *testing.T) {
-		uc, repo, _ := setupProductUsecase(t)
+		uc, repo, _, _ := setupProductUsecase(t)
 
 		repo.EXPECT().FindByID(mock.Anything, productID).
 			Return(nil, apperror.ErrRecordNotFound)
@@ -257,7 +261,7 @@ func TestProductUsecaseImpl_UpdateProduct(t *testing.T) {
 	})
 
 	t.Run("failed_unexpected_error_from_find_by_id", func(t *testing.T) {
-		uc, repo, _ := setupProductUsecase(t)
+		uc, repo, _, _ := setupProductUsecase(t)
 
 		repo.EXPECT().FindByID(mock.Anything, productID).
 			Return(nil, dbErr)
@@ -269,7 +273,7 @@ func TestProductUsecaseImpl_UpdateProduct(t *testing.T) {
 	})
 
 	t.Run("failed_category_not_found", func(t *testing.T) {
-		uc, repo, categoryUC := setupProductUsecase(t)
+		uc, repo, categoryUC, _ := setupProductUsecase(t)
 		product := getFreshProduct()
 
 		repo.EXPECT().FindByID(mock.Anything, productID).
@@ -285,7 +289,7 @@ func TestProductUsecaseImpl_UpdateProduct(t *testing.T) {
 	})
 
 	t.Run("failed_unexpected_error_from_category", func(t *testing.T) {
-		uc, repo, categoryUC := setupProductUsecase(t)
+		uc, repo, categoryUC, _ := setupProductUsecase(t)
 		product := getFreshProduct()
 
 		repo.EXPECT().FindByID(mock.Anything, productID).
@@ -301,7 +305,7 @@ func TestProductUsecaseImpl_UpdateProduct(t *testing.T) {
 	})
 
 	t.Run("failed_duplicate_product_slug", func(t *testing.T) {
-		uc, repo, categoryUC := setupProductUsecase(t)
+		uc, repo, categoryUC, _ := setupProductUsecase(t)
 		product := getFreshProduct()
 
 		repo.EXPECT().FindByID(mock.Anything, productID).
@@ -319,7 +323,7 @@ func TestProductUsecaseImpl_UpdateProduct(t *testing.T) {
 	})
 
 	t.Run("failed_duplicate_sku", func(t *testing.T) {
-		uc, repo, categoryUC := setupProductUsecase(t)
+		uc, repo, categoryUC, _ := setupProductUsecase(t)
 		product := getFreshProduct()
 
 		repo.EXPECT().FindByID(mock.Anything, productID).
@@ -337,7 +341,7 @@ func TestProductUsecaseImpl_UpdateProduct(t *testing.T) {
 	})
 
 	t.Run("failed_unexpected_error_from_update_repository", func(t *testing.T) {
-		uc, repo, categoryUC := setupProductUsecase(t)
+		uc, repo, categoryUC, _ := setupProductUsecase(t)
 		product := getFreshProduct()
 
 		repo.EXPECT().FindByID(mock.Anything, productID).
@@ -361,7 +365,7 @@ func TestProductUsecaseImpl_DeleteProduct(t *testing.T) {
 	dbErr := errors.New("unexpected error")
 
 	t.Run("success_delete_product", func(t *testing.T) {
-		uc, repo, _ := setupProductUsecase(t)
+		uc, repo, _, _ := setupProductUsecase(t)
 
 		repo.EXPECT().Delete(mock.Anything, productID).
 			Return(nil)
@@ -371,7 +375,7 @@ func TestProductUsecaseImpl_DeleteProduct(t *testing.T) {
 	})
 
 	t.Run("failed_product_not_found", func(t *testing.T) {
-		uc, repo, _ := setupProductUsecase(t)
+		uc, repo, _, _ := setupProductUsecase(t)
 
 		repo.EXPECT().Delete(mock.Anything, productID).
 			Return(apperror.ErrRecordNotFound)
@@ -381,7 +385,7 @@ func TestProductUsecaseImpl_DeleteProduct(t *testing.T) {
 	})
 
 	t.Run("failed_unexpected_error_from_repository", func(t *testing.T) {
-		uc, repo, _ := setupProductUsecase(t)
+		uc, repo, _, _ := setupProductUsecase(t)
 
 		repo.EXPECT().Delete(mock.Anything, productID).
 			Return(dbErr)
@@ -422,7 +426,7 @@ func TestProductUsecaseImpl_SearchProducts(t *testing.T) {
 	dbErr := errors.New("unexpected error")
 
 	t.Run("success_search_products_found", func(t *testing.T) {
-		uc, repo, _ := setupProductUsecase(t)
+		uc, repo, _, _ := setupProductUsecase(t)
 
 		req := &dto.ProductSearchRequest{
 			Search:     "Baju",
@@ -452,7 +456,7 @@ func TestProductUsecaseImpl_SearchProducts(t *testing.T) {
 	})
 
 	t.Run("success_search_products_with_default_page_and_limit", func(t *testing.T) {
-		uc, repo, _ := setupProductUsecase(t)
+		uc, repo, _, _ := setupProductUsecase(t)
 
 		reqInvalidPagination := &dto.ProductSearchRequest{
 			Search:     "Baju",
@@ -475,7 +479,7 @@ func TestProductUsecaseImpl_SearchProducts(t *testing.T) {
 	})
 
 	t.Run("success_search_products_empty_result", func(t *testing.T) {
-		uc, repo, _ := setupProductUsecase(t)
+		uc, repo, _, _ := setupProductUsecase(t)
 
 		req := &dto.ProductSearchRequest{
 			Search: "Tidak Ada",
@@ -495,7 +499,7 @@ func TestProductUsecaseImpl_SearchProducts(t *testing.T) {
 	})
 
 	t.Run("failed_unexpected_db_error", func(t *testing.T) {
-		uc, repo, _ := setupProductUsecase(t)
+		uc, repo, _, _ := setupProductUsecase(t)
 
 		req := &dto.ProductSearchRequest{
 			Search: "Baju",
@@ -535,7 +539,7 @@ func TestProductUsecaseImpl_GetProductDetail(t *testing.T) {
 	dbErr := errors.New("unexpected error")
 
 	t.Run("successful_get_product_detail", func(t *testing.T) {
-		uc, repo, _ := setupProductUsecase(t)
+		uc, repo, _, _ := setupProductUsecase(t)
 		product := getFreshProduct(true)
 
 		repo.EXPECT().FindByID(mock.Anything, productID).
@@ -557,7 +561,7 @@ func TestProductUsecaseImpl_GetProductDetail(t *testing.T) {
 	})
 
 	t.Run("failed_product_record_not_found", func(t *testing.T) {
-		uc, repo, _ := setupProductUsecase(t)
+		uc, repo, _, _ := setupProductUsecase(t)
 
 		repo.EXPECT().FindByID(mock.Anything, productID).
 			Return(nil, apperror.ErrRecordNotFound)
@@ -569,7 +573,7 @@ func TestProductUsecaseImpl_GetProductDetail(t *testing.T) {
 	})
 
 	t.Run("failed_product_inactive_treated_as_not_found", func(t *testing.T) {
-		uc, repo, _ := setupProductUsecase(t)
+		uc, repo, _, _ := setupProductUsecase(t)
 		productInactive := getFreshProduct(false)
 		productInactive.ID = productInactiveID
 
@@ -583,7 +587,7 @@ func TestProductUsecaseImpl_GetProductDetail(t *testing.T) {
 	})
 
 	t.Run("failed_unexpected_error_from_repository", func(t *testing.T) {
-		uc, repo, _ := setupProductUsecase(t)
+		uc, repo, _, _ := setupProductUsecase(t)
 
 		repo.EXPECT().FindByID(mock.Anything, productID).
 			Return(nil, dbErr)
@@ -602,7 +606,7 @@ func TestProductUsecaseImpl_AdjustStock(t *testing.T) {
 	dbErr := errors.New("unexpected error")
 
 	t.Run("success_adjust_stock", func(t *testing.T) {
-		uc, repo, _ := setupProductUsecase(t)
+		uc, repo, _, _ := setupProductUsecase(t)
 
 		repo.EXPECT().AdjustStock(mock.Anything, productID, newStock).
 			Return(nil)
@@ -612,7 +616,7 @@ func TestProductUsecaseImpl_AdjustStock(t *testing.T) {
 	})
 
 	t.Run("failed_product_not_found", func(t *testing.T) {
-		uc, repo, _ := setupProductUsecase(t)
+		uc, repo, _, _ := setupProductUsecase(t)
 
 		repo.EXPECT().AdjustStock(mock.Anything, productID, newStock).
 			Return(apperror.ErrRecordNotFound)
@@ -623,7 +627,7 @@ func TestProductUsecaseImpl_AdjustStock(t *testing.T) {
 	})
 
 	t.Run("failed_unexpected_db_error", func(t *testing.T) {
-		uc, repo, _ := setupProductUsecase(t)
+		uc, repo, _, _ := setupProductUsecase(t)
 
 		repo.EXPECT().AdjustStock(mock.Anything, productID, newStock).
 			Return(dbErr)
@@ -861,5 +865,187 @@ func TestProductUsecaseImpl_BulkRestoreStock(t *testing.T) {
 		err := srv.BulkRestoreStock(ctx, checkoutID, items)
 
 		assert.ErrorIs(t, err, dbErr)
+	})
+}
+
+// Helper function untuk membuat mock multipart.FileHeader
+func createMockFileHeader(filename string, size int64) *multipart.FileHeader {
+	return &multipart.FileHeader{
+		Filename: filename,
+		Size:     size,
+	}
+}
+
+func TestProductUsecaseImpl_UploadProductImage(t *testing.T) {
+	ctx := context.Background()
+	productID := uint(1)
+	dbErr := errors.New("database connection error")
+
+	dummyProduct := &entity.Product{
+		ID:          productID,
+		CategoryID:  1,
+		Name:        "Sepatu Sneaker",
+		Slug:        "sepatu-sneaker",
+		ImagePath:   "uploads/products/old-image.jpg",
+		Description: "Sepatu keren",
+		Price:       150000,
+		Stock:       10,
+		SKU:         "PRD-001",
+		IsActive:    true,
+	}
+
+	validFileHeader := createMockFileHeader("test.png", 1*1024*1024)            // 1MB (Valid)
+	largeFileHeader := createMockFileHeader("large.png", entity.MaxImageSize+1) // > 2MB (Invalid)
+
+	t.Run("success_upload_with_existing_old_image_path", func(t *testing.T) {
+		uc, repo, _, storage := setupProductUsecase(t)
+
+		newImagePath := "uploads/products/new-uuid.png"
+
+		// 1. Find product
+		repo.EXPECT().FindByID(ctx, productID).Return(dummyProduct, nil)
+
+		// 2. Save image to storage
+		storage.EXPECT().Save(ctx, validFileHeader).Return(newImagePath, nil)
+
+		// 3. Update image path in database
+		repo.EXPECT().UpdateImagePath(ctx, productID, newImagePath).Return(nil)
+
+		// 4. Delete old image
+		storage.EXPECT().Delete(ctx, dummyProduct.ImagePath).Return(nil)
+
+		result, err := uc.UploadProductImage(ctx, productID, validFileHeader)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, dummyProduct.ID, result.ID)
+		assert.Equal(t, dummyProduct.Name, result.Name)
+		assert.NotNil(t, result.ImageUrl)
+		assert.Contains(t, *result.ImageUrl, newImagePath)
+	})
+
+	t.Run("success_upload_without_old_image_path", func(t *testing.T) {
+		uc, repo, _, storage := setupProductUsecase(t)
+
+		productWithoutOldImage := *dummyProduct
+		productWithoutOldImage.ImagePath = ""
+
+		newImagePath := "uploads/products/new-uuid.png"
+
+		repo.EXPECT().FindByID(ctx, productID).Return(&productWithoutOldImage, nil)
+		storage.EXPECT().Save(ctx, validFileHeader).Return(newImagePath, nil)
+		repo.EXPECT().UpdateImagePath(ctx, productID, newImagePath).Return(nil)
+		// Storage Delete TIDAK dipanggil karena oldImagePath == ""
+
+		result, err := uc.UploadProductImage(ctx, productID, validFileHeader)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.NotNil(t, result.ImageUrl)
+	})
+
+	t.Run("product_not_found", func(t *testing.T) {
+		uc, repo, _, _ := setupProductUsecase(t)
+
+		repo.EXPECT().FindByID(ctx, productID).Return(nil, apperror.ErrRecordNotFound)
+
+		result, err := uc.UploadProductImage(ctx, productID, validFileHeader)
+
+		assert.ErrorIs(t, err, apperror.ErrProductNotFound)
+		assert.Nil(t, result)
+	})
+
+	t.Run("failed_find_by_id_internal_server_error", func(t *testing.T) {
+		uc, repo, _, _ := setupProductUsecase(t)
+
+		repo.EXPECT().FindByID(ctx, productID).Return(nil, dbErr)
+
+		result, err := uc.UploadProductImage(ctx, productID, validFileHeader)
+
+		assert.ErrorIs(t, err, apperror.ErrInternalServer)
+		assert.Nil(t, result)
+	})
+
+	t.Run("file_size_exceeds_limit", func(t *testing.T) {
+		uc, repo, _, _ := setupProductUsecase(t)
+
+		repo.EXPECT().FindByID(ctx, productID).Return(dummyProduct, nil)
+
+		result, err := uc.UploadProductImage(ctx, productID, largeFileHeader)
+
+		assert.ErrorIs(t, err, apperror.ErrFileTooLarge)
+		assert.Nil(t, result)
+	})
+
+	t.Run("invalid_file_type_or_failed_saving_to_storage", func(t *testing.T) {
+		uc, repo, _, storage := setupProductUsecase(t)
+
+		repo.EXPECT().FindByID(ctx, productID).Return(dummyProduct, nil)
+		storage.EXPECT().Save(ctx, validFileHeader).Return("", apperror.ErrInvalidFileType)
+
+		result, err := uc.UploadProductImage(ctx, productID, validFileHeader)
+
+		assert.ErrorIs(t, err, apperror.ErrInvalidFileType)
+		assert.Nil(t, result)
+	})
+
+	t.Run("failed_update_image_path_and_rollback_new_file", func(t *testing.T) {
+		uc, repo, _, storage := setupProductUsecase(t)
+
+		newImagePath := "uploads/products/new-uuid.png"
+
+		repo.EXPECT().FindByID(ctx, productID).Return(dummyProduct, nil)
+		storage.EXPECT().Save(ctx, validFileHeader).Return(newImagePath, nil)
+		repo.EXPECT().UpdateImagePath(ctx, productID, newImagePath).Return(dbErr)
+
+		// Memastikan file baru yang sempat tersimpan dihapus kembali (rollback)
+		storage.EXPECT().Delete(ctx, newImagePath).Return(nil)
+
+		result, err := uc.UploadProductImage(ctx, productID, validFileHeader)
+
+		assert.ErrorIs(t, err, apperror.ErrInternalServer)
+		assert.Nil(t, result)
+	})
+
+	t.Run("failed_update_image_path_and_failed_rollback_delete_new_file", func(t *testing.T) {
+		uc, repo, _, storage := setupProductUsecase(t)
+
+		newImagePath := "uploads/products/new-uuid.png"
+		storageErr := errors.New("permission denied on disk")
+
+		repo.EXPECT().FindByID(ctx, productID).Return(dummyProduct, nil)
+		storage.EXPECT().Save(ctx, validFileHeader).Return(newImagePath, nil)
+		repo.EXPECT().UpdateImagePath(ctx, productID, newImagePath).Return(dbErr)
+
+		// Mock Delete mengembalikan error saat rollback
+		storage.EXPECT().Delete(ctx, newImagePath).Return(storageErr)
+
+		result, err := uc.UploadProductImage(ctx, productID, validFileHeader)
+
+		// MENGUNCI: Error tetap ErrInternalServer (bukan storageErr)
+		assert.ErrorIs(t, err, apperror.ErrInternalServer)
+		assert.NotEqual(t, storageErr, err)
+		assert.Nil(t, result)
+	})
+
+	t.Run("success_upload_even_if_old_image_delete_fails", func(t *testing.T) {
+		uc, repo, _, storage := setupProductUsecase(t)
+
+		newImagePath := "uploads/products/new-uuid.png"
+		storageErr := errors.New("old file not found or locked")
+
+		repo.EXPECT().FindByID(ctx, productID).Return(dummyProduct, nil)
+		storage.EXPECT().Save(ctx, validFileHeader).Return(newImagePath, nil)
+		repo.EXPECT().UpdateImagePath(ctx, productID, newImagePath).Return(nil)
+
+		// Mock Delete gambar lama mengembalikan error (best-effort cleanup)
+		storage.EXPECT().Delete(ctx, dummyProduct.ImagePath).Return(storageErr)
+
+		result, err := uc.UploadProductImage(ctx, productID, validFileHeader)
+
+		// MENGUNCI: Proses utama tetap dianggap SUKSES meskipun cleanup gambar lama gagal
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.NotNil(t, result.ImageUrl)
 	})
 }

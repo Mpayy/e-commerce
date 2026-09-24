@@ -45,6 +45,8 @@ var (
 	ErrDuplicatedProduct    = &AppError{Code: "DUPLICATED_PRODUCT", Message: "duplicated product", Status: http.StatusConflict}
 	ErrDuplicatedProductSku = &AppError{Code: "DUPLICATED_PRODUCT_SKU", Message: "duplicated product SKU", Status: http.StatusConflict}
 	ErrInsufficientStock    = &AppError{Code: "INSUFFICIENT_STOCK", Message: "insufficient stock", Status: http.StatusConflict}
+	ErrInvalidFileType      = &AppError{Code: "INVALID_FILE_TYPE", Message: "invalid file type, allowed formats are JPG, PNG, and WEBP", Status: http.StatusBadRequest}
+	ErrFileTooLarge         = &AppError{Code: "FILE_TOO_LARGE", Message: "file size exceeds the maximum allowed limit", Status: http.StatusBadRequest}
 
 	// Cart Errors
 	ErrCartNotFound    = &AppError{Code: "CART_NOT_FOUND", Message: "cart not found", Status: http.StatusNotFound}

@@ -28,6 +28,8 @@ services:
   product-service:
     image: ghcr.io/mpayy/e-commerce-product-service:latest
     restart: unless-stopped
+    volumes:
+      - product_images:/app/uploads/products
     env_file: [.env]
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8081/health || exit 1"]
@@ -82,6 +84,10 @@ services:
       start_period: 15s
     networks:
       - ecommerce-network
+    
+volumes:
+  product_images:
+    driver: local
 
 networks:
   ecommerce-network:

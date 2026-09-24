@@ -36,6 +36,8 @@ services:
     restart: unless-stopped
     ports:
       - "8081:8081"
+    volumes:
+      - product_images:/app/uploads/products
     env_file: [.env]
     environment:
       REDIS_HOST: redis
@@ -243,6 +245,7 @@ volumes:
   redis_data:
   mongo_data:
   rabbitmq_data:
+  product_images:
 
 networks:
   ecommerce-network:

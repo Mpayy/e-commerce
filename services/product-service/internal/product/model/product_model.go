@@ -7,6 +7,7 @@ type ProductModel struct {
 	CategoryID  int64     `bson:"category_id"`
 	Name        string    `bson:"name"`
 	Slug        string    `bson:"slug"`
+	ImagePath   string    `bson:"image_path"`
 	Description string    `bson:"description"`
 	Price       float64   `bson:"price"`
 	Stock       int       `bson:"stock"`

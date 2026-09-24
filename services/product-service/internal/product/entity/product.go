@@ -2,11 +2,14 @@ package entity
 
 import "time"
 
+const MaxImageSize = 2 * 1024 * 1024
+
 type Product struct {
 	ID          uint
 	CategoryID  uint
 	Name        string
 	Slug        string
+	ImagePath   string
 	Description string
 	Price       float64
 	Stock       int

@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"mime/multipart"
 
 	"github.com/Mpayy/e-commerce/services/product-service/internal/product/dto"
 )
@@ -13,4 +14,5 @@ type ProductUsecase interface {
 	SearchProducts(ctx context.Context, request *dto.ProductSearchRequest) (*dto.ProductSearchResponse, error)
 	GetProductDetail(ctx context.Context, id uint) (*dto.ProductResponse, error)
 	AdjustStock(ctx context.Context, productID uint, quantity int) error
+	UploadProductImage(ctx context.Context, productID uint, fileHeader *multipart.FileHeader) (*dto.ProductResponse, error)
 }

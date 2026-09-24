@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"mime/multipart"
 
 	"github.com/Mpayy/e-commerce/pkg/apperror"
+	"github.com/Mpayy/e-commerce/pkg/config"
 	"github.com/Mpayy/e-commerce/pkg/logger"
 	"github.com/Mpayy/e-commerce/pkg/skugen"
 	"github.com/Mpayy/e-commerce/services/product-service/internal/product/dto"
@@ -17,14 +19,18 @@ import (
 type ProductUsecaseImpl struct {
 	productRepository repository.ProductRepository
 	categoryUsecase   CategoryUsecase
+	imageStorage      repository.ImageStorage
 	log               *logger.Logger
+	cfg               *config.Config
 }
 
-func NewProductUsecase(productRepository repository.ProductRepository, categoryUsecase CategoryUsecase, log *logger.Logger) *ProductUsecaseImpl {
+func NewProductUsecase(productRepository repository.ProductRepository, categoryUsecase CategoryUsecase, imageStorage repository.ImageStorage, log *logger.Logger, cfg *config.Config) *ProductUsecaseImpl {
 	return &ProductUsecaseImpl{
 		productRepository: productRepository,
 		categoryUsecase:   categoryUsecase,
+		imageStorage:      imageStorage,
 		log:               log,
+		cfg:               cfg,
 	}
 }
 
@@ -197,6 +203,7 @@ func (u *ProductUsecaseImpl) SearchProducts(ctx context.Context, request *dto.Pr
 			CategoryID:  product.CategoryID,
 			Name:        product.Name,
 			Slug:        product.Slug,
+			ImageUrl:    u.buildImageURL(product.ImagePath),
 			Description: product.Description,
 			Price:       product.Price,
 			Stock:       product.Stock,
@@ -240,6 +247,7 @@ func (u *ProductUsecaseImpl) GetProductDetail(ctx context.Context, id uint) (*dt
 		CategoryID:  product.CategoryID,
 		Name:        product.Name,
 		Slug:        product.Slug,
+		ImageUrl:    u.buildImageURL(product.ImagePath),
 		Description: product.Description,
 		Price:       product.Price,
 		Stock:       product.Stock,
@@ -270,6 +278,75 @@ func (u *ProductUsecaseImpl) AdjustStock(ctx context.Context, productID uint, st
 
 	logger.Info("Stock adjusted successfully")
 	return nil
+}
+
+func (u *ProductUsecaseImpl) UploadProductImage(ctx context.Context, productID uint, fileHeader *multipart.FileHeader) (*dto.ProductResponse, error) {
+	log := u.log.WithFields(logger.Fields{
+		"product_id": productID,
+	})
+	log.Debug("Attempting to upload product image")
+
+	product, err := u.productRepository.FindByID(ctx, productID)
+	if err != nil {
+		if errors.Is(err, apperror.ErrRecordNotFound) {
+			return nil, apperror.ErrProductNotFound
+		}
+		return nil, apperror.ErrInternalServer
+	}
+
+	if fileHeader.Size > entity.MaxImageSize {
+		return nil, apperror.ErrFileTooLarge
+	}
+
+	oldImagePath := product.ImagePath
+
+	newImagePath, err := u.imageStorage.Save(ctx, fileHeader)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := u.productRepository.UpdateImagePath(ctx, productID, newImagePath); err != nil {
+		if delErr := u.imageStorage.Delete(ctx, newImagePath); delErr != nil {
+			log.WithFields(logger.Fields{
+				"orphaned_path": newImagePath,
+				"delete_error":  delErr,
+			}).Error("failed to clean up orphaned image after UpdateImagePath failure — manual cleanup required")
+		}
+		return nil, apperror.ErrInternalServer
+	}
+
+	if oldImagePath != "" {
+		if delErr := u.imageStorage.Delete(ctx, oldImagePath); delErr != nil {
+			log.WithFields(logger.Fields{
+				"old_image_path": oldImagePath,
+				"delete_error":   delErr,
+			}).Warn("failed to delete old image after successful replacement — disk storage will accumulate stale files")
+		}
+	}
+
+	response := &dto.ProductResponse{
+		ID:          product.ID,
+		CategoryID:  product.CategoryID,
+		Name:        product.Name,
+		Slug:        product.Slug,
+		ImageUrl:    u.buildImageURL(newImagePath),
+		Description: product.Description,
+		Price:       product.Price,
+		Stock:       product.Stock,
+		SKU:         product.SKU,
+		IsActive:    product.IsActive,
+	}
+
+	log.Info("Upload product image successfully")
+	return response, nil
+}
+
+func (u *ProductUsecaseImpl) buildImageURL(imagePath string) *string {
+	if imagePath == "" {
+		return nil
+	}
+	url := u.cfg.AppUrl + imagePath
+	return &url
 }
 
 // ═══════════════════════════════════════════════════════

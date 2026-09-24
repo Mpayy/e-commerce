@@ -607,3 +607,66 @@ func (_c *MockProductRepository_Update_Call) RunAndReturn(run func(ctx context.C
 	_c.Call.Return(run)
 	return _c
 }
+
+// UpdateImagePath provides a mock function for the type MockProductRepository
+func (_mock *MockProductRepository) UpdateImagePath(ctx context.Context, productID uint, newImagePath string) error {
+	ret := _mock.Called(ctx, productID, newImagePath)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateImagePath")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uint, string) error); ok {
+		r0 = returnFunc(ctx, productID, newImagePath)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockProductRepository_UpdateImagePath_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateImagePath'
+type MockProductRepository_UpdateImagePath_Call struct {
+	*mock.Call
+}
+
+// UpdateImagePath is a helper method to define mock.On call
+//   - ctx context.Context
+//   - productID uint
+//   - newImagePath string
+func (_e *MockProductRepository_Expecter) UpdateImagePath(ctx any, productID any, newImagePath any) *MockProductRepository_UpdateImagePath_Call {
+	return &MockProductRepository_UpdateImagePath_Call{Call: _e.mock.On("UpdateImagePath", ctx, productID, newImagePath)}
+}
+
+func (_c *MockProductRepository_UpdateImagePath_Call) Run(run func(ctx context.Context, productID uint, newImagePath string)) *MockProductRepository_UpdateImagePath_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 uint
+		if args[1] != nil {
+			arg1 = args[1].(uint)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockProductRepository_UpdateImagePath_Call) Return(err error) *MockProductRepository_UpdateImagePath_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockProductRepository_UpdateImagePath_Call) RunAndReturn(run func(ctx context.Context, productID uint, newImagePath string) error) *MockProductRepository_UpdateImagePath_Call {
+	_c.Call.Return(run)
+	return _c
+}
