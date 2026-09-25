@@ -60,6 +60,9 @@ type Config struct {
 	// Image Upload
 	BasePath             string `mapstructure:"BASE_PATH"`
 	PublicImageURLPrefix string `mapstructure:"PUBLIC_IMAGE_URL_PREFIX"`
+
+	// CORS
+	CorsAllowedOrigins string `mapstructure:"CORS_ALLOWED_ORIGINS"`
 }
 
 func Load() *Config {
@@ -108,6 +111,8 @@ func Load() *Config {
 
 	v.SetDefault("BASE_PATH", "./uploads/products")
 	v.SetDefault("PUBLIC_IMAGE_URL_PREFIX", "/uploads/products")
+
+	v.SetDefault("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
 
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
