@@ -14,12 +14,13 @@ import (
 )
 
 type OrderHandlerImpl struct {
-	orderUsecase usecase.OrderUsecase
-	validator    *validator.Validate
+	orderUsecase     usecase.OrderUsecase
+	assistantUsecase usecase.AssistantUsecase
+	validator        *validator.Validate
 }
 
-func NewOrderHandler(orderUsecase usecase.OrderUsecase, validator *validator.Validate) OrderHandler {
-	return &OrderHandlerImpl{orderUsecase: orderUsecase, validator: validator}
+func NewOrderHandler(orderUsecase usecase.OrderUsecase, assistantUsecase usecase.AssistantUsecase, validator *validator.Validate) OrderHandler {
+	return &OrderHandlerImpl{orderUsecase: orderUsecase, assistantUsecase: assistantUsecase, validator: validator}
 }
 
 // CheckoutOrder godoc
@@ -293,4 +294,25 @@ func (h *OrderHandlerImpl) CancelOrder(ctx *gin.Context) {
 	}
 
 	response.ResponseSuccess(ctx, http.StatusOK, order)
+}
+
+func (h *OrderHandlerImpl) Chat(ctx *gin.Context) {
+	var request dto.AssistantRequest
+	if err := ctx.ShouldBindJSON(&request); err != nil {
+		response.HandleError(ctx, apperror.ErrBadRequest)
+		return
+	}
+
+	if err := h.validator.Struct(&request); err != nil {
+		response.HandleError(ctx, apperror.ExtractValidationErrors(err))
+		return
+	}
+
+	resp, err := h.assistantUsecase.Chat(ctx.Request.Context(), request)
+	if err != nil {
+		response.HandleError(ctx, err)
+		return
+	}
+	
+	response.ResponseSuccess(ctx, http.StatusOK, resp)
 }

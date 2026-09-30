@@ -32,6 +32,7 @@ func BuildRoutes(targets ServiceTargets) []Route {
 		{PathPrefix: "/api/v1/orders", Target: targets.OrderServiceAddr},
 		{PathPrefix: "/api/v1/admin/orders", Target: targets.OrderServiceAddr},
 		{PathPrefix: "/api/v1/admin/analytics/sales", Target: targets.OrderServiceAddr},
+		{PathPrefix: "/api/v1/admin/assistant/chat", Target: targets.OrderServiceAddr},
 	}
 
 	sort.Slice(routes, func(i, j int) bool {

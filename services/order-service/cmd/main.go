@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Mpayy/e-commerce/pkg/ai"
 	"github.com/Mpayy/e-commerce/pkg/cache"
 	"github.com/Mpayy/e-commerce/pkg/config"
 	"github.com/Mpayy/e-commerce/pkg/engine"
@@ -55,6 +56,7 @@ func setupRouter(r *gin.Engine, orderHandler orderHttp.OrderHandler, cartHandler
 
 		admin := api.Group("/admin", middleware.AdminMiddleware())
 		admin.GET("/analytics/sales", orderHandler.GetSalesAnalytics)
+		admin.POST("/assistant/chat", orderHandler.Chat)
 		admin.GET("/orders", orderHandler.GetAdminOrderList)
 		admin.GET("/orders/:order_id", orderHandler.GetAdminOrderDetail)
 		admin.PATCH("/orders/:order_id/status", orderHandler.CancelOrder)
@@ -82,6 +84,10 @@ func main() {
 	jwtToken := jwt.NewJwtToken(cfg)
 	validator := validator.NewValidator()
 	engine := engine.NewGin(cfg, log)
+	genaiCli, err := ai.NewGenAICli(ctx, cfg, log)
+	if err != nil {
+		log.Fatalf("failed to initialize gemini client: %v", err)
+	}
 	pool, cleanupDB, err := dependency.NewPostgresPool(cfg, log)
 	if err != nil {
 		log.Fatalf("failed to initialize postgres pool: %v", err)
@@ -114,9 +120,10 @@ func main() {
 
 	cartUsecase := cartUC.NewCartUsecase(cartRepository, productClient, log)
 	orderUsecase := orderUC.NewOrderUsecase(orderRepository, log, cartUsecase, productClient, eventPublisher)
+	assistantUsecase := orderUC.NewAssistantUsecase(genaiCli, orderUsecase)
 
 	cartHandler := cartHttp.NewCartHandler(cartUsecase, cartUsecase, validator)
-	orderHandler := orderHttp.NewOrderHandler(orderUsecase, validator)
+	orderHandler := orderHttp.NewOrderHandler(orderUsecase, assistantUsecase, validator)
 
 	sessionChecker := middleware.NewRedisSessionChecker(rdb)
 	authMiddleware := middleware.NewAuthMiddleware(jwtToken, sessionChecker, log)

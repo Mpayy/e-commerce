@@ -63,6 +63,9 @@ type Config struct {
 
 	// CORS
 	CorsAllowedOrigins string `mapstructure:"CORS_ALLOWED_ORIGINS"`
+
+	//AI
+	GeminiApiKey string `mapstructure:"GEMINI_API_KEY"`
 }
 
 func Load() *Config {
@@ -112,7 +115,7 @@ func Load() *Config {
 	v.SetDefault("BASE_PATH", "./uploads/products")
 	v.SetDefault("PUBLIC_IMAGE_URL_PREFIX", "/uploads/products")
 
-	v.SetDefault("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
+	v.SetDefault("GEMINI_API_KEY", "")
 
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))

@@ -303,6 +303,10 @@ func (u *OrderUsecaseImpl) GetSalesAnalytics(ctx context.Context, req *dto.Sales
 		fromTime = time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, time.UTC)
 	}
 
+	if fromTime.After(toTime) {
+		return nil, apperror.ErrInvalidDateRange
+	}
+
 	limit := req.Limit
 	if limit <= 0 {
 		limit = 5
@@ -382,6 +386,18 @@ func (u *OrderUsecaseImpl) GetSalesAnalytics(ctx context.Context, req *dto.Sales
 }
 
 func (u *OrderUsecaseImpl) GetAdminOrderList(ctx context.Context, req *dto.AdminOrderListRequest) (*dto.AdminOrderListResponse, error) {
+	log := u.log.WithFields(logger.Fields{
+		"status":     req.Status,
+		"user_id":    req.UserID,
+		"min_amount": req.MinAmount,
+		"max_amount": req.MaxAmount,
+		"from":       req.From,
+		"to":         req.To,
+		"page":       req.Page,
+		"limit":      req.Limit,
+	})
+	log.Debug("Getting admin order list")
+
 	var toTime *time.Time
 	if req.To != "" {
 		parsed, err := time.Parse("2006-01-02", req.To)
@@ -400,6 +416,12 @@ func (u *OrderUsecaseImpl) GetAdminOrderList(ctx context.Context, req *dto.Admin
 		}
 		t := time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, time.UTC)
 		fromTime = &t
+	}
+
+	if fromTime != nil && toTime != nil {
+		if fromTime.After(*toTime) {
+			return nil, apperror.ErrInvalidDateRange
+		}
 	}
 
 	limit := req.Limit
@@ -470,6 +492,7 @@ func (u *OrderUsecaseImpl) GetAdminOrderList(ctx context.Context, req *dto.Admin
 		})
 	}
 
+	log.Debug("Admin order list retrieved successfully")
 	return &dto.AdminOrderListResponse{
 		Orders: orderSummaryRes,
 		Meta: dto.MetaPagination{
