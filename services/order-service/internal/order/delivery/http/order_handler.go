@@ -12,4 +12,5 @@ type OrderHandler interface {
 	GetAdminOrderList(ctx *gin.Context)
 	GetAdminOrderDetail(ctx *gin.Context)
 	CancelOrder(ctx *gin.Context)
+	Chat(ctx *gin.Context)
 }
